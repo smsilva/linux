@@ -1,0 +1,17 @@
+#!/bin/bash
+
+LOG_DIR="${HOME}/.log/fortune"
+
+mkdir -p "${LOG_DIR}"
+
+DAY_FILE="${LOG_DIR}/fortune-$(date +%Y-%m-%d).log"
+
+if [[ ! -e "${DAY_FILE}" ]]; then
+  rm "${LOG_DIR}/*.log" 2> /dev/null
+  
+  MESSAGE=$(fortune)
+  
+  echo ${MESSAGE} > ${DAY_FILE}
+  
+  cowsay ${MESSAGE}
+fi

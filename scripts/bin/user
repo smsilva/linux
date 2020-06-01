@@ -1,0 +1,21 @@
+#!/bin/bash
+USER_DEV='my-dev-user'
+USER_QA='my-qa-user'
+
+ENVIRONMENT=$1
+
+if [ -z "${ENVIRONMENT}" ]; then
+  echo 'Please, inform a Environment (dev, qa, uat or sit) as a parameter.'
+  exit 1
+fi
+
+USER_KEY="USER_${ENVIRONMENT^^}"
+
+USER="${!USER_KEY}"
+
+echo "USER_DEV.............: ${USER_DEV}" && \
+echo "USER_QA..............: ${USER_QA}" && \
+echo "ENVIRONMENT..........: ${ENVIRONMENT}" && \
+echo "USER_KEY.............: ${USER_KEY}" && \
+echo "USER.................: ${USER}"
+

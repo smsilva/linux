@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [[ $* =~ "-h" ]]; then
+  echo ""
+  echo "  Usage example:"
+  echo ""
+  echo "  gpayload 3 source_file > target_file"
+  echo ""
+  echo "  Try to use the command below to count how many items were created: "
+  echo ""
+  echo "    jq \". | length\" file"
+  echo ""
+  exit 0
+fi
+
+MAX="$1"
+SOURCE_JSON_FILE="$2"
+
+echo "["
+
+for ((line=1; line <= ${MAX}; line++)); do
+  if ((line < MAX)); then
+    sed '$ s/$/,/' "${SOURCE_JSON_FILE}"
+  else
+    sed '$ s/$//' "${SOURCE_JSON_FILE}"
+  fi
+done
+
+echo "]"

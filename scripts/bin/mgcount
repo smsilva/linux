@@ -1,0 +1,6 @@
+#!/bin/bash
+COUNT=$(mongo   "${MONGODB_SERVER}/${MONGODB_DATABASE_NAME}"   --username "${MONGODB_USERNAME}"   --password "${MONGODB_PASS}"   --ssl   --quiet   --eval "${COMMAND}" | grep -E "(\().*(\))" -o | sed "s/(//; s/)//;")
+
+echo "Promotions Total.......: ${COUNT}"
+echo "At.....................: $(now)"
+

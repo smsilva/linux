@@ -1,0 +1,33 @@
+#!/bin/bash
+ 
+NAMESPACE="$1"
+ 
+usage() {
+  echo "usage: kubectl ns [ [[] | [show]] | [namespace] | [-h] ]"
+}
+ 
+config() {   
+  kubectl config set-context --current --namespace="${NAMESPACE}" 1>/dev/null
+}
+ 
+show() {
+  kubectl config view --minify -o jsonpath='{.contexts[0].context.namespace}'
+}
+ 
+while [ "$1" != "" ]; do
+  case $1 in
+    -s | --show | show ) show
+                         exit
+                         ;;
+    -h | --help )        usage
+                         exit
+                         ;;
+  esac
+  shift # past value
+done
+
+if [[ -n "${NAMESPACE}" ]]; then
+  config
+else
+  show
+fi

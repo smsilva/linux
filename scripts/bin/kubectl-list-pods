@@ -1,0 +1,5 @@
+#!/bin/bash
+
+POD_NAME_FRAGMENT=$1
+
+kubectl get pods --show-labels | grep -E "NAME|${POD_NAME_FRAGMENT}"

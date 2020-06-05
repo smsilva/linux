@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 SCRIPTS_LOCATION="${PWD}/scripts"
 BIN_USER_LOCATION="${HOME}/bin-${USER}"
 

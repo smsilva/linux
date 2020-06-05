@@ -18,7 +18,7 @@ alias mem='free -h'
 alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 
 alias tx='tmux'
-alias txn='tmux new -s "ciandt"'
+alias txn='tmux new -s "local"'
 
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort"
 alias gcob='git checkout --track $(git branch -r | fzf)'

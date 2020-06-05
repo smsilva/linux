@@ -16,3 +16,4 @@ sudo apt-get install -y \
 
 scripts/utilities/powerline/install.sh
 scripts/utilities/tmux/install.sh
+scripts/utilities/fuzzy-finder/install.sh

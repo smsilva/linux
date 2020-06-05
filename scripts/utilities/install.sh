@@ -10,6 +10,7 @@ sudo apt-get install -y \
   tmux \
   powerline \
   powerline-gitstatus \
+  translate-shell \
   vim \
   wget \
   xclip

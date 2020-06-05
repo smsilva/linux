@@ -20,3 +20,6 @@ Estes scripts instalam e configuram:
   - wget
   - xclip
 - Instala o Fuzzy Finder
+
+## Exemplo de Terminal com TMUX e Powerline configurados
+![Terminal Configurado](/imagens/terminal.png)

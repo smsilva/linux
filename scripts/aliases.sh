@@ -1,3 +1,4 @@
+alias bat='batcat'
 alias cat='bat -p'
 alias clip="xclip -selection clipboard"
 

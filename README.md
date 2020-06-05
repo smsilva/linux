@@ -10,10 +10,12 @@ Estes scripts instalam e configuram:
   - cowsay
   - curl
   - fd-find
+  - fortune
   - git
   - tmux (cria um arquivo ~/.tmux.conf)
   - powerline (cria um arquivo ~/.config/powerline/config.json e altera o ~/.bashrc)
   - powerline-gitstatus
+  - translate-shell
   - vim
   - wget
   - xclip

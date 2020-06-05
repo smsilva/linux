@@ -2,7 +2,7 @@
 set -e
 
 sudo apt-get install -y \
-  batcat \
+  bat \
   cowsay \
   curl \
   fd-find \
@@ -14,5 +14,5 @@ sudo apt-get install -y \
   wget \
   xclip
 
-powerline/install.sh
-tmux/install.sh
+scripts/utilities/powerline/install.sh
+scripts/utilities/tmux/install.sh

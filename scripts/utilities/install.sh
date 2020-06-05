@@ -6,6 +6,7 @@ sudo apt-get install -y \
   cowsay \
   curl \
   fd-find \
+  fortune \
   git \
   tmux \
   powerline \

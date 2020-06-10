@@ -1,6 +1,7 @@
 alias bat='batcat'
 alias cat='bat -p'
 alias clip="xclip -selection clipboard"
+alias csvt='. csvt'
 
 alias fd="fdfind"
 alias ff="fd -t f"

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+FILE="$1"
+
+show_sort() {
+  echo $(head -1 "${FILE}")
+  cat "${FILE}" | sed '1d' | sort
+}
+
+if [ -e "${FILE}" ]; then
+  show_sort | column -t -s "," | tee >(clip) && mv "${FILE}" "${FILE}.backup"
+else
+  echo "File ${FILE} not found."
+fi

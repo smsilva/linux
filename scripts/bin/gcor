@@ -1,9 +1,13 @@
 #!/bin/bash
+echo "Hi!"
+
 BRANCH_NAME="$1"
 
 if [[ -z ${BRANCH_NAME} ]]; then
-  git checkout $(git branch -r | fzf | cut -d "/" -f 2)
-else
-  git checkout ${BRANCH_NAME}
+  BRANCH_NAME=$(git branch -r | fzf | sed 's/origin\///')
+
+  echo "BRANCH_NAME.......: ${BRANCH_NAME}"
 fi
+
+git checkout ${BRANCH_NAME}
 

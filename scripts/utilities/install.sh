@@ -16,13 +16,6 @@ sudo apt-get install -y \
   wget \
   xclip
 
-scripts/utilities/powerline/install.sh
-scripts/utilities/tmux/install.sh
-scripts/utilities/fuzzy-finder/install.sh
-
-if ! grep --quiet --extended-regexp "today-fortune" ~/.bashrc; then
-cat <<EOF >> ~/.bashrc
-
-today-fortune
-EOF
-fi
+find scripts/utilities/ -maxdepth 1 -type d | sed '1d' | while read FOLDER; do
+echo ${FOLDER}/install.sh
+done | sh

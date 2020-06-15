@@ -1,6 +1,4 @@
 #!/bin/bash
-echo "Hi!"
-
 BRANCH_NAME="$1"
 
 if [[ -z ${BRANCH_NAME} ]]; then

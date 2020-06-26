@@ -1,5 +1,5 @@
 #!/bin/bash
-cp scripts/utilities/tmux/tmux.conf ~/.tmux.conf
+ln --symbolic "${PWD}/scripts/utilities/tmux/tmux.conf" "${HOME}/.tmux.conf" &> /dev/null
 
 # ~/.tmux.conf
 if ! grep --quiet --extended-regexp "powerline.conf" ~/.tmux.conf; then

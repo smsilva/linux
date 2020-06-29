@@ -11,6 +11,7 @@ alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview '
 
 alias k='kubectl'
 
+alias l1="ls -1 --color=auto"
 alias la="ls -la"
 alias lc="ls | column -c 1"
 alias lh="ls -lh"

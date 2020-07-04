@@ -1,0 +1,27 @@
+#!/bin/bash
+ANIMATION_FILE=$1
+
+if [ -z ${ANIMATION_FILE} ]; then
+  echo "Please, inform the animation file."
+  exit 1
+fi
+
+cat ${ANIMATION_FILE} | while read LINE; do
+  LINE_WITHOUT_SPACES=${LINE// /}
+
+  echo "Line.........................: [${LINE}]"
+  echo "Line length withoutspaces....: ${#LINE_WITHOUT_SPACES}"
+  echo "SCENE........................:"
+  echo "${SCENE}"
+
+  printf "[%04d] %s" ${#LINE_WITHOUT_SPACES} ${LINE}
+
+  if [[ ${#LINE_WITHOUT_SPACES} != 0 ]]; then
+    SCENE=$(printf "%s\n%s" "${SCENE}" "${LINE}")
+  else
+    SCENE=$(printf "%s\n" "${SCENE}")
+  fi
+
+  echo ""
+  echo ""
+done

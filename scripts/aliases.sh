@@ -66,3 +66,4 @@ alias now='date +"%Y-%m-%d %H:%M:%S"'
 alias trans='trans -t pt --brief --no-auto'
 
 alias ytop='ytop -c monokai'
+alias yq='yq -C'

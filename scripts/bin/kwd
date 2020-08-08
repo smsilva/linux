@@ -1,0 +1,36 @@
+#!/bin/bash
+NAMESPACE=$1
+DEPLOYMENTS=$2
+
+TOTAL_ATTEMPTS=90
+SECONDS_INTERVAL=5
+
+CURRENT_CONTEXT=$(kubectl config current-context)
+
+if [[ -z "${NAMESPACE}" ]]; then
+  KUBECTL_GET_NAMESPACE_COMMAND=$(printf "kubectl config view -o jsonpath='{.contexts[?(@.name == \"%s\")].context.namespace}'" "${CURRENT_CONTEXT}")
+  NAMESPACE=$(eval ${KUBECTL_GET_NAMESPACE_COMMAND})
+
+  if [[ -z "${NAMESPACE}" ]]; then
+    NAMESPACE="default"
+  fi
+fi
+
+for ((i=1; i <= ${TOTAL_ATTEMPTS}; i++)); do
+  NOT_READY_DEPLOYMENTS=$(kubectl -n "${NAMESPACE}" get deploy ${DEPLOYMENTS} | grep -e "0/[1-9]" | wc -l)
+  
+  if [ "${NOT_READY_DEPLOYMENTS:-0}" -eq "0" ]; then
+    echo ""
+    exit 0
+  else
+    if [[ NOT_READY_DEPLOYMENTS -eq 1 ]]; then
+      DEPLOYMENT_STRING="Deployment"
+    else
+      DEPLOYMENT_STRING="Deployments"
+    fi
+
+    printf "[${CURRENT_CONTEXT}/${NAMESPACE}] There are %s %s not ready [Attempt %i of %i]\r" ${NOT_READY_DEPLOYMENTS} ${DEPLOYMENT_STRING} ${i} ${TOTAL_ATTEMPTS}
+    
+    sleep ${SECONDS_INTERVAL}
+  fi
+done

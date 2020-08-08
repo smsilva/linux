@@ -1,14 +1,58 @@
 #!/bin/bash
-NAMESPACE=$1
-DEPLOYMENTS=$2
-
+DEPLOYMENTS=""
 TOTAL_ATTEMPTS=90
 SECONDS_INTERVAL=5
+
+show_usage() {
+  echo "Kubectl Wait Deployments to become with all Replicas Ready"
+  echo ""
+  echo "Available Optional Parameters:"
+  echo ""
+  echo "  -n | --namespace   If this is not informed, the default namespace from current context you be used, if it's empty, then default namespace will be used."
+  echo "  -d | --deployments Deployment or Deployment list with comma separated. You could use it more than one time, for example: kwd -n dev -d nginx -d myapp"
+  echo "  -a | --attempts    Number of times that the check will be executed. Default is 90."
+  echo "  -i | --interval    Interval in seconds until the next attempt. Default is 5 seconds."
+  echo ""
+  echo "USAGE:"
+  echo "  kubectl wd \\"
+  echo "    --namespace dev \\"
+  echo "    --deployments nginx \\"
+  echo "    --attempts 30 \\"
+  echo "    --interval 3 \\"
+  echo ""
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+  -n | --namespace )
+    shift; NAMESPACE=$1
+    ;;
+  -d | --deployments | --deploy )
+    shift; DEPLOYMENTS+="$1,"
+    ;;
+  -a | --attempts )
+    shift; TOTAL_ATTEMPTS=$1
+    ;;
+  -i | --interval )
+    shift; SECONDS_INTERVAL=$1
+    ;;
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if grep --quiet "," <<< ${DEPLOYMENTS}; then
+  DEPLOYMENTS=$(sed 's/.$//' <<< "${DEPLOYMENTS}")
+fi
 
 CURRENT_CONTEXT=$(kubectl config current-context)
 
 if [[ -z "${NAMESPACE}" ]]; then
   KUBECTL_GET_NAMESPACE_COMMAND=$(printf "kubectl config view -o jsonpath='{.contexts[?(@.name == \"%s\")].context.namespace}'" "${CURRENT_CONTEXT}")
+  
   NAMESPACE=$(eval ${KUBECTL_GET_NAMESPACE_COMMAND})
 
   if [[ -z "${NAMESPACE}" ]]; then
@@ -16,20 +60,35 @@ if [[ -z "${NAMESPACE}" ]]; then
   fi
 fi
 
+deployments_not_ready_count() {
+  DEPLOYMENTS_NOT_READY_TOTAL=0
+
+  while read line; do
+    REPLICAS_DESIRED=$(awk -F / '{ print $2 }' <<< ${line})
+    REPLICAS_READY=$(awk -F / '{ print $1 }' <<< ${line})
+
+    if [[ REPLICAS_DESIRED -ne REPLICAS_READY ]]; then
+      (( DEPLOYMENTS_NOT_READY_TOTAL+=1 ))
+    fi
+  done <<< $(kubectl -n "${NAMESPACE}" get deploy ${DEPLOYMENTS} --no-headers | awk '{ print $2 }')
+
+  echo ${DEPLOYMENTS_NOT_READY_TOTAL}
+}
+
 for ((i=1; i <= ${TOTAL_ATTEMPTS}; i++)); do
-  NOT_READY_DEPLOYMENTS=$(kubectl -n "${NAMESPACE}" get deploy ${DEPLOYMENTS} --no-headers | awk '{ print $2 }' | grep -e "0/[1-9]" | wc -l)
-  
-  if [ "${NOT_READY_DEPLOYMENTS:-0}" -eq "0" ]; then
+  DEPLOYMENTS_NOT_READY_TOTAL=$(deployments_not_ready_count)
+
+  if [ "${DEPLOYMENTS_NOT_READY_TOTAL:-0}" -eq "0" ]; then
     echo ""
     exit 0
   else
-    if [[ NOT_READY_DEPLOYMENTS -eq 1 ]]; then
+    if [[ DEPLOYMENTS_NOT_READY_TOTAL -eq 1 ]]; then
       DEPLOYMENT_STRING="Deployment"
     else
       DEPLOYMENT_STRING="Deployments"
     fi
 
-    printf "[${CURRENT_CONTEXT}/${NAMESPACE}] There are %s %s not ready [Attempt %i of %i]\r" ${NOT_READY_DEPLOYMENTS} ${DEPLOYMENT_STRING} ${i} ${TOTAL_ATTEMPTS}
+    printf "[${CURRENT_CONTEXT}/${NAMESPACE}] There are %s %s not ready [Attempt %i of %i]\r" ${DEPLOYMENTS_NOT_READY_TOTAL} ${DEPLOYMENT_STRING} ${i} ${TOTAL_ATTEMPTS}
     
     sleep ${SECONDS_INTERVAL}
   fi

@@ -17,7 +17,7 @@ if [[ -z "${NAMESPACE}" ]]; then
 fi
 
 for ((i=1; i <= ${TOTAL_ATTEMPTS}; i++)); do
-  NOT_READY_DEPLOYMENTS=$(kubectl -n "${NAMESPACE}" get deploy ${DEPLOYMENTS} | grep -e "0/[1-9]" | wc -l)
+  NOT_READY_DEPLOYMENTS=$(kubectl -n "${NAMESPACE}" get deploy ${DEPLOYMENTS} --no-headers | awk '{ print $2 }' | grep -e "0/[1-9]" | wc -l)
   
   if [ "${NOT_READY_DEPLOYMENTS:-0}" -eq "0" ]; then
     echo ""

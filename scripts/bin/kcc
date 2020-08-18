@@ -1,0 +1,2 @@
+#!/bin/bash
+echo $(kubectl ctx -c)/$(kubectl ns -c)

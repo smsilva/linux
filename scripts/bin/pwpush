@@ -1,0 +1,3 @@
+#!/bin/bash
+PARAMETER=$1
+curl -s -H "Accept: application/json" https://pwpush.com/p/${PARAMETER} | jq -r '.payload'

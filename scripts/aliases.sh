@@ -10,6 +10,8 @@ alias fp="fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 
 alias k='kubectl'
+alias kap='kubectl apply -f'
+alias kpo='kubectl get pods'
 
 alias l1="ls -1 --color=auto"
 alias la="ls -la"

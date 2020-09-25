@@ -33,6 +33,8 @@ alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 alias tx='tmux'
 alias txn='tmux new -s "local"'
 
+alias tldr='ttldr'
+
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 alias gb='git branch'
 alias gbn='git checkout -b'

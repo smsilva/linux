@@ -1,15 +1,9 @@
 #!/bin/bash
 set -e
 
-INSTALL_DIR="${HOME}/tldr-fmt"
+EXECUTABLE_FILE_NAME="${HOME}/tldr"
 
-if [[ ! -e "${INSTALL_DIR}" ]]; then
-  git clone git clone https://github.com/avih/tldr-fmt "${INSTALL_DIR}"
-fi
-
-if ! grep --quiet --extended-regexp "export PATH.*\/tldr-fmt" ~/.bashrc; then
-cat <<EOF >> ~/.bashrc
-
-export PATH=\$PATH:${INSTALL_DIR}
-EOF
+if ! which tldr &> /dev/null; then
+  sudo wget -qO ${EXECUTABLE_FILE_NAME} https://4e4.win/tldr
+  sudo chmod +x ${EXECUTABLE_FILE_NAME}
 fi

@@ -11,6 +11,7 @@ alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview '
 
 alias k='kubectl'
 alias kap='kubectl apply -f'
+alias kgn='kubectl get nodes'
 alias kpo='kubectl get pods'
 
 alias l1="ls -1 --color=auto"

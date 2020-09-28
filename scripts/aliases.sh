@@ -9,6 +9,7 @@ alias fdd="fd -t d"
 alias fp="fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 
+alias i='istioctl'
 alias k='kubectl'
 alias kap='kubectl apply -f'
 alias kgn='kubectl get nodes'

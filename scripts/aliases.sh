@@ -20,6 +20,8 @@ alias la="ls -la"
 alias lc="ls | column -c 1"
 alias lh="ls -lh"
 
+alias lower='tr "[:upper:]" "[:lower:]"'
+
 alias mem='free -h'
 
 alias mpalias="alias | grep -E '(^alias).*(multipass).*' | sed 's/alias //' | column -t -s '=' | tr -d \' | sed '/^mpalias/ d'"
@@ -56,8 +58,7 @@ alias grh='git reset --hard'
 alias gr='git rebase'
 alias gpush='git push'
 alias gpushf='git push --force'
-alias gpushsu='git push --set-upstream origin'
-
+alias gpushsu='git push --set-upstream origin $(git branch --list | grep -Po "\* \K.*")'
 alias vg='vagrant'
 alias vgs='vagrant status' 
 alias vgu='vagrant up'

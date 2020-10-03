@@ -1,5 +1,5 @@
 #!/bin/bash
 echo "Checking..."
-sudo apt-get update | grep -v -E "^Hit|Get" && \
+sudo apt-get update | grep -v -E "^Hit|Get|^Ign" && \
 sudo apt-get upgrade -y && \
 sudo apt-get autoremove -y

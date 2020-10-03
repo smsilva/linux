@@ -8,6 +8,7 @@ sudo apt-get install -y \
   fd-find \
   fortune \
   git \
+  jq \
   tmux \
   powerline \
   powerline-gitstatus \

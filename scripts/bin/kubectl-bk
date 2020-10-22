@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+if ! [ -e "${HOME}/.kube/config" ]; then
+  echo "Kube config file doesn't exists"
+  echo ""
+
+  echo "Available config files:"
+  echo ""
+  
+  ls -1 ${HOME}/.kube/config*
+  
+  echo ""
+
+  exit 1
+fi
+
+cp ${HOME}/.kube/config ${HOME}/.kube/config_silvios
+
+rm ${HOME}/.kube/config
+
+kgc

@@ -1,0 +1,4 @@
+#!/bin/bash
+SERVER=$1
+
+dig ${SERVER} | grep -E "^${SERVER}"

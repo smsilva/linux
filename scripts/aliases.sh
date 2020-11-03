@@ -14,6 +14,7 @@ alias hta='helm template . | kubectl apply -f -'
 
 alias i='istioctl'
 alias k='kubectl'
+alias ka='kubectl -n argocd'
 alias ki='kubectl -n istio-system'
 alias ko='kubectl -n istio-operator'
 alias ks='kubectl -n kube-system'

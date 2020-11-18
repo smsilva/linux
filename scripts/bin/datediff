@@ -1,0 +1,5 @@
+#!/bin/bash
+STARTDATETIME=$(date -d "$1" +%s)
+ENDDATETIME=$(date -d "$2" +%s)
+DAYS=$(( (ENDDATETIME - STARTDATETIME) / (24 * 60 * 60) ))
+echo "${DAYS}"

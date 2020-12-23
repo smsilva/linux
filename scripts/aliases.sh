@@ -7,7 +7,7 @@ alias csvt='. csvt'
 alias fd="fdfind"
 alias ff="fd -t f"
 alias fdd="fd -t d"
-alias fp="fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
+alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 
 alias ht='helm template .'

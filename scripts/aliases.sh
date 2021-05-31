@@ -39,6 +39,8 @@ alias mpl='multipass list'
 alias mps='multipass start'
 alias mpsu='multipass suspend'
 
+alias os='microstack.openstack'
+
 alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 
 alias tx='tmux'
@@ -82,3 +84,6 @@ alias trans='trans -t pt --brief --no-auto'
 
 alias ytop='ytop -c monokai'
 alias yq='yq -C'
+
+alias tfvars='ln -s ~/.terraform.tfvars terraform.tfvars'
+

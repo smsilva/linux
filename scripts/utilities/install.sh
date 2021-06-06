@@ -13,7 +13,7 @@ sudo apt-get install -y \
   powerline \
   powerline-gitstatus \
   translate-shell \
-  vim \
+  vim-gtk3 \
   wget \
   xclip
 

@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+TAG=$1
+
+if [ -z "${TAG}" ]; then
+  echo "You should inform a tag as a parameter"
+  exit 1
+fi
+
+git push origin :refs/tags/${TAG?}
+git tag -fa ${TAG?}
+git push origin master --tags

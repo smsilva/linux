@@ -27,8 +27,10 @@ alias l1="ls -1 --color=auto"
 alias la="ls -la"
 alias lc="ls | column -c 1"
 alias lh="ls -lh"
+alias lha="ls -lha"
 
 alias lower='tr "[:upper:]" "[:lower:]"'
+alias upper='tr "[:lower:]" "[:upper:]"'
 
 alias mem='free -h'
 
@@ -68,9 +70,15 @@ alias ga='git add'
 alias gcm='git commit -m'
 alias grh='git reset --hard'
 alias gr='git rebase'
+alias gt='git tag'
+alias gtd='git tag -d'
+alias gtdr='git push --delete origin'
+alias gtl='git tag -l'
+alias gtr='gretag'
 alias gpush='git push'
 alias gpushf='git push --force'
 alias gpushsu='git push --set-upstream origin $(git branch --list | grep -Po "\* \K.*")'
+
 alias vg='vagrant'
 alias vgs='vagrant status' 
 alias vgu='vagrant up'

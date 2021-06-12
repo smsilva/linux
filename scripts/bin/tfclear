@@ -1,4 +1,12 @@
-rm -rf .terraform
-rm .terraform.lock.hcl
-rm terraform.tfstate
-rm terraform.tfstate.backup
+#!/bin/bash
+
+delete() {
+  FILE_NAME=$1
+
+  [ -e ${FILE_NAME?} ] && echo ${FILE_NAME?} && rm -rf ${FILE_NAME?}
+}
+
+delete .terraform
+delete .terraform.lock.hcl
+delete terraform.tfstate
+delete terraform.tfstate.backup

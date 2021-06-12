@@ -10,6 +10,8 @@ alias fdd="fd -t d"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 
+alias tg='terragrunt'
+
 alias ht='helm template .'
 alias hta='helm template . | kubectl apply -f -'
 
@@ -49,8 +51,8 @@ alias tx='tmux'
 alias txn='tmux new -s "local"'
 
 alias tfi='terraform init'
-alias tfp='terraform plan'
-alias tfa='terraform apply -auto-approve'
+alias tfp='terraform plan -out .terraform.plan'
+alias tfa='terraform apply -auto-approve .terraform.plan'
 alias tfd='terraform destroy -auto-approve'
 
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"

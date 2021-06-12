@@ -48,8 +48,12 @@ alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 alias tx='tmux'
 alias txn='tmux new -s "local"'
 
+alias tfi='terraform init'
+alias tfp='terraform plan'
+alias tfa='terraform apply -auto-approve'
+alias tfd='terraform destroy -auto-approve'
+
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
-# alias | grep 'alias g' | awk -F "'" '{ print $1 "|" $2 }' | sed 's/^alias //; s/=|/#/; /^galias/d' | column -t -s "#" | fzf
 
 alias gb='git branch'
 alias gbn='git checkout -b'

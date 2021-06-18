@@ -1,0 +1,5 @@
+#!/bin/bash
+
+SERVICE_NAME_FRAGMENT=$1
+
+kubectl get services -A | grep -E "NAME|${SERVICE_NAME_FRAGMENT?}"

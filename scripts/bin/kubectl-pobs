@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# AWK Example expect input lines like these:
+# kubectl get po -o jsonpath='{range .items[*]}{.metadata.name}{","}{.status.phase}{"\n"}{end}' | pobs
+
+kubectl get po -A -o jsonpath='{range .items[*]}{.metadata.name}{","}{.status.phase}{"\n"}{end}' |
+awk -F , '{
+  LINE = $0
+  STATUS = $2
+  print STATUS "," LINE
+  }' | sort |
+awk -F , '
+1 == 1 {
+  POD_NAME = $2
+  STATUS = $1
+}
+STATUS == LAST_STATUS {
+  print "\t" POD_NAME
+}
+STATUS != LAST_STATUS {
+  LAST_STATUS = STATUS
+  print STATUS
+  print "\t" POD_NAME
+}'

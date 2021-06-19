@@ -7,6 +7,6 @@ delete() {
 }
 
 delete .terraform
-delete .terraform.lock.hcl
+delete .terraform.*
 delete terraform.tfstate
 delete terraform.tfstate.backup

@@ -4,6 +4,7 @@ alias clip="xclip -selection clipboard"
 alias ct='column -t'
 alias csvt='. csvt'
 
+alias f="fdfind"
 alias fd="fdfind"
 alias ff="fd -t f"
 alias fdd="fd -t d"

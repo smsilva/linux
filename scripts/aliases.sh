@@ -57,6 +57,12 @@ alias tfa='terraform apply -auto-approve .terraform.plan'
 alias tfar='terraform apply -auto-approve -refresh-only'
 alias tfd='terraform destroy -auto-approve'
 
+alias tgi='terragrunt run-all init'
+alias tga='terragrunt run-all apply --terragrunt-non-interactive'
+alias tgad='terragrunt run-all apply --terragrunt-non-interactive --terragrunt-log-level debug --terragrunt-debug'
+alias tgp='terragrunt run-all plan'
+alias tgd='terragrunt run-all destroy'
+
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 
 alias gb='git branch'

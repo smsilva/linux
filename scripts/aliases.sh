@@ -51,15 +51,18 @@ alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 alias tx='tmux'
 alias txn='tmux new -s "local"'
 
+alias tf='terraform'
 alias tfi='terraform init'
 alias tfp='terraform plan -out .terraform.plan'
 alias tfa='terraform apply -auto-approve .terraform.plan'
 alias tfar='terraform apply -auto-approve -refresh-only'
 alias tfd='terraform destroy -auto-approve'
 
+alias tg='terragrunt'
 alias tgi='terragrunt run-all init'
 alias tga='terragrunt run-all apply --terragrunt-non-interactive'
 alias tgad='terragrunt run-all apply --terragrunt-non-interactive --terragrunt-log-level debug --terragrunt-debug'
+alias tgar='terragrunt run-all apply --terragrunt-non-interactive -refresh-only'
 alias tgp='terragrunt run-all plan'
 alias tgd='terragrunt run-all destroy'
 

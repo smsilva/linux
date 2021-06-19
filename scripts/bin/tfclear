@@ -10,3 +10,7 @@ delete .terraform
 delete .terraform.*
 delete terraform.tfstate
 delete terraform.tfstate.backup
+
+for FILE in $(find -name terragrunt-debug.tfvars.json); do
+  delete ${FILE}
+done

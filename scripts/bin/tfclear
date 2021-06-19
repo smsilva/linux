@@ -14,3 +14,7 @@ delete terraform.tfstate.backup
 for FILE in $(find -name terragrunt-debug.tfvars.json); do
   delete ${FILE}
 done
+
+for FILE in $(find -name .terragrunt-cache); do
+  delete ${FILE}
+done

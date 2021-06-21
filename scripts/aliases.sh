@@ -7,6 +7,7 @@ alias csvt='. csvt'
 alias f="fdfind"
 alias fa="fdfind -a"
 alias faf="fdfind -a -t f"
+alias tfc="tfclear"
 alias fd="fdfind"
 alias ff="fd -t f"
 alias fdd="fd -t d"

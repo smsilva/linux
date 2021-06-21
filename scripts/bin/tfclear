@@ -3,18 +3,15 @@
 delete() {
   FILE_NAME=$1
 
-  [ -e ${FILE_NAME?} ] && echo ${FILE_NAME?} && rm -rf ${FILE_NAME?}
+  for FILE in $(find -name ${FILE_NAME?}); do
+    [ -e ${FILE?} ] && echo ${FILE?} && sudo rm -rf ${FILE?}
+  done
 }
 
 delete .terraform
 delete .terraform.*
+delete .terraform.lock.hcl
+delete .terragrunt-cache
 delete terraform.tfstate
 delete terraform.tfstate.backup
-
-for FILE in $(find -name terragrunt-debug.tfvars.json); do
-  delete ${FILE}
-done
-
-for FILE in $(find -name .terragrunt-cache); do
-  delete ${FILE}
-done
+delete terragrunt-debug.tfvars.json

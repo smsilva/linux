@@ -1,4 +1,5 @@
 alias aal='az account list -o table'
+alias agl='az group list -o table'
 alias aksl='az aks list -o table'
 
 alias bat='batcat'

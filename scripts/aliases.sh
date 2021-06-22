@@ -1,3 +1,6 @@
+alias aal='az account list -o table'
+alias aksl='az aks list -o table'
+
 alias bat='batcat'
 alias cat='bat -p'
 alias clip="xclip -selection clipboard"

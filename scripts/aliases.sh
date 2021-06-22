@@ -60,6 +60,7 @@ alias txn='tmux new -s "local"'
 
 alias tf='terraform'
 alias tfi='terraform init'
+alias tfip='terraform init && terraform plan -out .terraform.plan'
 alias tfp='terraform plan -out .terraform.plan'
 alias tfa='terraform apply -auto-approve .terraform.plan'
 alias tfar='terraform apply -auto-approve -refresh-only'

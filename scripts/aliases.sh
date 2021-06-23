@@ -11,15 +11,14 @@ alias csvt='. csvt'
 alias f="fdfind"
 alias fa="fdfind -a"
 alias faf="fdfind -a -t f"
-alias fah="fdfind -a -H"
+alias tfc="tfclear"
 alias fd="fdfind"
 alias ff="fd -t f"
-alias fh="fdfind -H | grep -vE '^.git'"
-alias fi="fd -I"
-alias fif="fd -I -t f"
 alias fdd="fd -t d"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
+
+alias tg='terragrunt'
 
 alias ht='helm template .'
 alias hta='helm template . | kubectl apply -f -'
@@ -56,13 +55,10 @@ alias os='microstack.openstack'
 
 alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 
-alias t='tree'
-
 alias tx='tmux'
 alias txn='tmux new -s "local"'
 
 alias tf='terraform'
-alias tfc="tfclear"
 alias tfi='terraform init'
 alias tfip='terraform init && terraform plan -out .terraform.plan'
 alias tfp='terraform plan -out .terraform.plan'
@@ -71,13 +67,12 @@ alias tfar='terraform apply -auto-approve -refresh-only'
 alias tfd='terraform destroy -auto-approve'
 
 alias tg='terragrunt'
+alias tgi='terragrunt run-all init'
 alias tga='terragrunt run-all apply --terragrunt-non-interactive'
 alias tgad='terragrunt run-all apply --terragrunt-non-interactive --terragrunt-log-level debug --terragrunt-debug'
 alias tgar='terragrunt run-all apply --terragrunt-non-interactive -refresh-only'
-alias tgi='terragrunt run-all init'
-alias tgiu='terragrunt init -upgrade'
-alias tgd='terragrunt run-all destroy'
 alias tgp='terragrunt run-all plan'
+alias tgd='terragrunt run-all destroy'
 
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 
@@ -126,4 +121,3 @@ alias ytop='ytop -c monokai'
 alias yq='yq -C'
 
 alias tfvars='ln -s ~/.terraform.tfvars terraform.tfvars'
-

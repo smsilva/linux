@@ -57,6 +57,8 @@ alias os='microstack.openstack'
 
 alias pwc='echo $(pwd) && echo -n $(pwd) | clip'
 
+alias t='tree'
+
 alias tx='tmux'
 alias txn='tmux new -s "local"'
 
@@ -70,6 +72,7 @@ alias tfd='terraform destroy -auto-approve'
 
 alias tg='terragrunt'
 alias tgi='terragrunt run-all init'
+alias tgiu='terragrunt init -upgrade'
 alias tga='terragrunt run-all apply --terragrunt-non-interactive'
 alias tgad='terragrunt run-all apply --terragrunt-non-interactive --terragrunt-log-level debug --terragrunt-debug'
 alias tgar='terragrunt run-all apply --terragrunt-non-interactive -refresh-only'
@@ -107,8 +110,6 @@ alias gtr='gretag'
 alias gpush='git push'
 alias gpushf='git push --force'
 alias gpushsu='git push --set-upstream origin $(git branch --list | grep -Po "\* \K.*")'
-
-alias t='tree'
 
 alias vg='vagrant'
 alias vgs='vagrant status' 

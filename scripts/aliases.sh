@@ -9,6 +9,8 @@ alias ct='column -t'
 alias csvt='. csvt'
 
 alias f="fdfind"
+alias fh="fdfind -H | grep -vE '^.git'"
+alias fah="fdfind -a -H"
 alias fa="fdfind -a"
 alias faf="fdfind -a -t f"
 alias tfc="tfclear"

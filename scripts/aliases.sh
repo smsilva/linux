@@ -108,6 +108,8 @@ alias gpush='git push'
 alias gpushf='git push --force'
 alias gpushsu='git push --set-upstream origin $(git branch --list | grep -Po "\* \K.*")'
 
+alias t='tree'
+
 alias vg='vagrant'
 alias vgs='vagrant status' 
 alias vgu='vagrant up'

@@ -15,3 +15,4 @@ delete .terragrunt-cache
 delete terraform.tfstate
 delete terraform.tfstate.backup
 delete terragrunt-debug.tfvars.json
+delete tg.*.tf

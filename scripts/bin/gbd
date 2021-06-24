@@ -1,0 +1,8 @@
+#!/bin/bash
+BRANCH_NAME="$1"
+
+if [[ -z ${BRANCH_NAME} ]]; then
+  BRANCH_NAME=$(git branch | fzf)
+fi
+
+git branch -D ${BRANCH_NAME?}

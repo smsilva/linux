@@ -1,0 +1,11 @@
+#!/bin/bash
+REMOTE_BRANCH_NAME="$1"
+
+if [[ -z ${REMOTE_BRANCH_NAME} ]]; then
+  REMOTE_BRANCH_NAME=$(git branch -r | fzf)
+fi
+
+REMOTE_NAME=$(awk -F '/' '{ print $1 }' <<< ${REMOTE_BRANCH_NAME?})
+BRANCH_NAME=$(awk -F '/' '{ print $2 }' <<< ${REMOTE_BRANCH_NAME?})
+
+git push ${REMOTE_NAME?} --delete ${BRANCH_NAME?}

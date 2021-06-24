@@ -1,0 +1,6 @@
+#!/bin/bash
+
+tfclear
+terragrunt init -upgrade
+terragrunt plan -detailed-exitcode -out=.tf-plan
+terragrunt apply -auto-approve .tf-plan

@@ -11,7 +11,6 @@ alias faf="fd -a -t f"
 alias fdd="fd -t d"
 alias f="fd"
 alias ff="fd -t f"
-alias fi="fd -t f -I"
 alias fpa="fd --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias ga='git add'

@@ -2,6 +2,7 @@
 set -e
 
 TAG=$1
+DESCRIPTION=$2
 
 if [ -z "${TAG}" ]; then
   echo "You should inform a tag as a parameter"
@@ -9,5 +10,11 @@ if [ -z "${TAG}" ]; then
 fi
 
 git push origin :refs/tags/${TAG?}
-git tag -fa ${TAG?}
+
+if [ -z "${DESCRIPTION}" ]; then
+  git tag -fa ${TAG?}
+else
+  git tag -fa ${TAG?} -m "${DESCRIPTION}"
+fi
+
 git push origin master --tags

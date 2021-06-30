@@ -11,4 +11,4 @@ if [ -z "${MESSAGE?}" ]; then
   read -p "Press any key to resume ..."
 fi
 
-git commit -m ${MESSAGE?}
+git commit -m "${MESSAGE?}"

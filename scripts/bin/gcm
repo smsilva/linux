@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+MESSAGE=$1
+
+if [ -z "${MESSAGE?}" ]; then
+  MESSAGE=$(git log --pretty=format:%s -1)
+
+  echo "Commit message will be: ${MESSAGE}"
+  
+  read -p "Press any key to resume ..."
+fi
+
+git commit -m ${MESSAGE?}

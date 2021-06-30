@@ -10,10 +10,11 @@ sudo apt-get install -y \
   git \
   ipcalc \
   jq \
-  tmux \
   powerline \
   powerline-gitstatus \
+  tmux \
   translate-shell \
+  tree \
   vim-gtk3 \
   wget \
   xclip

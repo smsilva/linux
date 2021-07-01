@@ -25,4 +25,6 @@ else
   git tag -fa ${TAG?} -m "${DESCRIPTION}"
 fi
 
-git push origin master --tags
+CURRENT_BRANCH="$(git branch --show-current)"
+
+git push origin ${CURRENT_BRANCH} --tags

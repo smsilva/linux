@@ -10,6 +10,7 @@ delete() {
 
 delete .terraform
 delete .terraform.*
+delete .terraform.plan
 delete .terraform.lock.hcl
 delete .terragrunt-cache
 delete terraform.tfstate

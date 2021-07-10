@@ -1,2 +1,4 @@
 #!/bin/bash
-sudo snap install yq
+if ! which yq &> /dev/null; then
+  sudo snap install yq
+fi

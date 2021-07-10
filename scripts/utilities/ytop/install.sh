@@ -1,7 +1,7 @@
 #!/bin/bash
-set -e
-
 if ! which ytop &> /dev/null; then
+  set -e
+
   VERSION=$(curl --silent "https://api.github.com/repos/cjbassi/ytop/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
   INSTALL_DIR="${HOME}/bin/"
@@ -16,7 +16,7 @@ if ! which ytop &> /dev/null; then
   mv ytop "${INSTALL_DIR}" && \
   rm "${TAR_FILE}"
   
-  mkdir -p ~/.config/ytop/
+  mkdir -p ${HOME}/.config/ytop/
   
   cp scripts/utilities/ytop/monokai.json ~/.config/ytop/monokai.json
 fi

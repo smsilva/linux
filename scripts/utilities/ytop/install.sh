@@ -1,13 +1,14 @@
 #!/bin/bash
 set -e
 
-VERSION="0.6.2"
-INSTALL_DIR="${HOME}/bin/"
+if ! which ytop &> /dev/null; then
+  VERSION=$(curl --silent "https://api.github.com/repos/cjbassi/ytop/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
-if ! [ -e "${INSTALL_DIR}" ]; then
-  TAR_FILE="ytop-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+  INSTALL_DIR="${HOME}/bin/"
+
+  TAR_FILE="ytop-${VERSION?}-x86_64-unknown-linux-gnu.tar.gz"
   
-  wget "https://github.com/cjbassi/ytop/releases/download/0.6.2/${TAR_FILE}"
+  wget "https://github.com/cjbassi/ytop/releases/download/${VERSION}/${TAR_FILE}"
   
   [ ! -e "${INSTALL_DIR}" ] && mkdir "${INSTALL_DIR}"
   

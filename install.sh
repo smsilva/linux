@@ -20,9 +20,12 @@ if ! grep --quiet --extended-regexp "${FIND_EXPRESSION/BIN_USER/$USER}" ~/.bashr
   echo "PATH=\${PATH}:${BIN_USER_LOCATION}" >> ${HOME}/.bashrc
 fi
 
-source ${HOME}/.bashrc
+mkdir -p ${HOME?}/bin
 
-scripts/sudoers/install.sh
+source ${HOME?}/.bashrc
+
+scripts/sudoers/setup.sh
+scripts/vscode/install.sh
 scripts/utilities/install.sh
 
 source ~/.bashrc

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if ! which terraform &> /dev/null; then
+if ! which terraform > /dev/null; then
   VERSION="1.0.2"
   FILE_NAME="terraform_${VERSION?}_linux_amd64.zip"
   

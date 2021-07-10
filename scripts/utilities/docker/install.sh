@@ -1,5 +1,5 @@
 #!/bin/bash
-if ! which docker &> /dev/null; then
+if ! which docker > /dev/null; then
   sudo apt-get remove \
     docker \
     docker-engine \

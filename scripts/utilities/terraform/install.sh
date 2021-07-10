@@ -1,13 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "Downloading..."
+VERSION="1.0.2"
+FILE_NAME="terraform_${VERSION?}_linux_amd64.zip"
 
-wget https://releases.hashicorp.com/terraform/1.0.1/terraform_1.0.1_linux_amd64.zip
+wget https://releases.hashicorp.com/terraform/${VERSION?}/${FILE_NAME?}
 
-unzip terraform_1.0.1_linux_amd64.zip
+unzip ${FILE_NAME?}
 
-rm terraform_1.0.1_linux_amd64.zip
+rm ${FILE_NAME?}
 
 chmod +x terraform
 

@@ -1,7 +1,12 @@
 #!/bin/bash
 set -e
 
-sudo apt-get install -y \
+echo ""
+echo "Installing basic utilities..."
+echo ""
+
+sudo apt-get install --yes \
+  apt-transport-https \
   bat \
   cowsay \
   curl \

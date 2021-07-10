@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if ! which kubectl &> /dev/null; then
+if ! which kubectl > /dev/null; then
   # Update and Get Google Cloud Apt Key
   sudo apt-get update -qq && \
   sudo curl --silent "https://packages.cloud.google.com/apt/doc/apt-key.gpg" | sudo apt-key add -

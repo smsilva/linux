@@ -1,5 +1,5 @@
 #!/bin/bash
-if ! which ytop &> /dev/null; then
+if ! which ytop > /dev/null; then
   set -e
 
   VERSION=$(curl --silent "https://api.github.com/repos/cjbassi/ytop/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-if ! which terragrunt &> /dev/null; then
+if ! which terragrunt > /dev/null; then
   LATEST_GITHUB_RELEASE_VERSION=$(curl -sL https://github.com/gruntwork-io/terragrunt/releases | grep -oP 'releases/tag/\K[^\"]+' | sort --version-sort | tail -1)
 
   echo "downloading terragrunt: ${LATEST_GITHUB_RELEASE_VERSION?}"

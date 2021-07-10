@@ -1,5 +1,5 @@
 #!/bin/bash
-if ! which trivy &> /dev/null; then
+if ! which trivy > /dev/null; then
   set -e
 
   sudo apt-get install --yes \

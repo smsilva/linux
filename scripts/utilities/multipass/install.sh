@@ -1,2 +1,4 @@
 #!/bin/bash
-sudo snap install multipass --classic --beta
+if ! which multipass &> /dev/null; then
+  sudo snap install multipass --classic --beta
+fi

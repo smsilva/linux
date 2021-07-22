@@ -1,0 +1,11 @@
+#!/bin/bash
+POD_PREFIX=$1
+NODES_FILE="/tmp/node_list"
+
+kubectl get pod -A -o wide | grep ${POD_PREFIX?} | grep Running | awk '{ print $8 }' | sort -u > ${NODES_FILE?}
+
+for POD_NODE in $(kubectl get nodes | sed 1d | awk '{ print $1 }' | sort -u); do
+  if ! grep -q -o ${POD_NODE} ${NODES_FILE?}; then
+    echo "${POD_NODE?}"
+  fi
+done

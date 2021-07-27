@@ -60,6 +60,7 @@ alias lh="ls -lh"
 alias lha="ls -lha"
 alias lower='tr "[:upper:]" "[:lower:]"'
 alias mem='free -h'
+alias mod='stat -c "%a"'
 alias mp='multipass'
 alias mpalias="alias | grep -E '(^alias).*(multipass).*' | sed 's/alias //' | column -t -s '=' | tr -d \' | sed '/^mpalias/ d'"
 alias mph='multipass stop'
@@ -75,6 +76,7 @@ alias tfa='terraform apply -auto-approve .terraform.plan'
 alias tfar='terraform apply -auto-approve -refresh-only'
 alias tfc="tfclear"
 alias tfd='terraform destroy -auto-approve'
+alias tfg='SVG_FILE=~/Pictures/$(basename ${PWD})_$(date +"%Y-%m-%d_%H_%M_%S").svg && terraform graph | dot -Tsvg > ${SVG_FILE?}; echo ${SVG_FILE?}'
 alias tfi='terraform init'
 alias tfip='terraform init && terraform plan -out .terraform.plan'
 alias tfp='terraform plan -out .terraform.plan'

@@ -14,7 +14,6 @@ alias fdd="fdfind -t d"
 alias ff="fdfind -t f"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
-alias tfs='tfswitch'
 alias ga='git add'
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 alias gb='git branch'
@@ -82,6 +81,7 @@ alias tfg='SVG_FILE=~/Pictures/$(basename ${PWD})_$(date +"%Y-%m-%d_%H_%M_%S").s
 alias tfi='terraform init'
 alias tfip='terraform init && terraform plan -out .terraform.plan'
 alias tfp='terraform plan -out .terraform.plan'
+alias tfs='tfswitch'
 alias tfvars='ln -s ~/.terraform.tfvars terraform.tfvars'
 alias tg='terragrunt'
 alias tga='terragrunt apply -auto-approve'

@@ -6,21 +6,23 @@ USERNAME=${3-ubuntu}
 
 CONNECTION=1
 
-echo "CONNECTION: ${CONNECTION}"
-
 RETRIES=0
 while ! [[ "${CONNECTION}" == "0" ]]; do
   RETRIES=$((RETRIES + 1))
 
-  echo -n "[${RETRIES}] ${CONNECTION}"
+  echo "[${RETRIES}] [$(date +"%Y-%m-%d %H:%M:%S")] trying to connect to ${HOST?}:${PORT?}"
 
-  nc -dv -w 1 ${HOST?} ${PORT?}
+  nc -dv -w 1 ${HOST?} ${PORT?} > /dev/null
 
   CONNECTION=$?
 
-  sleep 5
+  sleep 10
+
+  echo ""
 done
 
 if ! [ -z "${USERNAME}" ]; then
+  echo "Connecting to ${USERNAME}@${HOST?}:${PORT?}..."
+
   ssh ${USERNAME}@${HOST?} -p ${PORT?}
 fi

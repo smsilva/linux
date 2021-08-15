@@ -1,0 +1,26 @@
+#!/bin/bash
+
+HOST=$1
+PORT=${2-22}
+USERNAME=${3-ubuntu}
+
+CONNECTION=1
+
+echo "CONNECTION: ${CONNECTION}"
+
+RETRIES=0
+while ! [[ "${CONNECTION}" == "0" ]]; do
+  RETRIES=$((RETRIES + 1))
+
+  echo -n "[${RETRIES}] ${CONNECTION}"
+
+  nc -dv -w 1 ${HOST?} ${PORT?}
+
+  CONNECTION=$?
+
+  sleep 5
+done
+
+if ! [ -z "${USERNAME}" ]; then
+  ssh ${USERNAME}@${HOST?} -p ${PORT?}
+fi

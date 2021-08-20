@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+
+git check-ignore $(find . -print | grep -v '.idea')

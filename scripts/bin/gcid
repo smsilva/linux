@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-gci | xargs -n 1 rm -rf
+gci | xargs -n 1 sudo rm -rf

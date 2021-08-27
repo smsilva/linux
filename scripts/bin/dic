@@ -5,4 +5,5 @@ while read DOCKER_IMAGE_ID; do
   fi
 done <<< $(docker images | sed 1d | grep -v terraform | awk '{ print $3 }')
 
+docker system prune -f > /dev/null
 docker images

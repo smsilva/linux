@@ -1,0 +1,9 @@
+#!/bin/bash
+TAG_TO_DELETE="$1"
+
+if [ -z "${TAG_TO_DELETE}" ]; then
+  echo "You must inform a tag to delete."
+  exit 1
+fi
+
+git push --delete origin ${TAG_TO_DELETE}

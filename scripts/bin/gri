@@ -1,0 +1,5 @@
+#!/bin/bash
+
+COMMIT_COUNT_TO_REBASE="${1-1}"
+
+git rebase -i HEAD~${COMMIT_COUNT_TO_REBASE?}

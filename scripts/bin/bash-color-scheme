@@ -13,12 +13,18 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+color() {
+  COLOR="${1}"
+  TEXT="${2}"
+  echo "${COLOR}${TEXT}${NC}"
+}
+
 red() {
-  echo "${RED}${1}${NC}"
+  echo "$(color "${RED}" "${1}")"
 }
 
 green() {
-  echo "${GREEN}${1}${NC}"
+  echo "$(color "${GREEN}" "${1}")"
 }
 
 STATUS_NOT_FOUND=$(red " not found ")

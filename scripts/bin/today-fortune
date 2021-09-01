@@ -14,4 +14,8 @@ if [[ ! -e "${DAY_FILE}" ]]; then
   echo ${MESSAGE} > ${DAY_FILE}
   
   cowsay ${MESSAGE}
+
+  echo ""
+
+  curl wttr.in
 fi

@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+BACKEND_FILE="backend.conf"
+
+if [ -e "${BACKEND_FILE}" ]; then
+  terraform init --backend-config="${BACKEND_FILE}"
+else
+  terraform init
+fi

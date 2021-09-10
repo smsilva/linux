@@ -4,7 +4,12 @@ set -e
 BACKEND_FILE="backend.conf"
 
 if [ -e "${BACKEND_FILE}" ]; then
-  terraform init --backend-config="${BACKEND_FILE}"
+  echo ""
+  echo "${BACKEND_FILE}:"
+  cat "${BACKEND_FILE}"
+  echo ""
+
+  terraform init --backend-config="${BACKEND_FILE}" -reconfigure
 else
   terraform init
 fi

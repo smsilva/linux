@@ -3,7 +3,7 @@ echo ""
 echo "Installing basic utilities..."
 echo ""
 
-sudo apt-get install --yes \
+sudo apt-get install --yes -q \
   apt-transport-https \
   bat \
   cowsay \

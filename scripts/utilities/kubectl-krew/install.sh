@@ -13,11 +13,11 @@ fi
 
 if ! grep --quiet --extended-regexp "^export.*KREW_ROOT.*PATH" ~/.bashrc; then
   echo 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"' >> ~/.bashrc
+
+  kubectl krew update
+
+  kubectl krew install \
+    ctx \
+    ns \
+    neat
 fi
-
-kubectl krew update
-
-kubectl krew install \
-  ctx \
-  ns \
-  neat

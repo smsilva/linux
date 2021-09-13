@@ -17,5 +17,5 @@ if [[ ! -e "${DAY_FILE}" ]]; then
 
   echo ""
 
-  curl wttr.in
+  #curl wttr.in
 fi

@@ -3,7 +3,7 @@ while read DOCKER_IMAGE_ID; do
   if [ ! -z "${DOCKER_IMAGE_ID}" ]; then
     docker rmi -f "${DOCKER_IMAGE_ID?}" > /dev/null
   fi
-done <<< $(docker images | sed 1d | grep -v terraform | awk '{ print $3 }')
+done <<< "$(docker images | sed 1d | grep -vE "terraform|alpine" | awk '{ print $3 }')"
 
 docker system prune -f > /dev/null
 docker images

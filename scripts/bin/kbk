@@ -15,7 +15,7 @@ if ! [ -e "${HOME}/.kube/config" ]; then
   exit 1
 fi
 
-cp ${HOME}/.kube/config ${HOME}/.kube/config_silvios
+cp ${HOME}/.kube/config ${HOME}/.kube/config_${USER}
 
 rm ${HOME}/.kube/config
 

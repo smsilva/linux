@@ -2,6 +2,7 @@ alias aac='az account show --output jsonc'
 alias aal='az account list --output table'
 alias agl='az group list --output table'
 alias aksl='az aks list --output table'
+alias anl='az network vnet list -o table'
 alias bat='batcat'
 alias cat='bat -p'
 alias clip="xclip -selection clipboard"

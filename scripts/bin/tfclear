@@ -8,6 +8,8 @@ delete() {
   done
 }
 
+delete .build
+delete .temp
 delete .terraform
 delete .terraform.*
 delete .terraform.plan

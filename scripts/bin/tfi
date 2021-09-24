@@ -3,6 +3,8 @@ set -e
 
 BACKEND_FILE="backend.conf"
 
+mkdir -p ./output/
+
 if [ -e "${BACKEND_FILE}" ]; then
   echo ""
   echo "${BACKEND_FILE}:"

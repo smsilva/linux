@@ -1,0 +1,14 @@
+#!/bin/bash
+AZURE_ACCOUNT_NAME="$1"
+
+if [[ -z ${AZURE_ACCOUNT_NAME} ]]; then
+  AZURE_ACCOUNT_NAME=$(az account list --query [].name --output tsv | fzf)
+fi
+
+az account set --subscription "${AZURE_ACCOUNT_NAME}"
+
+SUBSCRIPTION_ID=$(az account show --output tsv --query id)
+
+cp "${HOME}/.azure/credentials/${SUBSCRIPTION_ID}.sh" "${HOME}/.azure/credentials/current.conf"
+
+echo "source ${HOME}/.azure/credentials/current.conf"

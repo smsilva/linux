@@ -1,10 +1,11 @@
 alias aac='az account show --output jsonc'
 alias aal='az account list --output table'
+alias aas='$(azure-account-selection)'
 alias agl='az group list --output table'
 alias aglp='agl | grep -E "Name|^be.*platform-c|^be.*platform-a"'
 alias aksl='az aks list --output table'
-alias anl='az network vnet list -o table'
 alias anagl='az network application-gateway list -o table'
+alias anl='az network vnet list -o table'
 alias bat='batcat'
 alias cat='bat -p'
 alias clip="xclip -selection clipboard"

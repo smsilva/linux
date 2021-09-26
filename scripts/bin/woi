@@ -1,4 +1,4 @@
 #!/bin/bash
-COMMAND_NAME="${1}"
+FILE_PATH="${1}"
 
-which "${COMMAND_NAME}" | xargs idea
+idea "$(wo "${FILE_PATH}")" &> /dev/null

@@ -1,0 +1,16 @@
+#!/bin/bash
+FILE_PATH="${1}"
+COMMAND="${2-code}"
+
+execute_command() {
+  FILE="${1}"
+  echo "${COMMAND}" "${FILE}"
+  "${COMMAND}" "${FILE}" &> /dev/null
+  exit 0
+}
+
+if [ -n "${FILE_PATH}" ] && [ -e "${FILE_PATH}" ]; then
+  execute_command "${FILE_PATH}"
+fi
+
+execute_command "$(fdfind | fzf)"

@@ -1,0 +1,15 @@
+#!/bin/bash
+FILE_PATH="${1}"
+
+open_with_intellij() {
+  FILE="${1}"
+  echo "${FILE}"
+  idea "${FILE}" &> /dev/null
+  exit 0
+}
+
+if [ -n "${FILE_PATH}" ] && [ -e "${FILE_PATH}" ]; then
+  open_with_intellij "${FILE_PATH}"
+fi
+
+open_with_intellij "$(fdfind | fzf)"

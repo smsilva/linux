@@ -1,0 +1,4 @@
+#!/bin/bash
+FILE_SEARCH_PATTERN="${1}"
+
+fdfind | grep -E "${FILE_SEARCH_PATTERN}"

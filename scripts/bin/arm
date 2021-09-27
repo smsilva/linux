@@ -1,10 +1,9 @@
 #!/bin/bash
-echo ""
 echo "ARM_SUBSCRIPTION_ID................: ${ARM_SUBSCRIPTION_ID}"
 echo "ARM_TENANT_ID......................: ${ARM_TENANT_ID}"
 echo "ARM_CLIENT_ID......................: ${ARM_CLIENT_ID}"
 echo "ARM_CLIENT_SECRET..................: ${#ARM_CLIENT_SECRET}"
 echo "ARM_STORAGE_ACCOUNT_CONTAINER_NAME.: ${ARM_STORAGE_ACCOUNT_CONTAINER_NAME}"
 echo "ARM_STORAGE_ACCOUNT_NAME...........: ${ARM_STORAGE_ACCOUNT_NAME}"
+echo "ARM_SAS_TOKEN......................: ${#ARM_SAS_TOKEN}"
 echo "ARM_ACCESS_KEY.....................: ${#ARM_ACCESS_KEY}"
-echo ""

@@ -3,7 +3,7 @@ set -e
 
 BACKEND_FILE="backend.conf"
 
-mkdir -p ./output/
+mkdir -p "${HOME}/terraform/output/"
 
 if [ -e "${BACKEND_FILE}" ]; then
   echo ""

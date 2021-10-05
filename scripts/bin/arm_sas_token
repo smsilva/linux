@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "export ARM_SAS_TOKEN=\"$(arm_sas_token_new)\""

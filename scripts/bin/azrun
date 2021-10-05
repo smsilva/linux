@@ -1,0 +1,33 @@
+#!/bin/bash
+COMMAND="$@"
+
+if [ -z "${ARM_SAS_TOKEN}" ]; then
+  echo "Environment Variable 'ARM_SAS_TOKEN' not defined."
+  exit 1
+fi
+
+if [ "${DEBUG-0}" != "0" ]; then
+  echo "${COMMAND?}"
+fi
+
+LOCAL_TERRAFORM_DIRECTORY_OUTPUT="${LOCAL_TERRAFORM_DIRECTORY-$HOME}/terraform/output"
+
+# Generate empty folder and files to prevent creation as root user
+mkdir -p "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}"
+touch "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}/terraform.plan"
+touch "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}/terraform.plan.json"
+touch "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}/terraform.plan.txt"
+
+docker run \
+  -v "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}:/opt/output/" \
+  -e ARM_CLIENT_ID="${ARM_CLIENT_ID?}" \
+  -e ARM_CLIENT_SECRET="${ARM_CLIENT_SECRET?}" \
+  -e ARM_SUBSCRIPTION_ID="${ARM_SUBSCRIPTION_ID?}" \
+  -e ARM_TENANT_ID="${ARM_TENANT_ID?}" \
+  -e ARM_STORAGE_ACCOUNT_NAME="${ARM_STORAGE_ACCOUNT_NAME?}" \
+  -e ARM_STORAGE_ACCOUNT_CONTAINER_NAME="${ARM_STORAGE_ACCOUNT_CONTAINER_NAME?}" \
+  -e ARM_SAS_TOKEN="${ARM_SAS_TOKEN?}" \
+  -e MONGODB_ATLAS_PRIVATE_KEY="${MONGODB_ATLAS_PRIVATE_KEY}" \
+  -e MONGODB_ATLAS_PUBLIC_KEY="${MONGODB_ATLAS_PUBLIC_KEY}" \
+  -e DEBUG="${DEBUG}" \
+  ${COMMAND?} | tee "${LOCAL_TERRAFORM_DIRECTORY_OUTPUT}/terraform.plan.txt"

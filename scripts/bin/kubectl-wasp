@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "Usage: kubectl wasp <command>"
+echo ""
+echo "Commands:"
+echo ""
+echo "  platform"
+echo ""

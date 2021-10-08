@@ -1,0 +1,55 @@
+#!/bin/bash
+cli_help() {
+  echo "Arguments"
+  echo "  --name"
+  echo "  --region"
+  echo "  --provider"
+  exit 1
+}
+
+if [ "${WASP_CLI_DEBUG}" == "1" ]; then
+  echo "platform_list :: parameters[@] :: [$@]"
+  echo "platform_list :: parameters[1] :: [$1]"
+  echo "platform_list :: parameters[2] :: [$2]"
+fi
+
+while [[ -n "$1" ]]; do case $1 in
+  -n | --name )
+    PLATFORM_NAME=$2
+    shift;
+    ;;
+  -r | --region )
+    PLATFORM_REGION=$2
+    shift;
+    ;;
+  -p | --provider )
+    PLATFORM_PROVIDER=$2
+    shift;
+    ;;
+esac; shift; done
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [ "${WASP_CLI_DEBUG}" == "1" ]; then
+  echo "platform_init :: PLATFORM_NAME......: ${PLATFORM_NAME}"
+  echo "platform_init :: PLATFORM_REGION....: ${PLATFORM_REGION}"
+  echo "platform_init :: PLATFORM_PROVIDER..: ${PLATFORM_PROVIDER}"
+fi
+
+PLATFORM_NAME="${PLATFORM_NAME-wasp}"
+PLATFORM_REGION="${PLATFORM_REGION-centralus}"
+PLATFORM_PROVIDER="${PLATFORM_PROVIDER-azure}"
+
+yq e - <<EOF
+apiVersion: cloud.silvios.me/v1alpha1
+kind: PlatformInstance
+metadata:
+  name: ${PLATFORM_NAME}
+  namespace: platform-instances
+spec:
+  region: ${PLATFORM_REGION}
+  compositionSelector:
+    matchLabels:
+      provider: ${PLATFORM_PROVIDER}
+  writeConnectionSecretToRef:
+    name: ${PLATFORM_NAME}
+EOF

@@ -131,3 +131,4 @@ alias xai='xargs -n 1 -I {}'
 alias yq='yq -C'
 alias ytop='ytop -c monokai'
 alias wasp="kubectl wasp"
+alias rmd='rm -rf'

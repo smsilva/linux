@@ -4,6 +4,9 @@ cli_help() {
   echo "  --name"
   echo "  --region"
   echo "  --provider"
+  echo ""
+  echo "Options"
+  echo "  --dry-run"
   exit 1
 }
 
@@ -26,6 +29,13 @@ while [[ -n "$1" ]]; do case $1 in
     PLATFORM_PROVIDER=$2
     shift;
     ;;
+  --dry-run )
+    DRY_RUN="yes"
+    shift;
+    ;;
+  --help )
+    cli_help
+    ;;
 esac; shift; done
 if [[ "$1" == '--' ]]; then shift; fi
 
@@ -35,21 +45,41 @@ if [ "${WASP_CLI_DEBUG}" == "1" ]; then
   echo "platform_init :: PLATFORM_PROVIDER..: ${PLATFORM_PROVIDER}"
 fi
 
+PLATFORM_INSTANCES_NAMESPACE="platform-instances"
 PLATFORM_NAME="${PLATFORM_NAME-wasp}"
 PLATFORM_REGION="${PLATFORM_REGION-centralus}"
 PLATFORM_PROVIDER="${PLATFORM_PROVIDER-azure}"
+DRY_RUN="${DRY_RUN-no}"
 
-yq e - <<EOF
-apiVersion: cloud.silvios.me/v1alpha1
+PLATFORM_DIRECTORY="${HOME}/.platform" && mkdir -p "${PLATFORM_DIRECTORY?}"
+PLATFORM_YAML_FILE="${PLATFORM_DIRECTORY?}/${PLATFORM_PROVIDER}-${PLATFORM_NAME}-${PLATFORM_REGION}.yaml"
+
+cat <<EOF > "${PLATFORM_YAML_FILE?}"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${PLATFORM_INSTANCES_NAMESPACE?}
+---
+apiVersion: ${PLATFORM_PROVIDER}.silvios.me/v1alpha1
 kind: PlatformInstance
 metadata:
   name: ${PLATFORM_NAME}
-  namespace: platform-instances
+  namespace: ${PLATFORM_INSTANCES_NAMESPACE?}
 spec:
   region: ${PLATFORM_REGION}
   compositionSelector:
     matchLabels:
-      provider: ${PLATFORM_PROVIDER}
+      provider: terraform
   writeConnectionSecretToRef:
     name: ${PLATFORM_NAME}
 EOF
+
+if [ "${DRY_RUN}" == "yes" ]; then
+  if which yq > /dev/null; then
+    yq e - < "${PLATFORM_YAML_FILE?}"
+  else
+    cat "${PLATFORM_YAML_FILE?}"
+  fi
+else
+  kubectl apply -f "${PLATFORM_YAML_FILE?}"
+fi

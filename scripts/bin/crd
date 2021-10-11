@@ -1,0 +1,4 @@
+#!/bin/bash
+CRD_NAME="${1}"
+
+kubectl api-resources | grep -E "NAME|${CRD_NAME}"

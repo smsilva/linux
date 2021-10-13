@@ -1,4 +1,6 @@
 #!/bin/bash
+THIS_SCRIPT_NAME="$(basename "${0}")"
+
 cli_help() {
   echo "Arguments"
   echo "  --name"
@@ -6,14 +8,16 @@ cli_help() {
   echo "  --provider"
   echo ""
   echo "Options"
-  echo "  --dry-run"
+  echo "  --dry-run [ server | client ]"
   exit 1
 }
 
 if [ "${WASP_CLI_DEBUG}" == "1" ]; then
-  echo "platform_list :: parameters[@] :: [$@]"
-  echo "platform_list :: parameters[1] :: [$1]"
-  echo "platform_list :: parameters[2] :: [$2]"
+  echo "${THIS_SCRIPT_NAME} :: parameters[@] :: [$@]"
+  echo "${THIS_SCRIPT_NAME} :: parameters[1] :: [$1]"
+  echo "${THIS_SCRIPT_NAME} :: parameters[2] :: [$2]"
+  echo "${THIS_SCRIPT_NAME} :: parameters[3] :: [$3]"
+  echo "${THIS_SCRIPT_NAME} :: parameters[4] :: [$4]"
 fi
 
 while [[ -n "$1" ]]; do case $1 in
@@ -30,7 +34,7 @@ while [[ -n "$1" ]]; do case $1 in
     shift;
     ;;
   --dry-run )
-    DRY_RUN="yes"
+    DRY_RUN="${2-client}"
     shift;
     ;;
   --help )
@@ -39,47 +43,47 @@ while [[ -n "$1" ]]; do case $1 in
 esac; shift; done
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ "${WASP_CLI_DEBUG}" == "1" ]; then
-  echo "platform_init :: PLATFORM_NAME......: ${PLATFORM_NAME}"
-  echo "platform_init :: PLATFORM_REGION....: ${PLATFORM_REGION}"
-  echo "platform_init :: PLATFORM_PROVIDER..: ${PLATFORM_PROVIDER}"
-fi
-
-PLATFORM_INSTANCES_NAMESPACE="platform-instances"
+PLATFORM_INSTANCES_NAMESPACE="default"
 PLATFORM_NAME="${PLATFORM_NAME-wasp}"
 PLATFORM_REGION="${PLATFORM_REGION-centralus}"
 PLATFORM_PROVIDER="${PLATFORM_PROVIDER-azure}"
-DRY_RUN="${DRY_RUN-no}"
 
 PLATFORM_DIRECTORY="${HOME}/.platform" && mkdir -p "${PLATFORM_DIRECTORY?}"
 PLATFORM_YAML_FILE="${PLATFORM_DIRECTORY?}/${PLATFORM_PROVIDER}-${PLATFORM_NAME}-${PLATFORM_REGION}.yaml"
 
 cat <<EOF > "${PLATFORM_YAML_FILE?}"
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${PLATFORM_INSTANCES_NAMESPACE?}
----
-apiVersion: ${PLATFORM_PROVIDER}.silvios.me/v1alpha1
+apiVersion: silvios.me/v1
 kind: PlatformInstance
 metadata:
   name: ${PLATFORM_NAME}
-  namespace: ${PLATFORM_INSTANCES_NAMESPACE?}
 spec:
   region: ${PLATFORM_REGION}
-  compositionSelector:
-    matchLabels:
-      provider: terraform
-  writeConnectionSecretToRef:
-    name: ${PLATFORM_NAME}
+  provider: ${PLATFORM_PROVIDER}
 EOF
 
-if [ "${DRY_RUN}" == "yes" ]; then
+if [ "${WASP_CLI_DEBUG}" == "1" ]; then
+  echo ""
+  echo "${THIS_SCRIPT_NAME} :: PLATFORM_NAME......: ${PLATFORM_NAME}"
+  echo "${THIS_SCRIPT_NAME} :: PLATFORM_REGION....: ${PLATFORM_REGION}"
+  echo "${THIS_SCRIPT_NAME} :: PLATFORM_PROVIDER..: ${PLATFORM_PROVIDER}"
+  echo "${THIS_SCRIPT_NAME} :: PLATFORM_YAML_FILE.: ${PLATFORM_YAML_FILE}"
+  echo "${THIS_SCRIPT_NAME} :: DRY_RUN............: ${DRY_RUN}"
+  echo ""
+
   if which yq > /dev/null; then
     yq e - < "${PLATFORM_YAML_FILE?}"
   else
     cat "${PLATFORM_YAML_FILE?}"
   fi
+fi
+
+if [ -n "${DRY_RUN}" ]; then
+  kubectl apply -f "${PLATFORM_YAML_FILE?}" --dry-run="${DRY_RUN}"
+
+  echo ""
+  echo "Manifests:"
+  echo ""
+  echo "  ${PLATFORM_YAML_FILE}"
 else
   kubectl apply -f "${PLATFORM_YAML_FILE?}"
 fi

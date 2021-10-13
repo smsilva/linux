@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "Usage: kubectl wasp platform instance <command>"
+echo ""
+echo "Commands:"
+echo ""
+echo "  create"
+echo ""

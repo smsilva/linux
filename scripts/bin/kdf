@@ -1,0 +1,4 @@
+#!/bin/bash
+FILE_NAME="${1}"
+
+kubectl delete -f "${FILE_NAME?}"

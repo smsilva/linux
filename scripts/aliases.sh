@@ -6,7 +6,7 @@ alias aglp='agl | grep -E "Name|azure-.*|sample|dummy|^wasp|^be.*platform-c|^be.
 alias aksl='az aks list --output table'
 alias anagl='az network application-gateway list -o table'
 alias anl='az network vnet list -o table'
-alias cat='bat'
+alias c='clear'
 alias clip="xclip -selection clipboard"
 alias csvt='. csvt'
 alias ct='column -t'
@@ -17,7 +17,7 @@ alias faf="fdfind -a -t f"
 alias fdd="fdfind -t d"
 alias ff="fdfind -t f"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
-alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'bat --style=numbers --color=always {} | head -500'"
+alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias ga='git add'
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 alias gb='git branch'
@@ -39,7 +39,6 @@ alias gpr='git pull --rebase'
 alias gpush='git push'
 alias gpushf='git push --force'
 alias gpushsu='git push --set-upstream origin $(git branch --list | grep -Po "\* \K.*")'
-alias gr='git rebase'
 alias gra='git rebase --abort'
 alias grc='git rebase --continue'
 alias grh='git reset --hard'
@@ -56,6 +55,9 @@ alias ipc='ipcalc'
 alias k='kubectl'
 alias ka='kubectl -n argocd'
 alias kap='kubectl apply -f'
+alias kd='kubectl describe'
+alias ke='KUBE_EDITOR="code --wait" kubectl edit'
+alias kg='kubectl get'
 alias kgn='kubectl get nodes'
 alias ki='kubectl -n istio-system'
 alias ko='kubectl -n istio-operator'

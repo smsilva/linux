@@ -1,6 +1,5 @@
 #!/bin/bash
 echo "GOOGLE_CREDENTIALS_FILE.........: ${GOOGLE_CREDENTIALS_FILE}"
-echo "GOOGLE_CREDENTIALS..............: ${#GOOGLE_CREDENTIALS}"
 echo "GOOGLE_PROJECT..................: ${GOOGLE_PROJECT}"
 echo "GOOGLE_REGION...................: ${GOOGLE_REGION}"
 echo "GOOGLE_ZONE.....................: ${GOOGLE_ZONE}"

@@ -1,0 +1,6 @@
+#!/bin/bash
+COMMAND_NAME="${1}"
+
+FILE_PATH=$(which "${COMMAND_NAME}")
+
+bat "${FILE_PATH}"

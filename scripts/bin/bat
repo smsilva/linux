@@ -3,6 +3,7 @@ FILE_NAME="${1}"
 
 if [[ -z ${FILE_NAME} ]]; then
   FILE_NAME=$(fdfind -t f | fzf)
+  echo "${FILE_NAME}"
 fi
 
-batcat ${FILE_NAME} -p
+batcat "${FILE_NAME}" -p

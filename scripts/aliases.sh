@@ -1,11 +1,12 @@
 alias aac='az account show --output jsonc'
 alias aal='az account list --output table'
-alias aas='$(azure-account-selection) && arm'
+alias aas='$(azure-account-selection); export ARM_SAS_TOKEN=$(cat ${HOME}/.credentials/azure/${ARM_STORAGE_ACCOUNT_NAME}.sas-token) && arm'
 alias acrl='az acr list --output table'
 alias aglp='agl | grep -E "Name|azure-.*|sample|dummy|^wasp|^be.*platform-c|^be.*platform-a"'
 alias aksl='az aks list --output table'
 alias anagl='az network application-gateway list -o table'
 alias anl='az network vnet list -o table'
+alias armd=". armd && arm"
 alias c='clear'
 alias clip="xclip -selection clipboard"
 alias csvt='. csvt'

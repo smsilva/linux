@@ -1,5 +1,5 @@
 #!/bin/bash
-AZURE_ACCOUNT_NAME="$1"
+AZURE_ACCOUNT_NAME="${1}"
 
 if [[ -z ${AZURE_ACCOUNT_NAME} ]]; then
   AZURE_ACCOUNT_NAME=$(az account list --query [].name --output tsv | fzf)
@@ -9,6 +9,18 @@ az account set --subscription "${AZURE_ACCOUNT_NAME}"
 
 SUBSCRIPTION_ID=$(az account show --output tsv --query id)
 
-cp "${HOME}/.azure/credentials/${SUBSCRIPTION_ID}.sh" "${HOME}/.azure/credentials/current.conf"
+AZURE_CREDENTIALS_DIRECTORY="${HOME}/.credentials/azure"
+AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${SUBSCRIPTION_ID}.sh"
+AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current.sh"
 
-echo "source ${HOME}/.azure/credentials/current.conf"
+cp "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE?}" "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+
+source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+
+ARM_SAS_TOKEN_FILE="${CREDENTIALS_DIRECTORY?}/azure/${ARM_STORAGE_ACCOUNT_NAME?}.sas-token"
+
+if [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
+  arm_sas_token >> "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+fi
+
+echo "source ${AZURE_CREDENTIALS_CURRENT_FILE?}"

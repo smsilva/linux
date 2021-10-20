@@ -1,2 +1,8 @@
 #!/bin/bash
-echo "export ARM_SAS_TOKEN=$(arm_sas_token_new)"
+ARM_SAS_TOKEN=$(arm_sas_token_new)
+ARM_SAS_TOKEN_FILE="${CREDENTIALS_DIRECTORY?}/azure/${ARM_STORAGE_ACCOUNT_NAME?}.sas-token"
+
+echo "${ARM_SAS_TOKEN?}" > "${ARM_SAS_TOKEN_FILE}"
+
+echo "export ARM_SAS_TOKEN_FILE=\"${ARM_SAS_TOKEN_FILE}\""
+echo "export ARM_SAS_TOKEN=\"${ARM_SAS_TOKEN}\""

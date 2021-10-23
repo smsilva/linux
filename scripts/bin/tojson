@@ -1,0 +1,4 @@
+#!/bin/bash
+YAML_FILE_NAME="${1}"
+
+yq eval -o=j "${YAML_FILE_NAME}"

@@ -6,14 +6,14 @@ TMUX=tmux
 IDEAMUX_SOCKET_DIR=${HOME}/.ideamux
 
 if [ -z "${IDEAMUX_SOCKET_PATH}" ]; then
-  GIT_ROOT=$(git rev-parse --show-toplevel)
+  TOP_LEVEL_DIR=$(dirname "${PWD}")
 
-  MD5_FROM_GIT_ROOT_PATH=$(echo "${GIT_ROOT}" | md5sum | awk '{ print $1 }')
+  MD5_FROM_TOP_LEVEL_DIR_PATH=$(echo "${TOP_LEVEL_DIR}" | md5sum | awk '{ print $1 }')
 
-  IDEAMUX_SOCKET_PATH=${IDEAMUX_SOCKET_DIR}/${MD5_FROM_GIT_ROOT_PATH}.sock
+  IDEAMUX_SOCKET_PATH=${IDEAMUX_SOCKET_DIR}/${MD5_FROM_TOP_LEVEL_DIR_PATH}.sock
 fi
 
-mkdir -p ${IDEAMUX_SOCKET_DIR}
+mkdir -p "${IDEAMUX_SOCKET_DIR}"
 
 if ${TMUX} -S "${IDEAMUX_SOCKET_PATH}" has-session 2> /dev/null; then
   exec ${TMUX} -S "${IDEAMUX_SOCKET_PATH}" attach-session

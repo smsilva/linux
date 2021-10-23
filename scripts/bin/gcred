@@ -1,3 +1,5 @@
 #!/bin/bash
-echo "GOOGLE_PROJECT..........: ${GOOGLE_PROJECT}"
 echo "GOOGLE_CREDENTIALS_FILE.: ${GOOGLE_CREDENTIALS_FILE}"
+echo "GOOGLE_PROJECT..........: ${GOOGLE_PROJECT}"
+echo "GOOGLE_BUCKET...........: ${GOOGLE_BUCKET}"
+echo "GOOGLE_PREFIX...........: ${GOOGLE_PREFIX}"

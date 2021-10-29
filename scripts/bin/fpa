@@ -1,0 +1,4 @@
+#!/bin/bash
+FILE=$(fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'batcat --style=numbers --color=always {} | head -50')
+
+echo "${FILE}"

@@ -18,7 +18,6 @@ alias faf="fdfind -a -t f"
 alias fdd="fdfind -t d"
 alias ff="fdfind -t f"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
-alias fpa="fdfind --type f --hidden --follow --exclude .git | fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias ga='git add'
 alias galias="alias | grep 'alias g' | grep -P '(^alias )\K.*' -o | sed 's/=/\t/g' | tr -d \' | grep -v 'galias' | grep -v 'grep' | sort | fzf"
 alias gb='git branch'

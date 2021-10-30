@@ -13,4 +13,4 @@ if [ -n "${FILE_PATH}" ] && [ -e "${FILE_PATH}" ]; then
   open_with_intellij "${FILE_PATH}"
 fi
 
-open_with_intellij "$(fdfind | fzf)"
+open_with_intellij "$(fpa)"

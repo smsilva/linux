@@ -2,7 +2,7 @@
 FILE_NAME="${1}"
 
 if [[ -z ${FILE_NAME} ]]; then
-  FILE_NAME=$(fdfind -t f | fzf)
+  FILE_NAME=$(fpa)
   echo "${FILE_NAME}"
 fi
 

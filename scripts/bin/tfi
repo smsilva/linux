@@ -11,7 +11,10 @@ if [ -e "${BACKEND_FILE}" ]; then
   cat "${BACKEND_FILE}"
   echo ""
 
-  terraform init --backend-config="${BACKEND_FILE}" -reconfigure
+  terraform init \
+    -reconfigure \
+    -upgrade=false \
+    --backend-config="${BACKEND_FILE}" \
 else
   terraform init
 fi

@@ -1,5 +1,5 @@
 #!/bin/bash
 (
   printf "REPOSITORY \t TAG \t IMAGE_ID \t DAYS \t SIZE \t REPOSITORY:TAG\n"
-  docker images | sed 1d | awk '{ print "\t" $1 "\t" $2 "\t" $3 "\t" $4 "\t" $7 "\t" $1":"$2 }'
+  docker images | sed 1d | grep -E "${1}" | awk '{ print "\t" $1 "\t" $2 "\t" $3 "\t" $4 "\t" $7 "\t" $1":"$2 }'
 ) | column -t

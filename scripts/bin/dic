@@ -3,7 +3,7 @@ while read -r DOCKER_IMAGE_ID; do
   if [ -n "${DOCKER_IMAGE_ID}" ]; then
     docker rmi -f "${DOCKER_IMAGE_ID?}" &> /dev/null
   fi
-done <<< "$(docker images | sed 1d | grep -vE "terraform|kindest" | awk '{ print $3 }')"
+done <<< "$(docker images | sed 1d | grep -vE "^hashicorp|^kindest|^openjdk" | awk '{ print $3 }')"
 
 docker system prune -f &> /dev/null
 

@@ -14,7 +14,7 @@ if [ -e "${BACKEND_FILE}" ]; then
   terraform init \
     -reconfigure \
     -upgrade=false \
-    --backend-config="${BACKEND_FILE}" \
+    --backend-config="${BACKEND_FILE}"
 else
   terraform init
 fi

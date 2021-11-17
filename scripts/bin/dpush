@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+
+LOCAL_IMAGE="${1}"
+REMOTE_IMAGE="silviosilva/${LOCAL_IMAGE}"
+
+echo "${REMOTE_IMAGE}"
+
+docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}"
+
+docker push "${REMOTE_IMAGE}"

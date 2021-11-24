@@ -10,8 +10,8 @@ fi
 if ! grep --quiet --extended-regexp "^export FZF_" ~/.bashrc; then
 cat <<EOF >> ~/.bashrc
 
-export FZF_DEFAULT_COMMAND="fd --type f --follow --exclude .git"
+export FZF_DEFAULT_COMMAND="fdfind --type f --follow --exclude .git"
+export FZF_CTRL_T_COMMAND="fdfind --type f --follow --exclude .git"
 export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border"
-export FZF_CTRL_T_COMMAND="${FZF_DEFAULT_COMMAND}"
 EOF
 fi

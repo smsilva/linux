@@ -12,5 +12,5 @@ open_with_vscode() {
 if [ -n "${FILE_PATH}" ] && [ -e "${FILE_PATH}" ]; then
   open_with_vscode "${FILE_PATH}"
 else
-  open_with_vscode "$(fdfind | fzf)"
+  open_with_vscode "$(fdfind | fpa)"
 fi

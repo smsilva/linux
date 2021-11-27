@@ -10,8 +10,14 @@ fi
 
 BASH_ALIASES_FILE="${HOME}/.bash_aliases"
 
-if ! [ -e ${BASH_ALIASES_FILE} ]; then
-  ln --symbolic ${SCRIPTS_LOCATION}/aliases.sh ${HOME}/.bash_aliases &> /dev/null
+if ! [ -e "${BASH_ALIASES_FILE}" ]; then
+  ln --symbolic "${SCRIPTS_LOCATION}/aliases.sh" "${BASH_ALIASES_FILE}" &> /dev/null
+fi
+
+BASH_CONFIG_FILE="${HOME}/.bash_config"
+
+if ! [ -e "${BASH_CONFIG_FILE}" ]; then
+  ln --symbolic "${SCRIPTS_LOCATION}/bash_config" "${BASH_CONFIG_FILE}" &> /dev/null
 fi
 
 FIND_EXPRESSION='(^PATH*.)(.*bin-BIN_USER$)'

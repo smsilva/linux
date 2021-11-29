@@ -1,5 +1,6 @@
 export PATH=${HOME}/bin-${USER}:${PATH}
 export PATH="${HOME}/git/terraform-packager/scripts:${PATH}"
+export PATH="${HOME}/tdc/terraform-packager/scripts:${PATH}"
 
 if which today-fortune &> /dev/null; then
   today-fortune

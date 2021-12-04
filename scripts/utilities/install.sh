@@ -10,7 +10,6 @@ sudo apt-get install --yes -q \
   curl \
   fd-find \
   fortune \
-  git \
   ipcalc \
   jq \
   powerline \

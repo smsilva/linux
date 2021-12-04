@@ -1,12 +1,12 @@
 #!/bin/bash
-AZURE_ACCOUNT_NAME="${1}"
+SUBSCRIPTION_NAME="${1}"
 
-if [[ -z ${AZURE_ACCOUNT_NAME} ]]; then
-  AZURE_ACCOUNT_NAME=$(az account list --query [].name --output tsv | fzf)
+if [[ -z "${SUBSCRIPTION_NAME}" ]]; then
+  SUBSCRIPTION_NAME=$(az account list --query [].name --output tsv | fzf)
 fi
 
 az account set \
-  --subscription "${AZURE_ACCOUNT_NAME}"
+  --subscription "${SUBSCRIPTION_NAME}"
 
 SUBSCRIPTION_ID=$(az account show \
   --output tsv \
@@ -22,13 +22,13 @@ AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current.sh"
 AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${SUBSCRIPTION_ID}")"
 
 if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
-cat <<EOF | tee "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
-#!/bin/bash
+cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
 export ARM_CLIENT_ID=SERVICE_PRINCIPAL_ID_HERE
 export ARM_CLIENT_SECRET=SERVICE_PRINCIPAL_CLIENT_SECRET_HERE
 
 export ARM_TENANT_ID=${TERNANT_ID}
 export ARM_SUBSCRIPTION_ID=${SUBSCRIPTION_ID}
+export ARM_SUBSCRIPTION_NAME=${SUBSCRIPTION_NAME}
 
 export ARM_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME}
 export ARM_STORAGE_ACCOUNT_CONTAINER_NAME=terraform

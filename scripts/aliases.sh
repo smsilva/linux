@@ -12,6 +12,7 @@ alias cat='batcat -p'
 alias clip="xclip -selection clipboard"
 alias csvt='. csvt'
 alias ct='column -t'
+alias creds='[ -e "${CREDENTIALS_DIRECTORY}" ] && cd "${CREDENTIALS_DIRECTORY}"'
 alias dsp='docker system prune -f > /dev/null; docker images'
 alias f="fdfind"
 alias fa="fdfind -a"

@@ -4,7 +4,7 @@ set -e
 if ! which code &> /dev/null; then
   sudo apt update
 
-  sudo apt install \
+  sudo apt-get install --yes -q \
     software-properties-common \
     apt-transport-https \
     wget 

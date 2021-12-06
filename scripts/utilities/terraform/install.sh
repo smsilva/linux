@@ -2,7 +2,7 @@
 set -e
 
 if ! which terraform > /dev/null; then
-  VERSION="1.0.2"
+  VERSION="1.0.11"
   FILE_NAME="terraform_${VERSION?}_linux_amd64.zip"
   
   wget https://releases.hashicorp.com/terraform/${VERSION?}/${FILE_NAME?}
@@ -17,5 +17,3 @@ if ! which terraform > /dev/null; then
   
   mv terraform ${HOME?}/bin/terraform
 fi
-
-terraform -version

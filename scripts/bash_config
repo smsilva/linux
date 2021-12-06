@@ -1,4 +1,4 @@
-export PATH=${HOME}/bin-${USER}:${PATH}
+export PATH=${HOME}/bin:${HOME}/bin-${USER}:${PATH}
 export PATH="${HOME}/git/terraform-packager/scripts:${PATH}"
 export PATH="${HOME}/tdc/terraform-packager/scripts:${PATH}"
 

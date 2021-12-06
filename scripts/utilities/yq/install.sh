@@ -1,6 +1,6 @@
 #!/bin/bash
 if ! which yq > /dev/null; then
-  VERSION="4.13.5"
+  VERSION="4.16.1"
   BINARY="yq_linux_amd64"
   TAR_FILE="${BINARY?}.tar.gz"
 

@@ -11,7 +11,7 @@ fi
 BASH_ALIASES_FILE="${HOME}/.bash_aliases"
 
 if ! [ -e "${BASH_ALIASES_FILE}" ]; then
-  ln --symbolic "${SCRIPTS_LOCATION}/aliases.sh" "${BASH_ALIASES_FILE}" &> /dev/null
+  ln --symbolic "${SCRIPTS_LOCATION}/bash_aliases" "${BASH_ALIASES_FILE}" &> /dev/null
 fi
 
 BASH_CONFIG_FILE="${HOME}/.bash_config"
@@ -24,6 +24,14 @@ FIND_EXPRESSION='(^PATH*.)(.*bin-BIN_USER$)'
 
 if ! grep --quiet --extended-regexp "${FIND_EXPRESSION/BIN_USER/$USER}" ~/.bashrc; then
   echo "PATH=\${PATH}:${BIN_USER_LOCATION}" >> ${HOME}/.bashrc
+fi
+
+if ! grep --quiet --extended-regexp ".bash_config" ~/.bashrc; then
+cat <<EOF >> ~/.bashrc
+if [ -f ~/.bash_config ]; then
+  . ~/.bash_config
+fi
+EOF
 fi
 
 mkdir -p ${HOME?}/bin

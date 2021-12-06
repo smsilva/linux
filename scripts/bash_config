@@ -20,6 +20,8 @@ if [ -f ~/.fzf.bash ]; then
   source ~/.fzf.bash
 fi
 
+export CREDENTIALS_DIRECTORY="${HOME}/.credentials"
+
 if [ -n "${CREDENTIALS_DIRECTORY}" ]; then
   while read -r BASH_FILE; do
     . "${BASH_FILE}"
@@ -30,5 +32,3 @@ if which kubectl &> /dev/null; then
   source <(kubectl completion bash)
   complete -F __start_kubectl k
 fi
-
-export CREDENTIALS_DIRECTORY="${HOME}/.credentials"

@@ -1,0 +1,72 @@
+#!/bin/bash
+CERTBOT_COMMAND="${HOME}/.certbot.bash"
+
+CERTBOT_ACME_SERVER="${CERTBOT_ACME_SERVER-https://acme-staging-v02.api.letsencrypt.org/directory}"
+
+CNAMES=""
+
+while [[ -n "${1}" ]]; do case ${1} in
+  --domain )
+    DOMAIN=${2}
+    shift;
+    ;;
+  --cname )
+    CNAMES="${CNAMES} ${2}"
+    shift;
+    ;;
+esac; shift; done
+if [[ "${1}" == '--' ]]; then shift; fi
+
+if [ -z "${DOMAIN}" ] || [ -z "${DOMAIN}" ]; then
+  echo ""
+  echo "Usage:"
+  echo ""
+  echo "  certificate \\"
+  echo "    --domain silvios.me \\"
+  echo "    --cname apps \\"
+  echo "    --cname services \\"
+  echo "    --cname demo"
+  echo ""
+  exit 1
+fi
+
+# alias certbot='sudo certbot --work-dir "${PWD}" --logs-dir "${PWD}"'
+
+echo -n "sudo certbot --server "${CERTBOT_ACME_SERVER}" --work-dir \"\${PWD}\" --logs-dir \"\${PWD}\" certonly --manual --preferred-challenges dns -d ${DOMAIN}" > "${CERTBOT_COMMAND}"
+LINE=1
+while read -r CNAME; do
+  if [ -n "${CNAME}" ]; then
+    echo -n " -d ${CNAME}.${DOMAIN}" >> "${CERTBOT_COMMAND}"
+  fi
+done <<< "$(echo "${CNAMES}" | tr " " "\n")"
+
+echo "" >> "${CERTBOT_COMMAND}"
+
+sed -i -e 's/ --/ \\\n --/g' -e 's/ -d/ \\\n -d/g' "${CERTBOT_COMMAND}"
+
+echo ""
+
+cat "${CERTBOT_COMMAND}"
+
+echo ""
+
+echo "${CERTBOT_COMMAND}"
+
+echo ""
+
+sh "${CERTBOT_COMMAND}"
+
+# sudo openssl pkcs12 \
+#   -export \
+#   -inkey "privkey.pem" \
+#   -in    "fullchain.pem" \
+#   -out   "certificate_combined.pfx"
+
+# openssl pkcs12 \
+#   -in certificate_combined.pfx \
+#   -info
+
+# openssl x509 \
+#   -in cert.pem \
+#   -noout \
+#   -text

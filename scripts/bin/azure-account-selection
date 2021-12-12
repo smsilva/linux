@@ -14,7 +14,7 @@ SUBSCRIPTION_ID=$(az account show \
 
 TERNANT_ID=$(az account show \
   --output tsv \
-  --query homeTenantId)
+  --query tenantId)
 
 AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
 AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${SUBSCRIPTION_ID}"

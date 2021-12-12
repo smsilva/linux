@@ -1,0 +1,79 @@
+#!/bin/bash
+clear
+
+AZURE_TENANT_ID_NUKE="${1-a267367d-d04d-4a6b-84ef-0cc227ed6e9f}"
+
+JQ_EXPRESSION='.[] | select(.tentantId | contains("%s"))'
+
+JQ_EXPRESSION="$(printf "${JQ_EXPRESSION}" "${AZURE_TENANT_ID_NUKE}")"
+
+echo ""
+echo "WARNING!!! WARNING!!! WARNING!!! WARNING!!!"
+echo ""
+echo "THIS IS A VERY DANGEROUS ACTION!!!"
+echo ""
+echo "ALL OF RESOURCE GROUPS UNDER TENTANT_ID: ${AZURE_TENANT_ID_NUKE} WILL BE COMPLETELY AND UNRECOVER DELETED."
+echo ""
+echo "DO IT FOR YOUR OWN RISK!!!"
+echo ""
+
+SUBSCRIPTIONS_SELECTED=$(az account list \
+  --output tsv | grep "${AZURE_TENANT_ID_NUKE}" | wc -l)
+
+if [ "${SUBSCRIPTIONS_SELECTED}" == "" ] || [ "${SUBSCRIPTIONS_SELECTED}" == "0" ]; then
+  echo "There's no subscription selected."
+  exit 1
+fi
+
+az account list \
+  --output tsv \
+  --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}"
+
+echo ""
+
+read -r -p "Press any key to resume ..."
+
+echo ""
+
+SUBSCRIPTION_LIST="$(az account list \
+  --output tsv \
+  --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}")"
+
+while read -r LINE; do
+  NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"
+  NUKE_SUBSCRIPTION_ID="$(awk '{ print $2 }' <<< "${LINE}")"
+  NUKE_SUBSCRIPTION_NAME="$(awk '{ print $3 }' <<< "${LINE}")"
+
+  echo "NUKE_TENANT_ID.........: ${NUKE_TENANT_ID}"
+  echo "NUKE_SUBSCRIPTION_ID...: ${NUKE_SUBSCRIPTION_ID}"
+  echo "NUKE_SUBSCRIPTION_NAME.: ${NUKE_SUBSCRIPTION_NAME}"
+  echo ""
+
+  az group list \
+  --subscription "${NUKE_SUBSCRIPTION_ID}" \
+  --output json \
+  --query '[].name' | jq '.[]' -r
+  
+  echo ""
+done <<< "${SUBSCRIPTION_LIST}"
+
+exit 0
+
+while read -r AZURE_SUBSCRIPTION_NAME; do
+  echo "AZURE_SUBSCRIPTION_NAME.: ${AZURE_SUBSCRIPTION_NAME}"
+done <<< "$(az account list \
+  --output json \
+  --query '[].name' | jq '.[]' -r | xargs \
+    -n 1 \
+    -I {} echo 'az group list \
+      --output table \
+      --subscription "{}"')"
+
+az account list \
+  --output jsonc \
+  --query '[].{id:id,name:name,tentantId:tenantId}' | jq "${JQ_EXPRESSION}"
+
+az group list \
+  --subscription "ddc30188-075a-470d-a6ca-05a1987c51a3" \
+  --output json \
+  --query '[].name' | jq '.[]' -r

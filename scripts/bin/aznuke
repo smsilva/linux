@@ -34,46 +34,62 @@ echo ""
 read -r -p "Press any key to resume ..."
 
 echo ""
+echo ""
 
 SUBSCRIPTION_LIST="$(az account list \
   --output tsv \
   --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}")"
+
+FILE_LOG_INFO="${HOME}/trash/aznuke/aznuke-info.log"
+FILE_LOG_ERROR="${HOME}/trash/aznuke/aznuke-error.log"
 
 while read -r LINE; do
   NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"
   NUKE_SUBSCRIPTION_ID="$(awk '{ print $2 }' <<< "${LINE}")"
   NUKE_SUBSCRIPTION_NAME="$(awk '{ print $3 }' <<< "${LINE}")"
 
-  echo "NUKE_TENANT_ID.........: ${NUKE_TENANT_ID}"
-  echo "NUKE_SUBSCRIPTION_ID...: ${NUKE_SUBSCRIPTION_ID}"
   echo "NUKE_SUBSCRIPTION_NAME.: ${NUKE_SUBSCRIPTION_NAME}"
-  echo ""
+  echo "NUKE_SUBSCRIPTION_ID...: ${NUKE_SUBSCRIPTION_ID}"
+  echo "NUKE_TENANT_ID.........: ${NUKE_TENANT_ID}"
 
-  az group list \
-  --subscription "${NUKE_SUBSCRIPTION_ID}" \
-  --output json \
-  --query '[].name' | jq '.[]' -r
+  while read -r RESOURCE_GROUP_NAME; do
+    if [ -n "${RESOURCE_GROUP_NAME}" ]; then
+      echo "RESOURCE_GROUP_NAME....: ${RESOURCE_GROUP_NAME}"
   
+      az group delete \
+        --resource-group "${RESOURCE_GROUP_NAME}" \
+        --subscription "${NUKE_SUBSCRIPTION_ID}" \
+        --no-wait \
+        --yes 1> >(tee -a "${FILE_LOG_INFO}") 2> >(tee -a "${FILE_LOG_ERROR}" >&2)
+    fi
+  done <<< "$(az group list \
+    --subscription "${NUKE_SUBSCRIPTION_ID}" \
+    --output tsv \
+    --query '[].name' | grep -v iac)"
+
   echo ""
 done <<< "${SUBSCRIPTION_LIST}"
 
-exit 0
+list_groups() {
+  while read -r LINE; do
+    NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"
+    NUKE_SUBSCRIPTION_ID="$(awk '{ print $2 }' <<< "${LINE}")"
+    NUKE_SUBSCRIPTION_NAME="$(awk '{ print $3 }' <<< "${LINE}")"
+     
+    echo "${NUKE_SUBSCRIPTION_NAME} [${NUKE_SUBSCRIPTION_ID}]"
+    echo ""
 
-while read -r AZURE_SUBSCRIPTION_NAME; do
-  echo "AZURE_SUBSCRIPTION_NAME.: ${AZURE_SUBSCRIPTION_NAME}"
-done <<< "$(az account list \
-  --output json \
-  --query '[].name' | jq '.[]' -r | xargs \
-    -n 1 \
-    -I {} echo 'az group list \
-      --output table \
-      --subscription "{}"')"
+    az group list \
+      --subscription "${NUKE_SUBSCRIPTION_ID}" \
+      --output table
 
-az account list \
-  --output jsonc \
-  --query '[].{id:id,name:name,tentantId:tenantId}' | jq "${JQ_EXPRESSION}"
+    echo ""
+  done <<< "${SUBSCRIPTION_LIST}"
+}
 
-az group list \
-  --subscription "ddc30188-075a-470d-a6ca-05a1987c51a3" \
-  --output json \
-  --query '[].name' | jq '.[]' -r
+while true; do
+  list_groups
+  sleep 5
+
+  clear
+done

@@ -25,5 +25,5 @@ echo "ARM_SAS_TOKEN_FILE_CREATION........: ${ARM_SAS_TOKEN_FILE_INFORMATION}"
 echo "ARM_SAS_TOKEN_EXPIRATION...........: ${ARM_SAS_TOKEN_INFORMATION}"
 
 if [ -n "${ARM_ACCESS_KEY}" ]; then
-  echo "ARM_ACCESS_KEY.....................: ${#ARM_ACCESS_KEY}"
+  echo "ARM_ACCESS_KEY.....................: ${ARM_ACCESS_KEY:0:3}"
 fi

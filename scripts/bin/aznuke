@@ -40,8 +40,9 @@ SUBSCRIPTION_LIST="$(az account list \
   --output tsv \
   --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}")"
 
-FILE_LOG_INFO="${HOME}/trash/aznuke/aznuke-info.log"
-FILE_LOG_ERROR="${HOME}/trash/aznuke/aznuke-error.log"
+SCRIPT_LOG_DIRECTORY="${HOME}/trash/aznuke/" && mkdir -p "${SCRIPT_LOG_DIRECTORY}"
+FILE_LOG_INFO="${SCRIPT_LOG_DIRECTORY}/aznuke-info.log"
+FILE_LOG_ERROR="${SCRIPT_LOG_DIRECTORY}/aznuke-error.log"
 
 while read -r LINE; do
   NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"

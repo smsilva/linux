@@ -1,33 +1,83 @@
 #!/bin/bash
+cli_help() {
+  echo "Arguments:"
+  echo ""
+  echo "  --tenant"
+  echo "  --subscription"
+  echo ""
+  echo "Examples:"
+  echo ""
+  echo "  1. Delete ALL Resources from All Subscriptions"
+  echo ""
+  echo "    aznuke \\"
+  echo "      --tenant a267367d-d04d-4a6b-84ef-0cc227ed6e9f"
+  echo ""
+  echo "  2. Delete ALL Resources from ONE Subscription"
+  echo ""
+  echo "    aznuke \\"
+  echo "      --tenant       a267367d-d04d-4a6b-84ef-0cc227ed6e9f \\"
+  echo "      --subscription 636a465c-d6b1-4533-b071-64cea37a2bf6"
+  echo ""
+  exit 1
+}
+
+while [[ -n "$1" ]]; do case $1 in
+  --tenant )
+    TENANT_ID=${2}
+    shift;
+    ;;
+  --subscription )
+    SUBSCRIPTION_ID=${2}
+    shift;
+    ;;
+  --help )
+    cli_help
+    ;;
+esac; shift; done
+if [[ "$1" == '--' ]]; then shift; fi
+
 clear
 
-AZURE_TENANT_ID_NUKE="${1-a267367d-d04d-4a6b-84ef-0cc227ed6e9f}"
+if [ -z "${TENANT_ID}" ]; then
+  TENANT_ID=$(az account show --query tenantId --output tsv)
+fi
+
+AZURE_TENANT_ID_NUKE="${TENANT_ID}"
+AZURE_SUBSCRIPTION_ID="${SUBSCRIPTION_ID-*}"
 
 JQ_EXPRESSION='.[] | select(.tentantId | contains("%s"))'
 
 JQ_EXPRESSION="$(printf "${JQ_EXPRESSION}" "${AZURE_TENANT_ID_NUKE}")"
+
+select_subscriptions() {
+  az account list \
+    --output tsv \
+    --query '[].{tenantId:tenantId,id:id,name:name}' | grep "^${AZURE_TENANT_ID_NUKE}" | grep -E "${AZURE_SUBSCRIPTION_ID}"
+}
+
+SUBSCRIPTIONS_SELECTED=$(select_subscriptions | wc -l)
+
+if [ "${SUBSCRIPTIONS_SELECTED}" == "" ] || [ "${SUBSCRIPTIONS_SELECTED}" == "0" ]; then
+  echo "There's no subscription selected. Please review the parameters values."
+  exit 1
+fi
 
 echo ""
 echo "WARNING!!! WARNING!!! WARNING!!! WARNING!!!"
 echo ""
 echo "THIS IS A VERY DANGEROUS ACTION!!!"
 echo ""
-echo "ALL OF RESOURCE GROUPS UNDER TENTANT_ID: ${AZURE_TENANT_ID_NUKE} WILL BE COMPLETELY AND UNRECOVER DELETED."
+echo "ALL OF RESOURCE GROUPS UNDER WILL BE COMPLETELY AND UNRECOVER DELETED."
+echo ""
+echo "  TENTANT_ID......: ${AZURE_TENANT_ID_NUKE}"
+echo "  SUBSCRIPTION_ID.: ${AZURE_SUBSCRIPTION_ID}"
 echo ""
 echo "DO IT FOR YOUR OWN RISK!!!"
 echo ""
 
-SUBSCRIPTIONS_SELECTED=$(az account list \
-  --output tsv | grep "${AZURE_TENANT_ID_NUKE}" | wc -l)
+SUBSCRIPTION_LIST="$(select_subscriptions)"
 
-if [ "${SUBSCRIPTIONS_SELECTED}" == "" ] || [ "${SUBSCRIPTIONS_SELECTED}" == "0" ]; then
-  echo "There's no subscription selected."
-  exit 1
-fi
-
-az account list \
-  --output tsv \
-  --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}"
+echo "${SUBSCRIPTION_LIST}"
 
 echo ""
 
@@ -35,10 +85,6 @@ read -r -p "Press any key to resume ..."
 
 echo ""
 echo ""
-
-SUBSCRIPTION_LIST="$(az account list \
-  --output tsv \
-  --query '[].{tenantId:tenantId,id:id,name:name}' | grep "${AZURE_TENANT_ID_NUKE}")"
 
 SCRIPT_LOG_DIRECTORY="${HOME}/trash/aznuke/" && mkdir -p "${SCRIPT_LOG_DIRECTORY}"
 FILE_LOG_INFO="${SCRIPT_LOG_DIRECTORY}/aznuke-info.log"

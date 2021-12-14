@@ -50,3 +50,4 @@ if [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
 fi
 
 echo "source ${AZURE_CREDENTIALS_CURRENT_FILE?}"
+

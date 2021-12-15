@@ -1,6 +1,6 @@
 alias aac='az account show --output jsonc'
 alias aal='az account list --output table'
-alias aas='export ARM_ACCESS_KEY=""; $(azure-account-selection); export ARM_SAS_TOKEN=$(cat ${HOME}/.credentials/azure/${ARM_STORAGE_ACCOUNT_NAME}.sas-token) && arm'
+alias aas='. azure-account-selection && arm'
 alias acrl='az acr list --output table'
 alias aglp='agl | grep -E "Name|azure-.*|sample|dummy|^wasp|^be.*platform-c|^be.*platform-a"'
 alias aksl='az aks list --output table'

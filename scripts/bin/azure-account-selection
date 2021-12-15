@@ -1,28 +1,23 @@
 #!/bin/bash
-SUBSCRIPTION_NAME="${1}"
+selection() {
+  az account set \
+    --subscription "${SUBSCRIPTION_NAME}"
 
-if [[ -z "${SUBSCRIPTION_NAME}" ]]; then
-  SUBSCRIPTION_NAME="$(az account list --query [].name --output tsv | fzf)"
-fi
+  SUBSCRIPTION_ID=$(az account show \
+    --output tsv \
+    --query id)
 
-az account set \
-  --subscription "${SUBSCRIPTION_NAME}"
+  TERNANT_ID=$(az account show \
+    --output tsv \
+    --query tenantId)
 
-SUBSCRIPTION_ID=$(az account show \
-  --output tsv \
-  --query id)
+  AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
+  AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${SUBSCRIPTION_ID}"
+  AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
+  AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${SUBSCRIPTION_ID}")"
 
-TERNANT_ID=$(az account show \
-  --output tsv \
-  --query tenantId)
-
-AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
-AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${SUBSCRIPTION_ID}"
-AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
-AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${SUBSCRIPTION_ID}")"
-
-if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
-  mkdir -p "${AZURE_CREDENTIALS_DIRECTORY}"
+  if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
+    mkdir -p "${AZURE_CREDENTIALS_DIRECTORY}"
 
 cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
 export ARM_TENANT_ID="${TERNANT_ID}"
@@ -34,20 +29,32 @@ export ARM_CLIENT_SECRET="SERVICE_PRINCIPAL_CLIENT_SECRET_HERE"
 
 export ARM_STORAGE_ACCOUNT_NAME="${AZURE_STORAGE_ACCOUNT_NAME}"
 export ARM_STORAGE_ACCOUNT_CONTAINER_NAME="terraform"
+export ARM_ACCESS_KEY=""
 EOF
 
-  chmod +x "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+    chmod +x "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+  fi
+
+  cp "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE?}" "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+
+  source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+
+  if [ -z "${ARM_SAS_TOKEN_FILE}" ] || [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
+    . arm_sas_token_file
+  fi
+
+  export ARM_SAS_TOKEN=$(cat ${ARM_SAS_TOKEN_FILE})
+  export ARM_SAS_TOKEN_FILE
+}
+
+SUBSCRIPTION_NAME="${1}"
+
+if [[ -z "${SUBSCRIPTION_NAME}" ]]; then
+  SUBSCRIPTION_NAME="$(az account list --query [].name --output tsv | fzf)"
+
+  if [ "$?" == "0" ]; then
+    selection
+  else
+    exit 1
+  fi
 fi
-
-cp "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE?}" "${AZURE_CREDENTIALS_CURRENT_FILE?}"
-
-source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
-
-ARM_SAS_TOKEN_FILE="${CREDENTIALS_DIRECTORY?}/azure/${ARM_STORAGE_ACCOUNT_NAME?}.sas-token"
-
-if [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
-  arm_sas_token >> "${AZURE_CREDENTIALS_CURRENT_FILE?}"
-fi
-
-echo "source ${AZURE_CREDENTIALS_CURRENT_FILE?}"
-

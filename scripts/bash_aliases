@@ -75,6 +75,7 @@ alias lc="ls | column -c 1"
 alias lh="ls -lh"
 alias lha="ls -lha"
 alias lower='tr "[:upper:]" "[:lower:]"'
+alias ls='ls -1 --color=auto'
 alias mem='free -h'
 alias mod='stat -c "%a"'
 alias mp='multipass'

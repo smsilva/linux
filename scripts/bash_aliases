@@ -19,7 +19,7 @@ alias dsp='docker system prune -f > /dev/null; docker images'
 alias f="fdfind"
 alias fa="fdfind -a"
 alias faf="fdfind -a -t f"
-alias fdd="fdfind -t d"
+alias fd="fdfind -t d"
 alias ff="fdfind -t f"
 alias fp="fzf -m --preview 'batcat --style=numbers --color=always {} | head -500'"
 alias ga='git add'

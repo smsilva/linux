@@ -1,0 +1,16 @@
+export TERRAFORM_OUTPUT_DIR="${HOME}/trash/terraform/output"
+export CHECKOV_VERSION="2.0.672"
+
+# docker run --rm \
+#   -v ${TERRAFORM_OUTPUT_DIR?}:/tf \
+#   bridgecrew/checkov:${CHECKOV_VERSION?} \
+#   --file /tf/terraform.plan.json \
+#   --output junitxml \
+#   --baseline /tf/checkov.baseline.json
+
+docker run --rm \
+  -v ${TERRAFORM_OUTPUT_DIR?}:/tf \
+  bridgecrew/checkov:${CHECKOV_VERSION?} \
+  --file /tf/terraform.plan.json \
+  --baseline /tf/checkov.baseline.json
+ 

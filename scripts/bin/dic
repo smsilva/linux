@@ -3,7 +3,7 @@ while read -r DOCKER_IMAGE_ID; do
   if [ -n "${DOCKER_IMAGE_ID}" ]; then
     docker rmi -f "${DOCKER_IMAGE_ID?}" &> /dev/null
   fi
-done <<< "$(docker images | grep -vE '^hashicorp' | sed 1d | awk '{ print $3 }')"
+done <<< "$(docker images | grep -vE '^hashicorp|^silviosilva/commitizen' | sed 1d | awk '{ print $3 }')"
 
 docker system prune -f &> /dev/null
 

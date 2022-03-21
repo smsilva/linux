@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+clear
+
 BACKEND_FILE="backend.conf"
 
 mkdir -p "${HOME}/terraform/output/"
@@ -12,9 +14,11 @@ if [ -e "${BACKEND_FILE}" ]; then
   echo ""
 
   terraform init \
+    -input=false \
     -reconfigure \
     -upgrade=false \
     --backend-config="${BACKEND_FILE}"
 else
-  terraform init
+  terraform init \
+    -input=false
 fi

@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-git add .
-
 MESSAGE="${1}"
 
 if [ -z "${MESSAGE?}" ]; then

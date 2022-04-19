@@ -1,3 +1,6 @@
 #!/bin/bash
 rm -rf ~/.credentials/azure/*.sas-token
+
 unset ARM_SAS_TOKEN
+unset ARM_SAS_TOKEN_EXPIRATION
+unset ARM_SAS_TOKEN_FILE

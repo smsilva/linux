@@ -43,13 +43,7 @@ EOF
 
   source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
 
-  export ARM_SAS_TOKEN_FILE="${CREDENTIALS_DIRECTORY?}/azure/${ARM_STORAGE_ACCOUNT_NAME?}.sas-token"
-
-  if ! [ -e "${ARM_SAS_TOKEN_FILE}" ]; then
-    arm_sas_token_new > "${ARM_SAS_TOKEN_FILE}"
-  fi
-
-  export ARM_SAS_TOKEN=$(cat ${ARM_SAS_TOKEN_FILE})
+  source arm_sas_token_file
 }
 
 SUBSCRIPTION_NAME="${1}"

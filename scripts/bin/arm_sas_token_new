@@ -2,7 +2,8 @@
 
 # https://docs.microsoft.com/en-us/cli/azure/storage/account?view=azure-cli-latest#az_storage_account_generate_sas-examples
 
-az storage account list --query '[].{name:name}' | grep --quiet "${ARM_STORAGE_ACCOUNT_NAME?}"
+az storage account list \
+  --query '[].{name:name}' | grep --quiet "${ARM_STORAGE_ACCOUNT_NAME?}"
 
 STORAGE_ACCOUNT_EXISTS=${?}
 

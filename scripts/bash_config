@@ -23,12 +23,20 @@ export CREDENTIALS_DIRECTORY="${HOME}/.credentials"
 
 mkdir -p "${CREDENTIALS_DIRECTORY}"
 
+if [ -e "${CREDENTIALS_DIRECTORY}/azure/current" ]; then
+  if [ ! -e "${CREDENTIALS_DIRECTORY}/bash_azure" ]; then
+    ln -s "${CREDENTIALS_DIRECTORY}/azure/current" "${CREDENTIALS_DIRECTORY}/bash_azure"
+  fi
+fi
+
 if [ -n "${CREDENTIALS_DIRECTORY}" ]; then
   while read -r BASH_FILE; do
     if [ -n "${BASH_FILE}" ]; then
       source "${BASH_FILE}"
     fi
-  done <<< "$(find -L "${CREDENTIALS_DIRECTORY}" -maxdepth 1 -type f)"
+  done <<< "$(find -L "${CREDENTIALS_DIRECTORY}" -maxdepth 1 -type f | sort)"
+
+  source arm_sas_token_file
 fi
 
 if which kubectl &> /dev/null; then

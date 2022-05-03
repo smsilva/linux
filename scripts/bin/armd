@@ -1,5 +1,11 @@
 #!/bin/bash
-rm -rf ~/.credentials/azure/*.sas-token
+
+export SAS_TOKEN_FILE="${HOME}/.credentials/azure/${ARM_STORAGE_ACCOUNT_NAME}.sas-token"
+
+if [ -e "${SAS_TOKEN_FILE?}" ]; then
+  echo "${SAS_TOKEN_FILE}"
+  rm -rf "${SAS_TOKEN_FILE?}"
+fi
 
 unset ARM_SAS_TOKEN
 unset ARM_SAS_TOKEN_EXPIRATION

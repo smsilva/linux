@@ -2,7 +2,7 @@
 BRANCH_NAME="$1"
 
 if [[ -z ${BRANCH_NAME} ]]; then
-  git checkout $(git branch | fzf | cut -d "/" -f 2)
+  git checkout $(git branch | fzf)
 else
   git checkout ${BRANCH_NAME}
 fi

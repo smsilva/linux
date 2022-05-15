@@ -1,7 +1,7 @@
 #!/bin/bash
-echo "ARM_TENANT_ID......................: ${ARM_TENANT_ID}"
 echo "ARM_SUBSCRIPTION_NAME..............: ${ARM_SUBSCRIPTION_NAME}"
 echo "ARM_SUBSCRIPTION_ID................: ${ARM_SUBSCRIPTION_ID}"
+echo "ARM_TENANT_ID......................: ${ARM_TENANT_ID}"
 echo "ARM_CLIENT_ID......................: ${ARM_CLIENT_ID}"
 echo "ARM_CLIENT_SECRET..................: ${ARM_CLIENT_SECRET:0:3}"
 echo "ARM_KEYVAULT_NAME..................: ${ARM_KEYVAULT_NAME}"
@@ -11,5 +11,7 @@ echo "ARM_STORAGE_ACCOUNT_CONTAINER_NAME.: ${ARM_STORAGE_ACCOUNT_CONTAINER_NAME}
 if [ -n "${ARM_ACCESS_KEY}" ]; then
   echo "ARM_ACCESS_KEY.....................: ${ARM_ACCESS_KEY:0:3}"
 else
-  echo "ARM_SAS_TOKEN......................: ${ARM_SAS_TOKEN:0:71}"
+  if [ -n "${ARM_SAS_TOKEN}" ]; then
+    echo "ARM_SAS_TOKEN......................: ${ARM_SAS_TOKEN:0:71}"
+  fi
 fi

@@ -1,42 +1,45 @@
 #!/bin/bash
-selection() {
-  az account set \
-    --subscription "${SUBSCRIPTION_NAME}"
+export AZURE_SUBSCRIPTION_NAME="${1}"
+export AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
+export AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
 
-  SUBSCRIPTION_ID=$(az account show \
-    --output tsv \
-    --query id)
+create_initial_subscription_credentials_file() {
+  mkdir -p "${AZURE_CREDENTIALS_DIRECTORY}"
 
-  TERNANT_ID=$(az account show \
-    --output tsv \
-    --query tenantId)
-
-  AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
-  AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${SUBSCRIPTION_ID}"
-  AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
-  AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${SUBSCRIPTION_ID}")"
-  AZURE_KEYVAULT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${SUBSCRIPTION_ID}")"
-
-  if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
-    mkdir -p "${AZURE_CREDENTIALS_DIRECTORY}"
+  export AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${AZURE_SUBSCRIPTION_ID}")"
+  export AZURE_KEYVAULT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${AZURE_SUBSCRIPTION_ID}")"
 
 cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
-export ARM_TENANT_ID="${TERNANT_ID}"
-export ARM_SUBSCRIPTION_ID="${SUBSCRIPTION_ID}"
-export ARM_SUBSCRIPTION_NAME="${SUBSCRIPTION_NAME}"
-
+export ARM_TENANT_ID="${AZURE_TENANT_ID}"
+export ARM_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
+export ARM_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME}"
 export ARM_CLIENT_ID="SERVICE_PRINCIPAL_ID_HERE"
 export ARM_CLIENT_SECRET="SERVICE_PRINCIPAL_CLIENT_SECRET_HERE"
-
 export ARM_STORAGE_ACCOUNT_NAME="${AZURE_STORAGE_ACCOUNT_NAME}"
 export ARM_STORAGE_ACCOUNT_CONTAINER_NAME="terraform"
-
 export ARM_KEYVAULT_NAME="${AZURE_KEYVAULT_NAME}"
-
 unset ARM_ACCESS_KEY
 EOF
 
-    chmod +x "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+  chmod +x "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+}
+
+change_active_subscription() {
+  az account set \
+    --subscription "${AZURE_SUBSCRIPTION_NAME}"
+
+  export AZURE_SUBSCRIPTION_ID=$(az account show \
+    --output tsv \
+    --query id)
+
+  export AZURE_TENANT_ID=$(az account show \
+    --output tsv \
+    --query tenantId)
+
+  export AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${AZURE_SUBSCRIPTION_ID}"
+
+  if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
+    create_initial_subscription_credentials_file
   fi
 
   cp "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE?}" "${AZURE_CREDENTIALS_CURRENT_FILE?}"
@@ -46,13 +49,13 @@ EOF
   source arm_sas_token_file
 }
 
-SUBSCRIPTION_NAME="${1}"
-
-if [[ -z "${SUBSCRIPTION_NAME}" ]]; then
-  SUBSCRIPTION_NAME="$(az account list --query [].name --output tsv | fzf)"
+if [[ -z "${AZURE_SUBSCRIPTION_NAME}" ]]; then
+  export AZURE_SUBSCRIPTION_NAME="$(az account list \
+    --query [].name \
+    --output tsv | fzf)"
 
   if [ "$?" == "0" ]; then
-    selection
+    change_active_subscription
   else
     exit 1
   fi

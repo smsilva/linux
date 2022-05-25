@@ -5,13 +5,18 @@ show_usage() {
   echo "Available Optional Parameters:"
   echo ""
   echo "  -n | --namespace   If this is not informed, the default namespace from current context you be used, if it's empty, then default namespace will be used."
-  echo "  -d | --deployments Deployment or Deployment list with comma separated. You could use it more than one time, for example: kwd -n dev -d nginx -d myapp"
-  echo "  -a | --attempts    Number of times that the check will be executed. Default is 90."
-  echo "  -i | --interval    Interval in seconds until the next attempt. Default is 5 seconds."
   echo ""
-  echo "USAGE:"
+  echo "USAGES:"
   echo "  kubectl gs \\"
   echo "    --namespace argocd"
+  echo ""
+  echo "  kubectl gs \\"
+  echo "    --namespace argocd \\"
+  echo "    argocd-secret"
+  echo ""
+  echo "  kubectl gs \\"
+  echo "    --namespace argocd \\"
+  echo "    argocd-secret server.secretkey"
   echo ""
 }
 
@@ -35,18 +40,15 @@ export NAMESPACE
 export SECRET_NAME=$1
 export SECRET_KEY_NAME=$2
 
-# echo "1...............: [$1]"
-# echo "2...............: [$3]"
-# echo "*...............: [$*]"
-# echo "@...............: [$@]"
-# echo "NAMESPACE.......: [${NAMESPACE}]"
-# echo "SECRET_NAME.....: [${SECRET_NAME}]"
-# echo "SECRET_KEY_NAME.: [${SECRET_KEY_NAME}]"
-
 if [ -n "${SECRET_KEY_NAME}" ]; then
-  JQ_EXPRESSION=$(printf ".%s" "${SECRET_KEY_NAME}")
+  if grep --silent '.' <<< "${SECRET_KEY_NAME}"; then
+    JQ_EXPRESSION=$(printf ".\"%s\"" "${SECRET_KEY_NAME}")
+  else
+    JQ_EXPRESSION=$(printf ".%s" "${SECRET_KEY_NAME}")
+  fi
 
   SECRET_VALUE=$(kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}" | base64 -d)
+
   echo ${SECRET_VALUE}
 else
   if [ -n "${SECRET_NAME}" ]; then

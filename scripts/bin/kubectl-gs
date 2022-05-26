@@ -47,9 +47,7 @@ if [ -n "${SECRET_KEY_NAME}" ]; then
     JQ_EXPRESSION=$(printf ".%s" "${SECRET_KEY_NAME}")
   fi
 
-  SECRET_VALUE=$(kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}" | base64 -d)
-
-  echo ${SECRET_VALUE}
+  kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}" | base64 -d
 else
   if [ -n "${SECRET_NAME}" ]; then
     kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq .

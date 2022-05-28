@@ -1,0 +1,61 @@
+#!/bin/bash
+show_usage() {
+  echo "Kubectl get ConfigMap Command"
+  echo ""
+  echo "Available Optional Parameters:"
+  echo ""
+  echo "  -n | --namespace   If this is not informed, the default namespace from current context you be used, if it's empty, then default namespace will be used."
+  echo ""
+  echo "USAGES:"
+  echo "  kubectl gcm \\"
+  echo "    --namespace argocd"
+  echo ""
+  echo "  kubectl gcm \\"
+  echo "    --namespace argocd \\"
+  echo "    argocd-cm"
+  echo ""
+  echo "  kubectl gcm \\"
+  echo "    --namespace argocd \\"
+  echo "    argocd-cm url"
+  echo ""
+  echo "  kubectl gcm \\"
+  echo "    --namespace argocd-rbac-cm \\"
+  echo "    argocd-cm policy.csv"
+  echo ""
+}
+
+NAMESPACE="default"
+CONFIGMAP_NAME=""
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+  -n | --namespace )
+    shift; NAMESPACE=$1
+    ;;
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+export NAMESPACE
+export CONFIGMAP_NAME=$1
+export CONFIGMAP_KEY_NAME=$2
+
+if [ -n "${CONFIGMAP_KEY_NAME}" ]; then
+  if grep --silent '.' <<< "${CONFIGMAP_KEY_NAME}"; then
+    JQ_EXPRESSION=$(printf ".\"%s\"" "${CONFIGMAP_KEY_NAME}")
+  else
+    JQ_EXPRESSION=$(printf ".%s" "${CONFIGMAP_KEY_NAME}")
+  fi
+
+  kubectl -n ${NAMESPACE} get configmap ${CONFIGMAP_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}"
+else
+  if [ -n "${CONFIGMAP_NAME}" ]; then
+    kubectl -n ${NAMESPACE} get configmap ${CONFIGMAP_NAME} -o jsonpath='{.data}' | jq .
+  else
+    kubectl -n ${NAMESPACE} get configmap
+  fi
+fi

@@ -1,6 +1,6 @@
 #!/bin/bash
 show_usage() {
-  echo "Kubectl Wait Deployments to become with all Replicas Ready"
+  echo "Kubectl Get Secrets and Decode Secrets Values"
   echo ""
   echo "Available Optional Parameters:"
   echo ""

@@ -8,7 +8,10 @@ az storage account list \
 STORAGE_ACCOUNT_EXISTS=${?}
 
 if [ "${STORAGE_ACCOUNT_EXISTS}" == "0" ]; then
-  END_DATE_TIME=$(date --utc --date "8 days" '+%Y-%m-%dT%H:%MZ')
+  END_DATE_TIME=$(date \
+    --utc \
+    --date "${ARM_SAS_TOKEN_EXPIRATION_PERIOD-8 days}" '+%Y-%m-%dT%H:%MZ')
+
   ARM_SAS_TOKEN=$(az storage account generate-sas \
     --permissions cdlruwap \
     --account-name "${ARM_STORAGE_ACCOUNT_NAME?}" \

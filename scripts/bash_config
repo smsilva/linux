@@ -1,8 +1,8 @@
 export PATH=${HOME}/bin-${USER}:${PATH}
 export PATH=${PATH}:${HOME}/bin/go/bin
 export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
-export PATH=${PATH}:${HOME}/bin/apache-maven/bin
 export PATH=${PATH}:${HOME}/istio-1.11.2/bin
+export PATH=${PATH}:${HOME}/bin/apache-maven/bin
 
 if which today-fortune &> /dev/null; then
   today-fortune
@@ -52,3 +52,5 @@ fi
 #echo "SHLVL=${SHLVL}"
 #echo ${PATH} | tr ":" "\n" | sort
 
+export CHECKOV_VERSION=2.0.708
+# export CHECKOV_VERSION=2.0.1190

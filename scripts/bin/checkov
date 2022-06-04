@@ -1,16 +1,64 @@
-export TERRAFORM_OUTPUT_DIR="${HOME}/trash/terraform/output"
-export CHECKOV_VERSION="2.0.672"
+#!/bin/bash
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+  -s | --source )
+    shift; SOURCE_DIRECTORY=$1
+    ;;
+  -d | --destination )
+    shift; DESTINATION_DIRECTORY=$1
+    ;;
+  -b | --baseline )
+    shift; BASELINE_FILE_PATH=$1
+    ;;
+esac; shift; done
 
-# docker run --rm \
-#   -v ${TERRAFORM_OUTPUT_DIR?}:/tf \
-#   bridgecrew/checkov:${CHECKOV_VERSION?} \
-#   --file /tf/terraform.plan.json \
-#   --output junitxml \
-#   --baseline /tf/checkov.baseline.json
+if [[ "$1" == '--' ]]; then shift; fi
 
-docker run --rm \
-  -v ${TERRAFORM_OUTPUT_DIR?}:/tf \
-  bridgecrew/checkov:${CHECKOV_VERSION?} \
-  --file /tf/terraform.plan.json \
-  --baseline /tf/checkov.baseline.json
- 
+CHECKOV_VERSION="${CHECKOV_VERSION-2.0.708}"
+CHECKOV_IMAGE="bridgecrew/checkov:${CHECKOV_VERSION}"
+CHECKOV_REPORT_FILE_XML="${DESTINATION_DIRECTORY}/Checkov-Report.xml"
+CHECKOV_REPORT_FILE_TXT="${DESTINATION_DIRECTORY}/Checkov-Report.txt"
+
+mkdir -p "${DESTINATION_DIRECTORY}"
+
+echo "[INFO] SOURCE_DIRECTORY..............: ${SOURCE_DIRECTORY}"
+echo "[INFO] DESTINATION_DIRECTORY.........: ${DESTINATION_DIRECTORY}"
+
+if [ ! -f "${BASELINE_FILE_PATH}" ]; then
+  BASELINE_FILE_PATH="$(tempfile --suffix .json)"
+  
+  cat <<EOF > ${BASELINE_FILE_PATH}
+{
+  "failed_checks": []
+}
+EOF
+fi
+
+echo "[INFO] BASELINE_FILE_PATH............: ${BASELINE_FILE_PATH}"
+
+echo ""
+cat ${BASELINE_FILE_PATH}
+echo ""
+
+docker pull \
+  --quiet ${CHECKOV_IMAGE?} > /dev/null
+
+docker run \
+  --volume ${SOURCE_DIRECTORY?}:/source_directory_under_analisys \
+  --volume ${BASELINE_FILE_PATH}:/baseline/file.json \
+  ${CHECKOV_IMAGE?} \
+    --directory /source_directory_under_analisys \
+    --baseline /baseline/file.json \
+    --output junitxml > "${CHECKOV_REPORT_FILE_XML}"
+
+docker run \
+  --volume ${SOURCE_DIRECTORY?}:/source_directory_under_analisys \
+  --volume ${BASELINE_FILE_PATH}:/baseline/file.json \
+  ${CHECKOV_IMAGE?} \
+    --directory /source_directory_under_analisys \
+    --baseline /baseline/file.json \
+| tee "${CHECKOV_REPORT_FILE_TXT}"

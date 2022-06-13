@@ -10,14 +10,28 @@ if [[ $? -eq 0 ]]; then
   AKS_CLUSTER_NAME=$(awk '{ print $1 }' <<< ${LINE})
   AKS_CLUSTER_RESOURCE_GROUP_NAME=$(awk '{ print $2 }' <<< ${LINE})
 
-  echo ""
-  echo "${AKS_CLUSTER_NAME}/${AKS_CLUSTER_RESOURCE_GROUP_NAME}"
+  echo "name/resource-group-name: ${AKS_CLUSTER_NAME} ${AKS_CLUSTER_RESOURCE_GROUP_NAME}"
   echo ""
 
   az aks get-credentials \
     --name ${AKS_CLUSTER_NAME?} \
     --resource-group ${AKS_CLUSTER_RESOURCE_GROUP_NAME?} \
-    --admin
+    --overwrite-existing \
+    --admin 2> /dev/null
 
-  kubectl config get-contexts
+  RESULT=$?
+
+  if [ ${RESULT} -ne 0 ]; then
+    az aks get-credentials \
+      --name ${AKS_CLUSTER_NAME?} \
+      --resource-group ${AKS_CLUSTER_RESOURCE_GROUP_NAME?} \
+      --overwrite-existing
+
+    RESULT=$?
+  fi
+
+  if [ ${RESULT} -eq 0 ]; then
+    echo ""
+    kubectl config get-contexts
+  fi
 fi

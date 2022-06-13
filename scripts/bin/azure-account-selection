@@ -49,7 +49,7 @@ change_active_subscription() {
   source arm_sas_token_file
 }
 
-if [[ -z "${AZURE_SUBSCRIPTION_NAME}" ]]; then
+if [ -z "${AZURE_SUBSCRIPTION_NAME}" ]; then
   export AZURE_SUBSCRIPTION_NAME="$(az account list \
     --query [].name \
     --output tsv | fzf)"

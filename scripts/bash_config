@@ -24,7 +24,7 @@ fi
 
 export CREDENTIALS_DIRECTORY="${HOME}/.credentials"
 
-mkdir -p "${CREDENTIALS_DIRECTORY}"
+mkdir -p "${CREDENTIALS_DIRECTORY}/azure"
 
 if [ -e "${CREDENTIALS_DIRECTORY}/azure/current" ]; then
   if [ ! -e "${CREDENTIALS_DIRECTORY}/bash_azure" ]; then
@@ -39,7 +39,11 @@ if [ -n "${CREDENTIALS_DIRECTORY}" ]; then
     fi
   done <<< "$(find -L "${CREDENTIALS_DIRECTORY}" -maxdepth 1 -type f | sort)"
 
-  source arm_sas_token_file
+  ARM_SAS_TOKEN_FILE=$(arm_sas_token_file)
+
+  if [ -f "${ARM_SAS_TOKEN_FILE}" ]; then
+    source "${ARM_SAS_TOKEN_FILE}"
+  fi
 fi
 
 if which kubectl &> /dev/null; then

@@ -10,11 +10,13 @@ if [ -e "${ARM_SAS_TOKEN_FILE}" ]; then
   export ARM_SAS_TOKEN_EXPIRATION="${ARM_SAS_TOKEN_FILE_INFORMATION_DATE_TIME} ${ARM_SAS_TOKEN_FILE_INFORMATION_DATE_TIMEZONE}"
 fi
 
-if ! [ -e "${ARM_SAS_TOKEN_FILE}" ]; then
+if [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
   arm_sas_token_new > "${ARM_SAS_TOKEN_FILE}"
 fi
 
-export ARM_SAS_TOKEN=$(cat ${ARM_SAS_TOKEN_FILE})
+if [ -e "${ARM_SAS_TOKEN_FILE}" ]; then
+  export ARM_SAS_TOKEN=$(cat ${ARM_SAS_TOKEN_FILE})
+fi
 
 if [ -n "${ARM_SAS_TOKEN}" ]; then
   export ARM_SAS_TOKEN_EXPIRATION="$(echo "${ARM_SAS_TOKEN:0:16}" | tr -d "\"se=" | tr "T" " "):00"

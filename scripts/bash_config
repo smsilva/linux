@@ -3,6 +3,7 @@ export PATH=${PATH}:${HOME}/bin/go/bin
 export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
 export PATH=${PATH}:${HOME}/istio-1.11.2/bin
 export PATH=${PATH}:${HOME}/bin/apache-maven/bin
+export DEBUG=2
 
 if which today-fortune &> /dev/null; then
   today-fortune

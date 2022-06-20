@@ -1,6 +1,6 @@
 #!/bin/bash
 if ! which mvn > /dev/null; then
-  MAVEN_VERSION="3.8.4"
+  MAVEN_VERSION="3.8.6"
   LOCAL_INSTALL_DIRECTORY="${HOME}/bin/apache-maven" && mkdir -p "${LOCAL_INSTALL_DIRECTORY}"
   LOCAL_DIRECTORY="${HOME}/.install/maven" && mkdir -p "${LOCAL_DIRECTORY}"
   LOCAL_ZIP_FILE="${LOCAL_DIRECTORY}/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
@@ -15,7 +15,7 @@ if ! which mvn > /dev/null; then
     wget -O "${LOCAL_ZIP_FILE?}" https://downloads.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
   fi
 
-  tar xzvf "${LOCAL_ZIP_FILE?}" --directory="${LOCAL_DIRECTORY}"
+  tar xzf "${LOCAL_ZIP_FILE?}" --directory="${LOCAL_DIRECTORY}"
 
   rm -rf "${LOCAL_INSTALL_DIRECTORY?}" > /dev/null
   

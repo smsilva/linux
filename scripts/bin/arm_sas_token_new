@@ -24,5 +24,7 @@ if [ -n "${ARM_STORAGE_ACCOUNT_NAME}" ]; then
       --only-show-errors)
 
     echo "${ARM_SAS_TOKEN}"
+  else
+    echo "STORAGE_ACCOUNT_NOT_FOUND: ${ARM_STORAGE_ACCOUNT_NAME}"
   fi
 fi

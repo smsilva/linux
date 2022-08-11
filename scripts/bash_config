@@ -1,4 +1,4 @@
-export PATH=${HOME}/bin-${USER}:${PATH}
+export PATH=${HOME}/bin-${USER##*\\}:${PATH}
 export PATH=${PATH}:${HOME}/bin/go/bin
 export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
 export PATH=${PATH}:${HOME}/istio-1.11.2/bin

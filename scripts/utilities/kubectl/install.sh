@@ -3,7 +3,7 @@
 if ! which kubectl > /dev/null; then
   # Update and Get Google Cloud Apt Key
   sudo apt-get update -qq && \
-  sudo curl --silent "https://packages.cloud.google.com/apt/doc/apt-key.gpg" | sudo apt-key add -
+  wget -qO- "https://packages.cloud.google.com/apt/doc/apt-key.gpg" | sudo tee /etc/apt/trusted.gpg.d/google-cloud.gpg
   
 # Add Kubernetes Repository
 cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list

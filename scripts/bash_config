@@ -29,6 +29,10 @@ if which kubectl &> /dev/null; then
   complete -F __start_kubectl k
 fi
 
+if which kubectl &> /dev/null; then
+  export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
+fi
+
 #echo "SHLVL=${SHLVL}"
 #echo ${PATH} | tr ":" "\n" | sort
 

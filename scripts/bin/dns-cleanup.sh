@@ -2,7 +2,7 @@
 ENVIRONMENT_ID="$1"
 DNS_ZONE_NAME="sandbox.wasp.silvios.me"
 DNS_ZONE_RESOURCE_GROUP_NAME="wasp-foundation"
-DNS_ZONE_RECORDS_FILE="$(tempfile)"
+DNS_ZONE_RECORDS_FILE="$(mktemp)"
 
 az network dns record-set a list \
   --resource-group "${DNS_ZONE_RESOURCE_GROUP_NAME?}" \

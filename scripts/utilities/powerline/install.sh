@@ -20,7 +20,7 @@ EOF
 # Set the VS Code Terminal Font
 VSCODE_USER_SETTINGS_FILE="${HOME}/.config/Code/User/settings.json"
 FONT_FILE_NAME="Menlo for Powerline.ttf" && \
-JQ_EXPRESSION=$(printf '."terminal.integrated.fontFamily" = "%s"' "${FONT_FILE_NAME%.ttf}") && \
+JQ_EXPRESSION=$(printf '."terminal.integrated.fontFamily" = "%s"' "'monospace', 'PowerlineSymbols'") && \
 echo "" && \
 echo "VSCODE_USER_SETTINGS_FILE...: ${VSCODE_USER_SETTINGS_FILE}" && \
 echo "FONT_FILE_NAME..............: ${FONT_FILE_NAME}" && \

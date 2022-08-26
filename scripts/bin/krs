@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-KUBECONFIG_FILE="${HOME}/.kube/config_${USER}"
+KUBECONFIG_FILE="${HOME}/.kube/config_${USER##*\\}"
 
 if ! [ -e "${KUBECONFIG_FILE}" ]; then
   echo "Kube config file doesn't exists"

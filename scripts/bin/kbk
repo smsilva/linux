@@ -15,8 +15,15 @@ if ! [ -e "${HOME}/.kube/config" ]; then
   exit 1
 fi
 
-cp ${HOME}/.kube/config ${HOME}/.kube/config_${USER}
+cp ${HOME}/.kube/config ${HOME}/.kube/config_${USER##*\\}
 
-rm ${HOME}/.kube/config
+cat <<EOF > ${HOME}/.kube/config
+apiVersion: v1
+kind: Config
+clusters: []
+users: []
+contexts: []
+preferences: {}
+EOF
 
 kgc

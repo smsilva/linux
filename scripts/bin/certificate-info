@@ -1,0 +1,16 @@
+#!/bin/bash
+
+REMOTE_HOST_NAME="$1"
+
+echo \
+| openssl s_client \
+    -servername "${REMOTE_HOST_NAME?}" \
+    -connect "${REMOTE_HOST_NAME?}":443 2>/dev/null \
+| openssl x509 \
+    -noout \
+    -subject \
+    -issuer \
+    -ext subjectAltName \
+    -nameopt lname \
+    -nameopt sep_multiline \
+    -dates

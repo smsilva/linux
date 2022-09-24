@@ -14,6 +14,11 @@ az network dns record-set cname list \
   --zone-name ${DNS_ZONE_NAME?} \
   --output table >> ${DNS_ZONE_RECORDS_FILE?}
 
+az network dns record-set cname list \
+  --resource-group "${DNS_ZONE_RESOURCE_GROUP_NAME?}" \
+  --zone-name ${DNS_ZONE_NAME?} \
+  --output table >> ${DNS_ZONE_RECORDS_FILE?}
+
 az network dns record-set txt list \
   --resource-group "${DNS_ZONE_RESOURCE_GROUP_NAME?}" \
   --zone-name ${DNS_ZONE_NAME?} \

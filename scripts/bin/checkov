@@ -4,8 +4,8 @@ show_usage() {
 Execute analysis:
 
   checkov \\
-    --source      my-repo/src \\
-    --baseline    my-repo/src/.checkov.baseline \\
+    --source      \${PWD}/my-repo/src \\
+    --baseline    \${PWD}/my-repo/src/.checkov.baseline \\
     --destination "\${PWD}"
 
 Create baseline file:

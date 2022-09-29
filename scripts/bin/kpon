@@ -1,32 +1,45 @@
 #!/bin/bash
 NODE_NAME_REGEX="${1-.*}"
 
-ALL_PODS_FILE_NAME=$(mktemp)
+PODS_FILE_NAME=$(mktemp)
 NODES_FILE_NAME=$(mktemp)
-NODES_FILE_NAME_REVERSE="${NODES_FILE_NAME}.reverse"
+NODES_FILE_NAME_SORTED="${NODES_FILE_NAME}.sorted"
 
-kubectl get pods \
-  --output wide \
-  --all-namespaces \
-| grep -E "${NODE_NAME_REGEX}" > "${ALL_PODS_FILE_NAME?}"
+list_pods_from_all_namespaces() {
+  kubectl get pods \
+    --output wide \
+    --all-namespaces \
+  | grep "Running" \
+  | grep -E "${NODE_NAME_REGEX}"
+}
 
-kubectl get nodes \
-  --output jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
-| grep -E "${NODE_NAME_REGEX}" \
-| while read NODE_NAME; do
-  NODE_POD_COUNT=$(
-    grep ${NODE_NAME} "${ALL_PODS_FILE_NAME?}" \
-    | wc -l
-  )
+list_nodes() {
+  kubectl get nodes \
+    --output jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+| grep -E "${NODE_NAME_REGEX}"
+}
+
+count_pods() {
+  NODE_NAME=${1?}
+
+  POD_COUNT=$(grep ${NODE_NAME} "${PODS_FILE_NAME?}" | wc -l)
   
-  echo ${NODE_POD_COUNT} ${NODE_NAME} >> ${NODES_FILE_NAME}
-done
+  printf "%03g" ${POD_COUNT}
+}
 
-sort --reverse ${NODES_FILE_NAME} > "${NODES_FILE_NAME_REVERSE}"
+list_pods_from_all_namespaces > "${PODS_FILE_NAME?}"
+
+list_nodes | while read NODE_NAME; do
+  NODE_POD_COUNT=$(count_pods ${NODE_NAME})
+  
+  echo ${NODE_POD_COUNT} ${NODE_NAME}
+done \
+| sort > "${NODES_FILE_NAME_SORTED}"
 
 HEADER_LINE_1="NodeName                             PodCount "
 HEADER_LINE_2="-----------------------------------  ---------"
 FOOTER_LINE_1="Total                                %s"
+
 (
 echo "${HEADER_LINE_1}"
 echo "${HEADER_LINE_2}"
@@ -35,15 +48,17 @@ POD_COUNT_TOTAL=0
 
 while read LINE; do
   NODE_NAME=$(awk '{ print $2 }' <<< "${LINE}")
-  POD_COUNT=$(awk '{ print $1 }' <<< "${LINE}")
-  POD_COUNT_TOTAL=$((${POD_COUNT_TOTAL} + ${POD_COUNT}))
+  
+  POD_COUNT_WITH_LEADING_ZEROS=$(awk '{ print $1 }' <<< "${LINE}")
+  POD_COUNT_WITHOUT_LEADING_ZEROS="$((10#${POD_COUNT_WITH_LEADING_ZEROS-0}))"
+  
+  POD_COUNT_TOTAL=$((${POD_COUNT_TOTAL} + ${POD_COUNT_WITHOUT_LEADING_ZEROS}))
 
-  echo "${NODE_NAME} ${POD_COUNT}"
-done < ${NODES_FILE_NAME_REVERSE}
+  echo "${NODE_NAME} ${POD_COUNT_WITHOUT_LEADING_ZEROS}"
+done < ${NODES_FILE_NAME_SORTED}
 
 echo "${HEADER_LINE_2}"
 
 printf "${FOOTER_LINE_1}" "${POD_COUNT_TOTAL}"
-
 ) \
 | column --table

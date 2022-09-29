@@ -1,0 +1,49 @@
+#!/bin/bash
+NODE_NAME_REGEX="${1-.*}"
+
+ALL_PODS_FILE_NAME=$(mktemp)
+NODES_FILE_NAME=$(mktemp)
+NODES_FILE_NAME_REVERSE="${NODES_FILE_NAME}.reverse"
+
+kubectl get pods \
+  --output wide \
+  --all-namespaces \
+| grep -E "${NODE_NAME_REGEX}" > "${ALL_PODS_FILE_NAME?}"
+
+kubectl get nodes \
+  --output jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+| grep -E "${NODE_NAME_REGEX}" \
+| while read NODE_NAME; do
+  NODE_POD_COUNT=$(
+    grep ${NODE_NAME} "${ALL_PODS_FILE_NAME?}" \
+    | wc -l
+  )
+  
+  echo ${NODE_POD_COUNT} ${NODE_NAME} >> ${NODES_FILE_NAME}
+done
+
+sort --reverse ${NODES_FILE_NAME} > "${NODES_FILE_NAME_REVERSE}"
+
+HEADER_LINE_1="NodeName                             PodCount "
+HEADER_LINE_2="-----------------------------------  ---------"
+FOOTER_LINE_1="Total                                %s"
+(
+echo "${HEADER_LINE_1}"
+echo "${HEADER_LINE_2}"
+
+POD_COUNT_TOTAL=0
+
+while read LINE; do
+  NODE_NAME=$(awk '{ print $2 }' <<< "${LINE}")
+  POD_COUNT=$(awk '{ print $1 }' <<< "${LINE}")
+  POD_COUNT_TOTAL=$((${POD_COUNT_TOTAL} + ${POD_COUNT}))
+
+  echo "${NODE_NAME} ${POD_COUNT}"
+done < ${NODES_FILE_NAME_REVERSE}
+
+echo "${HEADER_LINE_2}"
+
+printf "${FOOTER_LINE_1}" "${POD_COUNT_TOTAL}"
+
+) \
+| column --table

@@ -71,6 +71,7 @@ alias kgp='kubectl get pods -o wide'
 alias ki='kubectl -n istio-system'
 alias ko='kubectl -n istio-operator'
 alias kpo='kubectl get pods -o wide'
+alias kpoa='kubectl get pods -o wide -A'
 alias ks='kubectl -n kube-system'
 alias l1="ls -1 --color=auto"
 alias la="ls -la"

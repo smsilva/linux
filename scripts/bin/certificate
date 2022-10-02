@@ -1,7 +1,27 @@
 #!/bin/bash
-CERTBOT_COMMAND="${HOME}/.certbot.bash"
+CERTBOT_COMMAND_FILE="${HOME}/.certbot.bash"
+CERTBOT_NOTIFICATION_EMAIL="smsilva@gmail.com"
 
-CERTBOT_ACME_SERVER="${CERTBOT_ACME_SERVER-https://acme-staging-v02.api.letsencrypt.org/directory}"
+show_usage() {
+cat <<EOF
+Usage:
+
+  certificate \\
+    --domain sandbox.wasp.silvios.me \\
+    --cname apps \\
+    --cname services \\
+    --cname demo
+
+  certificate \\
+    --domain sandbox.wasp.silvios.me \\
+    --cname "*"
+
+  certificate \\
+    --domain sandbox.wasp.silvios.me \\
+    --cname "*" \\
+    --staging
+EOF
+}
 
 CNAMES=""
 
@@ -10,63 +30,70 @@ while [[ -n "${1}" ]]; do case ${1} in
     DOMAIN=${2}
     shift;
     ;;
+
   --cname )
     CNAMES="${CNAMES} ${2}"
     shift;
     ;;
+
+  --staging )
+    SERVER="acme-staging-v02"
+    ;;
 esac; shift; done
 if [[ "${1}" == '--' ]]; then shift; fi
 
+SERVER=${SERVER-acme-v02}
+CERTBOT_ACME_SERVER="${CERTBOT_ACME_SERVER-https://${SERVER?}.api.letsencrypt.org/directory}"
+
 if [ -z "${DOMAIN}" ] || [ -z "${DOMAIN}" ]; then
-  echo ""
-  echo "Usage:"
-  echo ""
-  echo "  certificate \\"
-  echo "    --domain silvios.me \\"
-  echo "    --cname apps \\"
-  echo "    --cname services \\"
-  echo "    --cname demo"
-  echo ""
+  show_usage
   exit 1
 fi
 
-# alias certbot='sudo certbot --work-dir "${PWD}" --logs-dir "${PWD}"'
+cat <<EOF > "${CERTBOT_COMMAND_FILE}"
+sudo certbot certonly \\
+  --manual \\
+  --preferred-challenges dns \\
+  --email "${CERTBOT_NOTIFICATION_EMAIL}" \\
+  --agree-tos \\
+  --server "${CERTBOT_ACME_SERVER}" \\
+  --work-dir "\${PWD}" \\
+  --logs-dir "\${PWD}" \\
+EOF
 
-echo -n "sudo certbot --server "${CERTBOT_ACME_SERVER}" --work-dir \"\${PWD}\" --logs-dir \"\${PWD}\" certonly --manual --preferred-challenges dns -d ${DOMAIN}" > "${CERTBOT_COMMAND}"
-LINE=1
 while read -r CNAME; do
   if [ -n "${CNAME}" ]; then
-    echo -n " -d ${CNAME}.${DOMAIN}" >> "${CERTBOT_COMMAND}"
+    echo "  -d ${CNAME}.${DOMAIN}" >> "${CERTBOT_COMMAND_FILE}"
   fi
 done <<< "$(echo "${CNAMES}" | tr " " "\n")"
 
-echo "" >> "${CERTBOT_COMMAND}"
-
-sed -i -e 's/ --/ \\\n --/g' -e 's/ -d/ \\\n -d/g' "${CERTBOT_COMMAND}"
+echo "" >> "${CERTBOT_COMMAND_FILE}"
 
 echo ""
 
-cat "${CERTBOT_COMMAND}"
+cat "${CERTBOT_COMMAND_FILE}"
+
+echo "${CERTBOT_COMMAND_FILE}"
+
+exit 0
 
 echo ""
 
-echo "${CERTBOT_COMMAND}"
+sh "${CERTBOT_COMMAND_FILE}"
 
-echo ""
+exit 0
 
-sh "${CERTBOT_COMMAND}"
+openssl pkcs12 \
+  -export \
+  -inkey "certificate.key.pem" \
+  -in    "fullchain.pem" \
+  -out   "certificate-combined.pfx"
 
-# sudo openssl pkcs12 \
-#   -export \
-#   -inkey "privkey.pem" \
-#   -in    "fullchain.pem" \
-#   -out   "certificate_combined.pfx"
+openssl pkcs12 \
+  -in "certificate-combined.pfx" \
+  -info
 
-# openssl pkcs12 \
-#   -in certificate_combined.pfx \
-#   -info
-
-# openssl x509 \
-#   -in cert.pem \
-#   -noout \
-#   -text
+openssl x509 \
+  -in "cert1.pem" \
+  -noout \
+  -text

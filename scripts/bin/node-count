@@ -1,0 +1,43 @@
+#!/bin/bash
+show_usage() {
+  cat <<EOF
+
+  node-count \\
+    --cidr 10.13.0.0/16 \\
+    --max-pods 120
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+
+  --cidr )
+    shift; CIDR=$1
+    ;;
+
+  --max-pods )
+    shift; MAX_PODS=$1
+    ;;
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [ -z "${CIDR}"     ] || \
+   [ -z "${MAX_PODS}" ]; then
+  echo "You must use ALL parameters."
+  show_usage
+  exit 1
+fi
+
+IP_COUNT=$(ips ${CIDR?})
+
+MAX_PODS=$(( ${MAX_PODS} + 1))
+
+NODE_COUNT=$(( ${IP_COUNT} / ${MAX_PODS}))
+
+echo ${NODE_COUNT}

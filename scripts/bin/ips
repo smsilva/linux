@@ -1,0 +1,10 @@
+#!/bin/bash
+CIDR=${1-10.0.0.0/16}
+
+IP_COUNT=$(
+  ipcalc ${CIDR} \
+  | grep "^Hosts.Net" \
+  | awk '{ print $2 }'
+)
+
+echo ${IP_COUNT}

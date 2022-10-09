@@ -4,6 +4,7 @@ CERTBOT_NOTIFICATION_EMAIL="smsilva@gmail.com"
 
 show_usage() {
 cat <<EOF
+
 Usage:
 
   certificate \\
@@ -20,6 +21,7 @@ Usage:
     --domain sandbox.wasp.silvios.me \\
     --cname "*" \\
     --staging
+
 EOF
 }
 

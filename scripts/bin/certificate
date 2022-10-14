@@ -69,9 +69,9 @@ certbot certonly \\
   --email "${CERTBOT_NOTIFICATION_EMAIL}" \\
   --no-eff-email \\
   --server "${CERTBOT_ACME_SERVER}" \\
-  --config-dir "\${PWD}" \\
-  --work-dir "\${PWD}" \\
-  --logs-dir "\${PWD}" \\
+  --config-dir "\${HOME}/certificates/config" \\
+  --work-dir "\${HOME}/certificates/work" \\
+  --logs-dir "\${HOME}/certificates/logs" \\
 EOF
 
 while read -r CNAME; do

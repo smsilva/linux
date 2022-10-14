@@ -7,21 +7,25 @@ cat <<EOF
 Usage:
 
   certificate \\
-    --email certificates@silvios.me \\
+    --email certificates@example.com \\
     --domain sandbox.wasp.silvios.me \\
     --cname apps \\
     --cname services \\
     --cname demo
 
   certificate \\
-    --email certificates@silvios.me \\
-    --domain sandbox.wasp.silvios.me \\
-    --cname "*"
-
-  certificate \\
-    --email certificates@silvios.me \\
+    --email certificates@example.com \\
     --domain sandbox.wasp.silvios.me \\
     --cname "*" \\
+    --cname "*.apps" \\
+    --cname "*.services"
+
+  certificate \\
+    --email certificates@example.com \\
+    --domain sandbox.wasp.silvios.me \\
+    --cname "*" \\
+    --cname "*.apps" \\
+    --cname "*.services" \\
     --staging
 
 EOF
@@ -29,27 +33,30 @@ EOF
 
 CNAMES=""
 
-while [[ -n "${1}" ]]; do case ${1} in
-  --domain )
-    DOMAIN=${2}
-    shift;
-    ;;
+while [[ -n "${1}" ]]; do
+  case ${1} in
+    --domain )
+      shift; DOMAIN=${1}
+      ;;
 
-  --email )
-    CERTBOT_NOTIFICATION_EMAIL=${2}
-    shift;
-    ;;
+    --email )
+      shift; CERTBOT_NOTIFICATION_EMAIL=${1}
+      ;;
 
-  --cname )
-    CNAMES="${CNAMES} ${2}"
-    shift;
-    ;;
+    --cname )
+      shift; CNAMES="${CNAMES} ${1}"
+      ;;
 
-  --staging )
-    SERVER="acme-staging-v02"
-    ;;
-esac; shift; done
-if [[ "${1}" == '--' ]]; then shift; fi
+    --staging )
+      SERVER="acme-staging-v02"
+      ;;
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then
+  shift
+fi
 
 SERVER=${SERVER-acme-v02}
 CERTBOT_ACME_SERVER="${CERTBOT_ACME_SERVER-https://${SERVER?}.api.letsencrypt.org/directory}"
@@ -69,16 +76,19 @@ certbot certonly \\
   --email "${CERTBOT_NOTIFICATION_EMAIL}" \\
   --no-eff-email \\
   --server "${CERTBOT_ACME_SERVER}" \\
-  --config-dir "\${HOME}/certificates/config" \\
-  --work-dir "\${HOME}/certificates/work" \\
-  --logs-dir "\${HOME}/certificates/logs" \\
 EOF
 
 while read -r CNAME; do
   if [ -n "${CNAME}" ]; then
-    echo "  -d ${CNAME}.${DOMAIN}" >> "${CERTBOT_COMMAND_FILE}"
+    echo "  -d ${CNAME}.${DOMAIN}" \\>> "${CERTBOT_COMMAND_FILE}"
   fi
 done <<< "$(echo "${CNAMES}" | tr " " "\n")"
+
+cat <<EOF >> "${CERTBOT_COMMAND_FILE}"
+  --config-dir "\${HOME}/certificates/config" \\
+  --work-dir "\${HOME}/certificates/work" \\
+  --logs-dir "\${HOME}/certificates/logs"
+EOF
 
 echo "" >> "${CERTBOT_COMMAND_FILE}"
 
@@ -102,3 +112,18 @@ openssl x509 \
   -in "cert1.pem" \
   -noout \
   -text
+
+DOMAIN="httpbin.org"
+
+echo \
+| openssl s_client \
+  -connect "${DOMAIN?}:443" 2>&1 \
+| sed --quiet '/Certificate chain/, /---/p' \
+| grep -E "^ [0-9].*"
+
+echo \
+| openssl s_client \
+  -connect "${DOMAIN?}:443" 2>&1 \
+| openssl x509 \
+    -noout \
+    -text

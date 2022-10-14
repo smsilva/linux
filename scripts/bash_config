@@ -3,9 +3,6 @@ export PATH=${PATH}:${HOME}/bin/go/bin
 export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
 export PATH=${PATH}:${HOME}/bin/apache-maven/bin
 
-export ISTIO_VERSION=1.15.0
-export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
-
 if which today-fortune &> /dev/null; then
   today-fortune
 fi
@@ -65,3 +62,6 @@ if [ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]; then
     export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"
   fi
 fi
+
+export ISTIO_VERSION=1.15.2
+export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}

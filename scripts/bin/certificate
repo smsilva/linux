@@ -1,6 +1,5 @@
 #!/bin/bash
 CERTBOT_COMMAND_FILE="${HOME}/.certbot.bash"
-CERTBOT_NOTIFICATION_EMAIL="smsilva@gmail.com"
 
 show_usage() {
 cat <<EOF
@@ -8,16 +7,19 @@ cat <<EOF
 Usage:
 
   certificate \\
+    --email certificates@silvios.me \\
     --domain sandbox.wasp.silvios.me \\
     --cname apps \\
     --cname services \\
     --cname demo
 
   certificate \\
+    --email certificates@silvios.me \\
     --domain sandbox.wasp.silvios.me \\
     --cname "*"
 
   certificate \\
+    --email certificates@silvios.me \\
     --domain sandbox.wasp.silvios.me \\
     --cname "*" \\
     --staging
@@ -30,6 +32,11 @@ CNAMES=""
 while [[ -n "${1}" ]]; do case ${1} in
   --domain )
     DOMAIN=${2}
+    shift;
+    ;;
+
+  --email )
+    CERTBOT_NOTIFICATION_EMAIL=${2}
     shift;
     ;;
 
@@ -47,18 +54,22 @@ if [[ "${1}" == '--' ]]; then shift; fi
 SERVER=${SERVER-acme-v02}
 CERTBOT_ACME_SERVER="${CERTBOT_ACME_SERVER-https://${SERVER?}.api.letsencrypt.org/directory}"
 
-if [ -z "${DOMAIN}" ] || [ -z "${DOMAIN}" ]; then
+if [ -z "${DOMAIN}"                     ] || \
+   [ -z "${DOMAIN}"                     ] || \
+   [ -z "${CERTBOT_NOTIFICATION_EMAIL}" ]; then
   show_usage
   exit 1
 fi
 
 cat <<EOF > "${CERTBOT_COMMAND_FILE}"
-sudo certbot certonly \\
+certbot certonly \\
   --manual \\
   --preferred-challenges dns \\
-  --email "${CERTBOT_NOTIFICATION_EMAIL}" \\
   --agree-tos \\
+  --email "${CERTBOT_NOTIFICATION_EMAIL}" \\
+  --no-eff-email \\
   --server "${CERTBOT_ACME_SERVER}" \\
+  --config-dir "\${PWD}" \\
   --work-dir "\${PWD}" \\
   --logs-dir "\${PWD}" \\
 EOF
@@ -74,14 +85,6 @@ echo "" >> "${CERTBOT_COMMAND_FILE}"
 echo ""
 
 cat "${CERTBOT_COMMAND_FILE}"
-
-echo "${CERTBOT_COMMAND_FILE}"
-
-exit 0
-
-echo ""
-
-sh "${CERTBOT_COMMAND_FILE}"
 
 exit 0
 

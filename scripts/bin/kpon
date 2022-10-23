@@ -61,4 +61,4 @@ echo "${HEADER_LINE_2}"
 
 printf "${FOOTER_LINE_1}" "${POD_COUNT_TOTAL}"
 ) \
-| column --table
+| column -t

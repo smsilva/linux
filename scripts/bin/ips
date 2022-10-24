@@ -7,4 +7,6 @@ IP_COUNT=$(
   | awk '{ print $2 }'
 )
 
-echo $((${IP_COUNT} -3 ))
+# Azure: the first three IP addresses in a subnet are reserved for management operations
+# https://learn.microsoft.com/en-us/azure/aks/azure-cni-overlay#ip-address-planning
+echo $((${IP_COUNT} -3))

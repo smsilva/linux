@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Reference: https://docs.microsoft.com/en-us/azure/aks/load-balancer-standard#requirements-for-customizing-allocated-outbound-ports-and-idle-timeout
+
+show_usage() {
+  cat <<EOF
+
+  aks-outbound-ips-show \\
+    --cluster-name aks-cluster-example \\
+    --resource-group aks-cluster-example
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+
+  --cluster-name )
+    shift; CLUSTER_NAME=$1
+    ;;
+
+  --resource-group )
+    shift; RESOURCE_GROUP=$1
+    ;;
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [ -z "${CLUSTER_NAME}"   ] || \
+   [ -z "${RESOURCE_GROUP}" ]; then
+  echo "You must use ALL parameters."
+  show_usage
+  exit 1
+fi
+
+COLUMN_LIST_MAPPING="{\
+AKS_NETWORKPROFILE_LOADBALANCERPROFILE_MANAGEDOUTBOUNDIPS_COUNT: .managedOutboundIPs.count,\
+AKS_NETWORKPROFILE_LOADBALANCERPROFILE_ALLOCATEDOUTBOUNDPORTS: .allocatedOutboundPorts\
+}"
+
+JQ_COMMAND=$(printf '%s | to_entries | map("export \(.key)=\(.value|tostring)") | .[]' "${COLUMN_LIST_MAPPING}")
+
+az aks show \
+  --name "${CLUSTER_NAME}" \
+  --resource-group "${RESOURCE_GROUP}" \
+  --output json \
+  --query 'networkProfile.loadBalancerProfile' \
+| jq -r "${JQ_COMMAND}"

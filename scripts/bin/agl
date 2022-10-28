@@ -8,7 +8,7 @@ az_group_list() {
   
   az group list \
     --output table \
-  | grep -E "Name|^----|${LOCAL_EXPRESSION}"
+  | egrep "Name|^----|${LOCAL_EXPRESSION}"
 }
 
 if [ -n "${EXPRESSION}" ]; then

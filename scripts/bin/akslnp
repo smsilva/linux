@@ -1,0 +1,24 @@
+#!/bin/bash
+FILTER_PARAMETER="${1}"
+
+LINE=$(az aks list \
+  --output table \
+| sed '1,2d' \
+| grep -E "Name|-----|${FILTER_PARAMETER}" \
+| fzf)
+
+if [ -z "${LINE}" ]; then
+  exit 1
+fi
+
+AKS_CLUSTER_NAME=$(                awk '{ print $1 }' <<< "${LINE}")
+AKS_CLUSTER_RESOURCE_GROUP_NAME=$( awk '{ print $3 }' <<< "${LINE}")
+
+echo ""
+echo "${AKS_CLUSTER_NAME?}"
+echo ""
+
+az aks nodepool list \
+  --cluster-name ${AKS_CLUSTER_NAME?} \
+  --resource-group ${AKS_CLUSTER_RESOURCE_GROUP_NAME?} \
+  --output table

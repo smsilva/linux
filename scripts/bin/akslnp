@@ -1,11 +1,26 @@
 #!/bin/bash
 FILTER_PARAMETER="${1}"
 
-LINE=$(az aks list \
+DATA_FILE=$(mktemp)
+
+az aks list \
   --output table \
 | sed '1,2d' \
-| grep -E "Name|-----|${FILTER_PARAMETER}" \
-| fzf)
+| egrep "${FILTER_PARAMETER}" > "${DATA_FILE}"
+
+LINE_COUNT=$(cat ${DATA_FILE} | wc -l)
+
+if [ "${LINE_COUNT}" == 0 ]; then
+  exit 1
+fi
+
+echo "LINE_COUNT.: ${LINE_COUNT}"
+
+if [ "${LINE_COUNT}" == 1 ]; then
+  LINE=$(cat ${DATA_FILE})
+else
+  LINE=$(cat ${DATA_FILE} | fzf)
+fi
 
 if [ -z "${LINE}" ]; then
   exit 1

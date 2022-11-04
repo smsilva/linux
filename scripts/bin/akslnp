@@ -14,8 +14,6 @@ if [ "${LINE_COUNT}" == 0 ]; then
   exit 1
 fi
 
-echo "LINE_COUNT.: ${LINE_COUNT}"
-
 if [ "${LINE_COUNT}" == 1 ]; then
   LINE=$(cat ${DATA_FILE})
 else

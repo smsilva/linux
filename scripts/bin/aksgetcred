@@ -3,8 +3,27 @@ clear
 
 OPTIONAL_NAME_PARAMETER=$1
 
-LINE=$(az aks list \
-  --output table | sed 1,2d | awk '{ print $1,$3,$2 }' | grep -E "${OPTIONAL_NAME_PARAMETER}.*" | sort -u | column -t | fzf)
+RESULT_FILE=$(mktemp)
+
+az aks list \
+  --output table \
+| sed 1,2d \
+| awk '{ print $1,$3,$2 }' \
+| egrep "${OPTIONAL_NAME_PARAMETER}.*" \
+| sort -u \
+| column -t > "${RESULT_FILE}"
+
+LINES=$(cat "${RESULT_FILE}" | wc -l)
+
+if [ ${LINES} -eq 0 ]; then
+  exit 1
+fi
+
+if [ ${LINES} -eq 1 ]; then
+  LINE=$(cat "${RESULT_FILE}")
+else
+  LINE=$(cat "${RESULT_FILE}" | fzf)
+fi
 
 if [[ $? -eq 0 ]]; then
   AKS_CLUSTER_NAME=$(awk '{ print $1 }' <<< ${LINE})

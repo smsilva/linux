@@ -3,4 +3,4 @@ FILTER_PARAMETER="${1}"
 
 az aks list \
   --output table \
-| grep -E "Name|-----|${FILTER_PARAMETER}"
+| egrep "Name|-----|${FILTER_PARAMETER}"

@@ -9,17 +9,17 @@ list_pods_from_all_namespaces() {
   kubectl get pods \
     --output wide \
     --all-namespaces \
-  | grep "Running" \
-  | grep -E "${NODE_NAME_REGEX}"
+  | egrep "Running" \
+  | egrep "${NODE_NAME_REGEX}"
 }
 
 list_nodes() {
   kubectl get nodes \
     --output jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
-| grep -E "${NODE_NAME_REGEX}"
+| egrep "${NODE_NAME_REGEX}"
 }
 
-count_pods() {
+pod_count() {
   NODE_NAME=${1?}
 
   POD_COUNT=$(grep ${NODE_NAME} "${PODS_FILE_NAME?}" | wc -l)
@@ -30,7 +30,7 @@ count_pods() {
 list_pods_from_all_namespaces > "${PODS_FILE_NAME?}"
 
 list_nodes | while read NODE_NAME; do
-  NODE_POD_COUNT=$(count_pods ${NODE_NAME})
+  NODE_POD_COUNT=$(pod_count ${NODE_NAME})
   
   echo ${NODE_POD_COUNT} ${NODE_NAME}
 done \

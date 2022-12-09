@@ -12,6 +12,7 @@ sudo apt-get install --yes -q \
   fortune \
   ipcalc \
   jq \
+  nmap \
   powerline \
   powerline-gitstatus \
   tmux \

@@ -1,0 +1,23 @@
+#!/bin/bash
+MONGODB_HOST="${1-$MONGODB_HOST}"
+
+export IP_ADDRESS_LIST="$(mktemp)"
+
+nslookup -type=SRV _mongodb._tcp.${MONGODB_HOST?} \
+| egrep "^_mongodb._tcp." \
+| awk '{ print $7 }' \
+| while read -r LINE; do
+  SERVER_NAME=${LINE}
+  IP_ADDRESS=$(dig +short ${SERVER_NAME?} | tail -1)
+
+  printf "%s " "${SERVER_NAME}"
+  echo "${IP_ADDRESS}"
+
+  if [[ -s ${IP_ADDRESS_LIST} ]]; then
+    echo "$(cat ${IP_ADDRESS_LIST})|${IP_ADDRESS}" > ${IP_ADDRESS_LIST}
+  else
+    echo "${IP_ADDRESS}" > ${IP_ADDRESS_LIST} 
+  fi
+done
+
+echo "tcpdump -r network.pcap | egrep \"$(cat ${IP_ADDRESS_LIST})\""

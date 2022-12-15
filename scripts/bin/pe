@@ -1,0 +1,4 @@
+#!/bin/bash
+REGEX="${1}"
+
+printenv | egrep "${REGEX}"

@@ -1,0 +1,12 @@
+#!/bin/bash
+(
+  echo "NodeName                            CandidateToDelete  ScheduledToDelete "
+  echo "----------------------------------- ------------------ ------------------"
+
+  kubectl get nodes \
+    --output jsonpath='{range .items[*]}{.metadata.name} {.spec.taints[?(@.key == "DeletionCandidateOfClusterAutoscaler")].key} {.spec.taints[?(@.key == "ToBeDeletedByClusterAutoscaler")].key}{"\n"}{end}' \
+  | sed 's/DeletionCandidateOfClusterAutoscaler/Yes/g' \
+  | sed 's/ToBeDeletedByClusterAutoscaler/Yes/g' \
+  | grep 'Yes'
+  ) \
+  | column -t

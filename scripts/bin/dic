@@ -1,9 +1,13 @@
 #!/bin/bash
-while read -r DOCKER_IMAGE_ID; do
+docker images \
+| egrep -v '^kindest|^ubuntu' \
+| sed 1d \
+| awk '{ print $3 }' \
+| while read -r DOCKER_IMAGE_ID; do
   if [ -n "${DOCKER_IMAGE_ID}" ]; then
     docker rmi -f "${DOCKER_IMAGE_ID?}" &> /dev/null
   fi
-done <<< "$(docker images | grep -vE '^hashicorp' | sed 1d | awk '{ print $3 }')"
+done
 
 docker system prune -f &> /dev/null
 

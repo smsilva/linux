@@ -1,0 +1,21 @@
+#!/bin/bash
+DEPENDENCY_LIST_FILE=$(mktemp)
+
+find \
+  -mindepth 1 \
+  -maxdepth 1 \
+  -type d \
+| sort -u \
+| while read -r CHART_NAME; do
+  CHART_DEPENDENCY_LIST=$( 
+    helm dependency list ${CHART_NAME} 2> /dev/null \
+    | sed 1d \
+    | egrep "^[a-zA-Z]" \
+    | awk '{ print $1 }' \
+    | tr '\n' ';' \
+    | sed 's|;$||'
+  )
+
+  echo "${CHART_NAME}|${CHART_DEPENDENCY_LIST}|" \
+  | sed 's|./||'
+done

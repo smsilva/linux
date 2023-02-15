@@ -1,5 +1,5 @@
 #!/bin/bash
-export AZURE_SUBSCRIPTION_NAME="${1}"
+export AZURE_SUBSCRIPTION_NAME_INPUT="${1}"
 export AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
 export AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
 
@@ -51,16 +51,28 @@ change_active_subscription() {
   if [ -f "${ARM_SAS_TOKEN_FILE}" ]; then
     export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"
   fi
+
+  arm
 }
 
-if [ -z "${AZURE_SUBSCRIPTION_NAME}" ]; then
-  export AZURE_SUBSCRIPTION_NAME="$(az account list \
-    --query [].name \
-    --output tsv | fzf)"
+AZURE_ACCOUNT_LIST=$(mktemp)
 
-  if [ "$?" == "0" ]; then
-    change_active_subscription
+az account list \
+  --query [].name \
+  --output tsv > "${AZURE_ACCOUNT_LIST}"
+
+if [[ -z "${AZURE_SUBSCRIPTION_NAME_INPUT}" ]]; then
+  export AZURE_SUBSCRIPTION_NAME="$(cat ${AZURE_ACCOUNT_LIST?} | fzf)"
+else
+  RECORD_COUNT=$(egrep "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_ACCOUNT_LIST?} | wc -l)
+
+  if [[ ${RECORD_COUNT} -eq 1 ]]; then
+    export AZURE_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME_INPUT}"
   else
-    exit 1
+    export AZURE_SUBSCRIPTION_NAME="$(egrep "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_ACCOUNT_LIST?} | fzf)"
   fi
+fi
+
+if [[ -n "${AZURE_SUBSCRIPTION_NAME}" ]]; then
+  change_active_subscription
 fi

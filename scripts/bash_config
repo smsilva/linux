@@ -1,7 +1,9 @@
-export PATH=${HOME}/bin-${USER##*\\}:${PATH}
-export PATH=${PATH}:${HOME}/bin/go/bin
-export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
-export PATH=${PATH}:${HOME}/bin/apache-maven/bin
+BIN_USER_DIRECTORY="bin-${USER##*\\}"
+
+if ! grep --quiet $BIN_USER_DIRECTORY <<< "${PATH}"; then
+  export PATH=${HOME}/bin-${USER##*\\}:${PATH}
+  export PATH=${PATH}:${HOME}/git/terraform-packager/scripts
+fi
 
 if which today-fortune &> /dev/null; then
   today-fortune
@@ -31,9 +33,6 @@ fi
 if which kubectl &> /dev/null; then
   export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
 fi
-
-#echo "SHLVL=${SHLVL}"
-#echo ${PATH} | tr ":" "\n" | sort
 
 export CHECKOV_VERSION=2.0.708
 # export CHECKOV_VERSION=2.0.1190
@@ -65,3 +64,6 @@ fi
 
 export ISTIO_VERSION=1.16.1
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
+
+#echo "SHLVL=${SHLVL}"
+#echo ${PATH} | tr ":" "\n" | sort

@@ -1,6 +1,8 @@
 #!/bin/bash
-echo "Configuring /etc/sudoers.d/${USER} sudoer file"
+CURRENT_USERNAME=$1
 
-if [[ ! -e /etc/sudoers.d/${USER} ]]; then
-  echo "${USER} ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/${USER}
+echo "Configuring /etc/sudoers.d/${CURRENT_USERNAME} sudoer file"
+
+if [[ ! -e /etc/sudoers.d/${CURRENT_USERNAME} ]]; then
+  echo "${CURRENT_USERNAME} ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/${CURRENT_USERNAME}
 fi

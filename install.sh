@@ -1,6 +1,7 @@
 #!/bin/bash
 SCRIPTS_LOCATION="${PWD}/scripts"
-BIN_USER_LOCATION="${HOME}/bin-${USER}"
+BIN_USER_LOCATION="${HOME}/bin-${USER##*\\}"
+CURRENT_USERNAME="${USER##*\\}"
 
 chmod +x ${SCRIPTS_LOCATION}/*
 
@@ -20,12 +21,6 @@ if ! [ -e "${BASH_CONFIG_FILE}" ]; then
   ln --symbolic "${SCRIPTS_LOCATION}/bash_config" "${BASH_CONFIG_FILE}" &> /dev/null
 fi
 
-FIND_EXPRESSION='(^PATH*.)(.*bin-BIN_USER$)'
-
-if ! grep --quiet --extended-regexp "${FIND_EXPRESSION/BIN_USER/$USER}" ~/.bashrc; then
-  echo "PATH=\${PATH}:${BIN_USER_LOCATION}" >> ${HOME}/.bashrc
-fi
-
 if ! grep --quiet --extended-regexp ".bash_config" ~/.bashrc; then
 cat <<EOF >> ~/.bashrc
 if [ -f ~/.bash_config ]; then
@@ -38,10 +33,10 @@ mkdir -p ${HOME?}/bin
 
 source ${HOME?}/.bashrc
 
-scripts/sudoers/setup.sh
+scripts/sudoers/setup.sh "${CURRENT_USERNAME?}"
 scripts/vscode/install.sh
 scripts/utilities/install.sh
 
-source ~/.bashrc
+source ${HOME?}/.bashrc
 
 echo "Done"

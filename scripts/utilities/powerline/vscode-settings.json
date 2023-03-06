@@ -1,0 +1,57 @@
+{
+    "terminal.integrated.fontFamily": "'PowerlineSymbols','DejaVu Sans Mono for Powerline'",
+    "editor.minimap.enabled": false,
+    "explorer.confirmDelete": false,
+    "git.confirmSync": false,
+    "workbench.startupEditor": "newUntitledFile",
+    "workbench.editor.untitled.hint": "hidden",
+    "diffEditor.ignoreTrimWhitespace": false,
+    "terminal.integrated.tabs.enabled": true,
+    "editor.renderControlCharacters": true,
+    "security.workspace.trust.untrustedFiles": "open",
+    "files.exclude": {
+      "**/.classpath": true,
+      "**/.factorypath": true,
+      "**/.project": true,
+      "**/.settings": true,
+      "**/.terraformm": true,
+      "**/.terraformm.*": true
+    },
+    "files.associations": {
+      "*.hcl": "terraform",
+      "*.tfvars.tpl": "terraform",
+      "*.tpl": "terraform"
+    },
+    "terminal.integrated.defaultProfile.linux": "tmux",
+    "editor.suggestSelection": "first",
+    "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+    "explorer.compactFolders": false,
+    "workbench.tree.indent": 14,
+    "editor.accessibilityPageSize": 12,
+    "explorer.confirmDragAndDrop": false,
+    "git.ignoreMissingGitWarning": true,
+    "terminal.explorerKind": "external",
+    "redhat.telemetry.enabled": true,
+    "yaml.schemas": {
+      "https://squidfunk.github.io/mkdocs-material/schema.json": "mkdocs.yml"
+    },
+    "terminal.integrated.enableMultiLinePasteWarning": false,
+    "vs-kubernetes": {
+      "vs-kubernetes.crd-code-completion": "enabled"
+    },
+    "editor.fontFamily": "'PowerlineSymbols','DejaVu Sans Mono for Powerline'",
+    "scm.inputFontSize": 12,
+    "terminal.integrated.fontSize": 12,
+    "terraform.languageServer.enable": true,
+    "notebook.outputLineHeight": 12,
+    "editor.fontSize": 12,
+    "extensions.ignoreRecommendations": true,
+    "editor.fontLigatures": false,
+    "debug.console.fontSize": 12,
+    "markdown.preview.fontSize": 12,
+    "git.openRepositoryInParentFolders": "never",
+    "terminal.integrated.autoReplies": {},
+    "terminal.integrated.automationProfile.linux": {},
+    "editor.fontVariations": false,
+    "window.zoomLevel": 2
+  }

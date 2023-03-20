@@ -62,7 +62,7 @@ if [ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]; then
   fi
 fi
 
-export ISTIO_VERSION=1.16.1
+export ISTIO_VERSION=1.17.1
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 #echo "SHLVL=${SHLVL}"

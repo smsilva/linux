@@ -20,7 +20,7 @@ show_usage() {
   echo ""
 }
 
-NAMESPACE="default"
+NAMESPACE=""
 SECRET_NAME=""
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
@@ -35,6 +35,17 @@ case $1 in
 esac; shift; done
 
 if [[ "$1" == '--' ]]; then shift; fi
+
+if [ -z "${NAMESPACE}" ]; then
+  KUBECONFIG_CURRENT_CONTEXT=$(kubectl config view --output jsonpath='{.current-context}')
+
+  NAMESPACE=$(kubectl config view \
+    --output jsonpath="{.contexts[?(@.context.cluster == \"${KUBECONFIG_CURRENT_CONTEXT}\")].context.namespace}")  
+fi
+
+if [ -z "${NAMESPACE}" ]; then
+  NAMESPACE="default"
+fi
 
 export NAMESPACE
 export SECRET_NAME=$1

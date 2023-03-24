@@ -1,5 +1,5 @@
 BIN_USER_DIRECTORY="bin-${USER##*\\}"
-KREW_BIN_DIRECTORY="${HOME}/.krew}/bin"
+KREW_BIN_DIRECTORY="${HOME}/.krew/bin"
 TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY="${HOME}/git/terraform-packager/scripts"
 
 if ! grep --quiet ${BIN_USER_DIRECTORY} <<< "${PATH}"; then

@@ -1,18 +1,6 @@
 #!/bin/bash
-set -e
+FILTER_EXPRESSION="${1}"
 
-EXPRESSION=${1}
-
-az_group_list() {
-  LOCAL_EXPRESSION=${1}
-  
-  az group list \
-    --output table \
-  | egrep "Name|^----|${LOCAL_EXPRESSION}"
-}
-
-if [ -n "${EXPRESSION}" ]; then
-  az_group_list "${EXPRESSION}"
-else
-  az_group_list ".*"
-fi
+az group list \
+  --output table \
+| egrep "Name|^----|${FILTER_EXPRESSION}"

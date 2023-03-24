@@ -1,6 +1,6 @@
 #!/bin/bash
-FILTER_PARAMETER="${1}"
+FILTER_EXPRESSION="${1}"
 
 az aks list \
   --output table \
-| egrep "Name|-----|${FILTER_PARAMETER}"
+| egrep "Name|^----|${FILTER_EXPRESSION}"

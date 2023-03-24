@@ -1,0 +1,60 @@
+#!/bin/bash
+export THIS_SCRIPT_NAME=$(basename $0)
+export THIS_SCRIPT_DIRECTORY=$(dirname $0)
+export PATH=${PATH}:${THIS_SCRIPT_DIRECTORY}
+
+show_usage() {
+  cat <<EOF
+
+  ${THIS_SCRIPT_NAME} --cluster-name aks-cluster-example
+
+  ${THIS_SCRIPT_NAME} \\
+    --cluster-name aks-cluster-example \\
+    --resource-group aks-cluster-example
+  
+  ${THIS_SCRIPT_NAME} \\
+    --cluster-name aks-cluster-example \\
+    --resource-group aks-cluster-example \\
+    --name user2
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+
+  -cn | --cluster-name )
+    shift; AKS_CLUSTER_NAME=$1
+    ;;
+
+  -rg | --resource-group )
+    shift; AKS_CLUSTER_RESOURCE_GROUP_NAME=$1
+    ;;
+
+  -n | --name )
+    shift; NODEPOOL_NAME=$1
+    ;;
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+DRY_RUN=${DRY_RUN-n}
+
+if [ -z "${AKS_CLUSTER_NAME}" ]; then
+  show_usage
+  exit 1
+fi
+
+if [ -z "${AKS_CLUSTER_RESOURCE_GROUP_NAME}" ]; then
+  AKS_CLUSTER_RESOURCE_GROUP_NAME=${AKS_CLUSTER_NAME}
+fi
+
+az aks nodepool list \
+  --cluster-name "${AKS_CLUSTER_NAME?}" \
+  --resource-group "${AKS_CLUSTER_RESOURCE_GROUP_NAME?}" \
+  --output table \
+| egrep "Name|^----|${NODEPOOL_NAME}"

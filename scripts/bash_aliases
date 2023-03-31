@@ -16,6 +16,7 @@ alias creds='[ -e "${CREDENTIALS_DIRECTORY}" ] && cd "${CREDENTIALS_DIRECTORY}"'
 alias csvt='. csvt'
 alias ct='column -t'
 alias dsp='docker system prune -f > /dev/null; docker images'
+alias eks='eksctl'
 alias f="fdfind"
 alias fa="fdfind -a"
 alias faf="fdfind -a -t f"

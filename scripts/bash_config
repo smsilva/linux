@@ -35,6 +35,11 @@ if which kubectl &> /dev/null; then
   export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
 fi
 
+if which aws_completer &> /dev/null; then
+  AWS_COMPLETER_BINARY=$(which aws_completer)
+  complete -C "${AWS_COMPLETER_BINARY}" aws
+fi
+
 export CHECKOV_VERSION=2.0.708
 # export CHECKOV_VERSION=2.0.1190
 

@@ -1,9 +1,10 @@
 BIN_USER_DIRECTORY="bin-${USER##*\\}"
 KREW_BIN_DIRECTORY="${HOME}/.krew/bin"
 TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY="${HOME}/git/terraform-packager/scripts"
+MAVEN_BIN_DIRECTORY="${HOME}/bin/apache-maven/bin"
 
 if ! grep --quiet ${BIN_USER_DIRECTORY} <<< "${PATH}"; then
-  export PATH=${HOME}/${BIN_USER_DIRECTORY}:${PATH}:${TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY}:${KREW_BIN_DIRECTORY}
+  export PATH=${HOME}/${BIN_USER_DIRECTORY}:${PATH}:${TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY}:${KREW_BIN_DIRECTORY}:${MAVEN_BIN_DIRECTORY}
 fi
 
 if which today-fortune &> /dev/null; then

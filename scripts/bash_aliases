@@ -15,6 +15,7 @@ alias clip="xclip -selection clipboard"
 alias creds='[ -e "${CREDENTIALS_DIRECTORY}" ] && cd "${CREDENTIALS_DIRECTORY}"'
 alias csvt='. csvt'
 alias ct='column -t'
+alias dk="docker ps | sed 1d | awk '{ print \$1 }' | xargs docker kill"
 alias dsp='docker system prune -f > /dev/null; docker images'
 alias eks='eksctl'
 alias f="fdfind"

@@ -31,7 +31,6 @@ find scripts/utilities/ \
   -maxdepth 1 \
   -type d \
 | sort \
-| grep yq \
 | while read FOLDER; do
   echo "============================================"
   echo "FOLDER.: ${FOLDER}"

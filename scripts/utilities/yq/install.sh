@@ -20,5 +20,5 @@ if ! which yq > /dev/null; then
     rm "${TAR_FILE?}"
   fi
 
-  yq --version
+  ${HOME}/bin/yq --version
 fi

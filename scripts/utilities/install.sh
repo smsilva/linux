@@ -32,8 +32,8 @@ find scripts/utilities/ \
   -type d \
 | sort \
 | while read FOLDER; do
-  echo ""
-  echo "${FOLDER}"
+  echo "============================================"
+  echo "FOLDER.: ${FOLDER}"
   echo ""
 
   ${FOLDER}/install.sh

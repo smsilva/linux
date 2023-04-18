@@ -22,15 +22,20 @@ sudo apt-get install --yes -q \
   wget \
   xclip
 
-find scripts/utilities/ -maxdepth 1 -type d | sed '1d' | while read FOLDER; do
-  echo ""  
+find scripts/utilities/ \
+  -mindepth 1 \
+  -maxdepth 1 \
+  -type d \
+| sort \
+| while read FOLDER; do
+  echo ""
   echo "${FOLDER}"
   echo ""
 
   sh ${FOLDER}/install.sh
 
   sleep 2
-  echo ""  
-  echo ""  
-  echo ""  
+  echo ""
+  echo ""
+  echo ""
 done

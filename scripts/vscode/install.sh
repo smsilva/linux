@@ -2,9 +2,9 @@
 set -e
 
 if ! which code &> /dev/null; then
-  sudo apt update
+  sudo apt-get update -q
 
-  sudo apt-get install --yes -q \
+  sudo apt-get install --yes -qq \
     software-properties-common \
     apt-transport-https \
     wget 
@@ -13,5 +13,5 @@ if ! which code &> /dev/null; then
 
   sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
 
-  sudo apt install code
+  sudo apt-get install code --yes
 fi

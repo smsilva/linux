@@ -32,7 +32,7 @@ find scripts/utilities/ \
   echo "${FOLDER}"
   echo ""
 
-  sh ${FOLDER}/install.sh
+  ${FOLDER}/install.sh
 
   sleep 2
   echo ""

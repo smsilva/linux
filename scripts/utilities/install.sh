@@ -3,6 +3,10 @@ echo ""
 echo "Installing basic utilities..."
 echo ""
 
+sudo apt-get update -qqq
+
+sudo apt-get upgrade --yes -qq
+
 sudo apt-get install --yes -q \
   apt-transport-https \
   bat \

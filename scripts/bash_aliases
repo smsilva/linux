@@ -134,6 +134,7 @@ alias vgs='vagrant status'
 alias vgsu='vagrant suspend'
 alias vgu='vagrant up'
 alias wasp="kubectl wasp"
+alias wic='. wic'
 alias xa='xargs'
 alias xa1='xargs -n 1'
 alias xai='xargs -n 1 -I {}'

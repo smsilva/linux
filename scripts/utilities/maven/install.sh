@@ -1,6 +1,6 @@
 #!/bin/bash
 if ! which mvn > /dev/null; then
-  MAVEN_VERSION="3.9.2"
+  MAVEN_VERSION="3.9.4"
   LOCAL_INSTALL_DIRECTORY="${HOME}/bin/apache-maven" && mkdir -p "${LOCAL_INSTALL_DIRECTORY}"
   LOCAL_DIRECTORY="${HOME}/.install/maven" && mkdir -p "${LOCAL_DIRECTORY}"
   LOCAL_ZIP_FILE="${LOCAL_DIRECTORY}/apache-maven-${MAVEN_VERSION}-bin.tar.gz"

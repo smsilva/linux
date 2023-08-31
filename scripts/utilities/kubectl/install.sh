@@ -25,7 +25,7 @@ EOF
 
   sudo apt-get update -qqq
 
-  sudo apt-get install kubectl=1.27.4-00 --yes -q
+  sudo apt-get install kubectl=1.27.5-00 --yes -q
 
   sudo apt-mark hold kubectl
 fi

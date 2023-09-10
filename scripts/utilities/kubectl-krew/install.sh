@@ -4,7 +4,7 @@ INSTALL_DIR="${HOME}/.krew"
 if ! [ -e "${INSTALL_DIR}" ]; then
   (
     set -x; cd "$(mktemp -d)" &&
-    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.2/krew-linux_amd64.tar.gz" &&
+    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.4/krew-linux_amd64.tar.gz" &&
     tar zxvf krew-linux_amd64.tar.gz &&
     KREW=./krew-"$(uname | tr '[:upper:]' '[:lower:]')_amd64" &&
     "$KREW" install krew

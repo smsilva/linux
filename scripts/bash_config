@@ -75,3 +75,5 @@ fi
 
 export ISTIO_VERSION=1.19.3
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
+
+. ~/.sdkman/candidates/springboot/current/shell-completion/bash/spring

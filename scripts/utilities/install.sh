@@ -36,7 +36,7 @@ find scripts/utilities/ \
   echo "FOLDER.: ${FOLDER}"
   echo ""
 
-  ${FOLDER}/install.sh
+  . ${FOLDER}/install.sh
 
   sleep 2
   echo ""

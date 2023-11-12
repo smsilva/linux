@@ -1,0 +1,5 @@
+#!/bin/bash
+docker volume ls \
+| sed 1d \
+| awk '{ print $2 }' \
+| xargs -I {} docker volume rm {}

@@ -1,3 +1,4 @@
+alias pe='printenv'
 alias aac='az account show --output jsonc'
 alias aal='az account list --output table'
 alias aas='. azure-account-selection'

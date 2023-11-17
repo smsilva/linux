@@ -16,8 +16,12 @@ EOF
 }
 
 generate_resolv_conf_file() {
+  FIRT_IP_ADDRESS=$(grep "^nameserver" /etc/resolv.conf \
+  | head -1 \
+  | awk '{ print $2 }')
+
   cat <<EOF | sudo tee "${RESOLVCONF_FILE?}" > /dev/null
-nameserver 172.29.96.1 # wsl default name server
+nameserver ${FIRT_IP_ADDRESS?} # wsl default name server
 EOF
 
   while read -r NAME_SERVER_IP; do

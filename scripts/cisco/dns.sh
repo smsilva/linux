@@ -6,8 +6,6 @@ export IPS_FILE="${BASE_DIR?}/ips.txt"
 export NAME_SERVERS_FILE="${BASE_DIR?}/nameservers.txt"
 
 override_wsl_conf() {
-  sudo unlink "${RESOLVCONF_FILE?}" > /dev/null
-
   cat <<EOF | tee "${WSL_CONF_FILE?}" > /dev/null
 [boot]
 systemd=true
@@ -46,6 +44,7 @@ generate_resolv_conf_file
 echo ""
 echo "Run the following command to copy the ${RESOLVCONF_FILE?} file to /etc/resolv.conf"
 echo ""
+echo "  sudo unlink /etc/resolv.conf"
 echo "  sudo cp ${RESOLVCONF_FILE?} /etc/resolv.conf"
 echo ""
 echo ""

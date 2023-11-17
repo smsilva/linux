@@ -16,7 +16,7 @@ EOF
 }
 
 generate_resolv_conf_file() {
-  FIRT_IP_ADDRESS=$(grep "^nameserver" /etc/resolv.conf \
+  export FIRT_IP_ADDRESS=$(grep "^nameserver" /etc/resolv.conf \
   | head -1 \
   | awk '{ print $2 }')
 

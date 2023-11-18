@@ -57,7 +57,7 @@ create_resolv_conf_file
 
 cat <<EOF
 
-Backup of your files first:
+Backup your files first:
 
   sudo cp /etc/resolv.conf /etc/resolv.conf.bak
   sudo cp /etc/wsl.conf /etc/wsl.conf.bak

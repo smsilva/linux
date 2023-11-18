@@ -14,5 +14,7 @@ Get-NetIPInterface | Where-Object {$_.InterfaceAlias -Match "Cisco AnyConnect"}
 # 6. Set Metric to 6000 (For now, this command must be run manually after each connection)
 Get-NetAdapter | Where-Object {$_.InterfaceDescription -Match "Cisco AnyConnect"} | Set-NetIPInterface -InterfaceMetric 6000
 
-# 7. Restart WSL Service
+# 7. Go to WSL and run the script dns.sh
+
+# 8. Restart WSL Service
 Restart-Service WslService

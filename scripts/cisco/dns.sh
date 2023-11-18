@@ -5,7 +5,7 @@ export RESOLVCONF_FILE="${BASE_DIR?}/resolv.conf"
 export IPS_FILE="${BASE_DIR?}/ips.txt"
 export NAME_SERVERS_FILE="${BASE_DIR?}/nameservers.txt"
 
-override_wsl_conf() {
+create_wsl_conf_file() {
   cat <<EOF | tee "${WSL_CONF_FILE?}" > /dev/null
 [boot]
 systemd=true
@@ -15,7 +15,7 @@ generateResolvConf = false
 EOF
 }
 
-generate_resolv_conf_file() {
+create_resolv_conf_file() {
   export FIRST_IP_ADDRESS=$(grep "^nameserver" /etc/resolv.conf \
   | head -1 \
   | awk '{ print $2 }')
@@ -41,19 +41,32 @@ EOF
   done
 }
 
-override_wsl_conf
+if [ ! -f "${IPS_FILE?}" ]; then
+  echo "Please create a file with the name ${IPS_FILE?} and add the IP addresses of your DNS servers."
+  exit 1
+fi
 
-generate_resolv_conf_file
+if [ ! -f "${NAME_SERVERS_FILE?}" ]; then
+  echo "Please create a file with the name ${NAME_SERVERS_FILE?} and add the name servers."
+  exit 1
+fi
 
-echo ""
-echo "Run the following command to copy the ${RESOLVCONF_FILE?} file to /etc/resolv.conf"
-echo ""
-echo "  sudo unlink /etc/resolv.conf"
-echo "  sudo cp ${RESOLVCONF_FILE?} /etc/resolv.conf"
-echo ""
-echo ""
+create_wsl_conf_file
 
-echo "Run the following command to copy the ${WSL_CONF_FILE?} file to /etc/wsl.conf"
-echo ""
-echo "  sudo cp ${WSL_CONF_FILE?} /etc/wsl.conf"
-echo ""
+create_resolv_conf_file
+
+cat <<EOF
+
+Backup of your files first:
+
+  sudo cp /etc/resolv.conf /etc/resolv.conf.bak
+  sudo cp /etc/wsl.conf /etc/wsl.conf.bak
+
+
+Run the following commands:
+
+  sudo unlink /etc/resolv.conf"
+  sudo cp ${RESOLVCONF_FILE?} /etc/resolv.conf"
+  sudo cp ${WSL_CONF_FILE?} /etc/wsl.conf"
+
+EOF

@@ -1,6 +1,18 @@
 #!/bin/bash
+export IMAGE_NAME_EXPRESSION=$(
+  tr "\n" "|" <<EOF | sed 's/|$//'
+k3d
+k3s
+mongo
+mysql
+openjdk
+pgadmin
+postgres
+EOF
+)
+
 docker images \
-| egrep -v 'k3s|k3d|openjdk|mongo|postgresql|mysql' \
+| egrep -v "${IMAGE_NAME_EXPRESSION?}" \
 | sed 1d \
 | awk '{ print $3 }' \
 | while read -r DOCKER_IMAGE_ID; do

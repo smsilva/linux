@@ -14,6 +14,7 @@ sudo apt-get install --yes -q \
   curl \
   fd-find \
   fortune \
+  gnupg \
   ipcalc \
   jq \
   nmap \

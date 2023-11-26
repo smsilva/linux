@@ -6,17 +6,20 @@ Estes scripts instalam e configuram:
 - Cria um link simbólico em ${HOME}/bin-${USER} apontandos para o diretório onde este repositório foi baixado/scripts/bin
 - Configura o usuário atual como sudoer criando um arquivo em /etc/sudoers.d/${USER}
 - Instala os seguintes utilitários:
+  - apt-transport-https
   - bat
   - cowsay
   - curl
   - fd-find
   - fortune
-  - git
-  - tmux (cria um arquivo ~/.tmux.conf)
+  - ipcalc
+  - jq
+  - nmap
   - powerline (cria um arquivo ~/.config/powerline/config.json e altera o ~/.bashrc)
-  - powerline-gitstatus
+  - powerline-gitstatus  - tmux (cria um arquivo ~/.tmux.conf)
   - translate-shell
-  - vim
+  - tree
+  - vim-gtk3
   - wget
   - xclip
 - Instala o Fuzzy Finder

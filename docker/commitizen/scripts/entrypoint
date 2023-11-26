@@ -1,8 +1,0 @@
-#!/bin/sh
-export CZ_COMMAND="${1}"
-
-echo ""
-echo "cz ${CZ_COMMAND}"
-echo ""
-
-cz ${CZ_COMMAND}

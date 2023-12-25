@@ -42,8 +42,7 @@ if which aws_completer &> /dev/null; then
   complete -C "${AWS_COMPLETER_BINARY}" aws
 fi
 
-export CHECKOV_VERSION=2.0.708
-# export CHECKOV_VERSION=2.0.1190
+export CHECKOV_VERSION=2.0.1190
 
 export CREDENTIALS_DIRECTORY="${HOME}/.credentials"
 export CREDENTIALS_DIRECTORY_AZURE="${CREDENTIALS_DIRECTORY}/azure"
@@ -73,7 +72,7 @@ fi
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort
 
-export ISTIO_VERSION=1.19.3
-export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
-
 . ~/.sdkman/candidates/springboot/current/shell-completion/bash/spring
+
+export ISTIO_VERSION=1.20.1
+export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}

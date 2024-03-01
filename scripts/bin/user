@@ -13,8 +13,8 @@ USER_KEY="USER_${ENVIRONMENT^^}"
 
 USER="${!USER_KEY}"
 
-echo "USER_DEV.............: ${USER_DEV}" && \
-echo "USER_QA..............: ${USER_QA}" && \
-echo "ENVIRONMENT..........: ${ENVIRONMENT}" && \
-echo "USER_KEY.............: ${USER_KEY}" && \
+echo "USER_DEV.............: ${USER_DEV}"
+echo "USER_QA..............: ${USER_QA}"
+echo "ENVIRONMENT..........: ${ENVIRONMENT}"
+echo "USER_KEY.............: ${USER_KEY}"
 echo "USER.................: ${USER}"

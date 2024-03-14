@@ -92,6 +92,8 @@ alias la="ls -la"
 alias lc="ls | column -c 1"
 alias lh="ls -lh"
 alias lha="ls -lha"
+alias lhr="find -type f -exec ls -lh {} +"
+alias lhra="find -type f -exec ls -lha {} +"
 alias lower='tr "[:upper:]" "[:lower:]"'
 alias ls='ls -1 --color=auto'
 alias mem='free -h'

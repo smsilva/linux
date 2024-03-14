@@ -65,8 +65,8 @@ Backup your files first:
 
 Run the following commands:
 
-  sudo unlink /etc/resolv.conf"
-  sudo cp ${RESOLVCONF_FILE?} /etc/resolv.conf"
-  sudo cp ${WSL_CONF_FILE?} /etc/wsl.conf"
+  sudo unlink /etc/resolv.conf
+  sudo cp ${RESOLVCONF_FILE?} /etc/resolv.conf
+  sudo cp ${WSL_CONF_FILE?} /etc/wsl.conf
 
 EOF

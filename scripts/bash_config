@@ -83,7 +83,7 @@ if [ -f ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
   source ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
 fi
 
-export ISTIO_VERSION=1.20.1
+export ISTIO_VERSION=1.21.0
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 export TOKEN_FILE="${HOME}/trash/token"

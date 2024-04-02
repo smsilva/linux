@@ -1,6 +1,7 @@
 #!/bin/bash
 export IMAGE_NAME_EXPRESSION=$(
   tr "\n" "|" <<EOF | sed 's/|$//'
+kafka
 k3d
 k3s
 mongo

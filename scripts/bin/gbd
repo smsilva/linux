@@ -2,7 +2,7 @@
 BRANCH_NAME="$1"
 
 if [[ -z ${BRANCH_NAME} ]]; then
-  BRANCH_NAME=$(git branch | fzf)
+  BRANCH_NAME=$(git branch | egrep --invert-match "^\*" | awk '{ print $1 }' | fzf)
 fi
 
 git branch -D ${BRANCH_NAME?}

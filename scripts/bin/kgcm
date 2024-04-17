@@ -24,6 +24,7 @@ show_usage() {
   echo ""
 }
 
+NAMESPACE=""
 CONFIGMAP_NAME=""
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do

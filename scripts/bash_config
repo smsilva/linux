@@ -74,6 +74,7 @@ fi
 # echo ${PATH} | tr ":" "\n" | sort
 
 export SDKMAN_DIR="${HOME}/.sdkman"
+
 if [ -f ${SDKMAN_DIR}/bin/sdkman-init.sh ]; then
   source ${SDKMAN_DIR}/bin/sdkman-init.sh
 fi
@@ -82,11 +83,11 @@ if [ -f ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
   source ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
 fi
 
-export ISTIO_VERSION=1.21.0
-export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
-
 export TOKEN_FILE="${HOME}/trash/token"
 
 if [ -f "${TOKEN_FILE}" ]; then
   export TOKEN="$(cat ${TOKEN_FILE})"
 fi
+
+export ISTIO_VERSION=1.21.0
+export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}

@@ -17,6 +17,7 @@ sudo apt-get install --yes -q \
   gnupg \
   ipcalc \
   jq \
+  libxml2-utils \
   nmap \
   powerline \
   powerline-gitstatus \

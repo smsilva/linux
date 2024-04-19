@@ -23,6 +23,10 @@ node --version
 
 if which npm > /dev/null; then
   if ! which tldr &> /dev/null; then
-    sudo npm install tldr -g
+    npm install tldr -g
+  fi
+
+  if ! which cz &> /dev/null; then
+    npm install commitizen -g
   fi
 fi

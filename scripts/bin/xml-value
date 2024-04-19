@@ -7,8 +7,8 @@ show_usage() {
 
   Usage: $0 <XPATH_EXPRESSION> <FILE_NAME>
 
-    XPATH_EXPRESSION: The XPath expression to be evaluated.
-    FILE_NAME......: The XML file to be evaluated.
+    XPATH_EXPRESSION.: The XPath expression to be evaluated.
+    FILE_NAME........: The XML file to be evaluated.
 
   Example:
 

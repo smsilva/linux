@@ -2,11 +2,18 @@
 SCRIPTS_LOCATION="${PWD}/scripts"
 BIN_USER_LOCATION="${HOME}/bin-${USER##*\\}"
 CURRENT_USERNAME="${USER##*\\}"
+GIT_GLOBAL_TEMPLATES="${HOME}/.git-templates"
 
 chmod +x ${SCRIPTS_LOCATION}/*
 
-if ! [ -e ${BIN_USER_LOCATION} ]; then
-  ln --symbolic ${SCRIPTS_LOCATION}/bin/ ${BIN_USER_LOCATION} &> /dev/null
+if ! [ -e "${BIN_USER_LOCATION}" ]; then
+  ln --symbolic "${SCRIPTS_LOCATION}/bin/" "${BIN_USER_LOCATION}" &> /dev/null
+fi
+
+if ! [ -e "${GIT_GLOBAL_TEMPLATES}" ]; then
+  ln --symbolic "${SCRIPTS_LOCATION}/git" "${GIT_GLOBAL_TEMPLATES}"
+
+  git config --global init.templatedir "${GIT_GLOBAL_TEMPLATES}"
 fi
 
 BASH_ALIASES_FILE="${HOME}/.bash_aliases"

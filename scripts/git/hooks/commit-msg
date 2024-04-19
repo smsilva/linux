@@ -1,0 +1,36 @@
+#!/bin/bash
+
+COMMIT_MSG_FILE=$1
+
+# Check if the commit message matches the conventional commit pattern
+if ! grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore)(\([^)]+\))?(\!)?\: .{1,}$" "${COMMIT_MSG_FILE}"; then
+  cat <<EOF
+
+  Error:
+  
+    Commit message does not follow Conventional Commits format!
+
+
+  Please use the Conventional Commits format: 
+  
+    <type>(<scope>): <description>
+
+
+  Examples:
+
+    feat(api): add new feature
+
+    fix: fix a bug
+
+    docs: update documentation
+
+    feat!: breaking change
+
+
+  Your commit message:
+
+    $(cat ${COMMIT_MSG_FILE})
+
+EOF
+  exit 1
+fi

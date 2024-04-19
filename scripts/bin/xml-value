@@ -1,0 +1,55 @@
+#!/bin/bash
+XPATH_EXPRESSION="${1}"
+FILE_NAME="${2}"
+
+show_usage() {
+  cat <<EOF
+
+  Usage: $0 <XPATH_EXPRESSION> <FILE_NAME>
+
+    XPATH_EXPRESSION: The XPath expression to be evaluated.
+    FILE_NAME......: The XML file to be evaluated.
+
+  Example:
+
+    $0 '.project.version' pom.xml
+
+EOF
+}
+
+if ! which xmllint > /dev/null; then
+  cat <<EOF
+
+    xmllint not found. Please install it before running this script.
+
+      sudo apt-get install libxml2-utils
+
+EOF
+
+  exit 1
+fi
+
+if [[ -z "${XPATH_EXPRESSION}" ]] || \
+   [[ -z "${FILE_NAME}"        ]]; then
+  show_usage
+  exit 1
+fi
+
+if [[ ! -e "${FILE_NAME}" ]]; then
+  echo "File not found: ${FILE_NAME}"
+  exit 1
+fi
+
+XPATH_EXPRESSION_RESULT=""
+
+for XPATH_EXPRESSION_ITEM in $(echo "${XPATH_EXPRESSION}" | tr '.' '\n'); do
+  if [[ -z "${XPATH_EXPRESSION_RESULT}" ]]; then
+    XPATH_EXPRESSION_RESULT="//*[local-name()='${XPATH_EXPRESSION_ITEM}']"
+  else
+    XPATH_EXPRESSION_RESULT="${XPATH_EXPRESSION_RESULT}/*[local-name()='${XPATH_EXPRESSION_ITEM}']/text()"
+  fi
+done
+
+echo "${XPATH_EXPRESSION_RESULT}"
+
+xmllint --xpath "${XPATH_EXPRESSION_RESULT}" "${FILE_NAME}"

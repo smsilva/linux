@@ -1,18 +1,23 @@
 #!/bin/bash
+THIS_SCRIPT_FILE_NAME=$(basename $0)
 XPATH_EXPRESSION="${1}"
 FILE_NAME="${2}"
 
 show_usage() {
   cat <<EOF
 
-  Usage: $0 <XPATH_EXPRESSION> <FILE_NAME>
+  This script evaluates an XPath expression in an XML file using xmllint.
+
+
+  Usage: ${THIS_SCRIPT_FILE_NAME} <XPATH_EXPRESSION> <FILE_NAME>
 
     XPATH_EXPRESSION.: The XPath expression to be evaluated.
     FILE_NAME........: The XML file to be evaluated.
 
+
   Example:
 
-    $0 '.project.version' pom.xml
+    ${THIS_SCRIPT_FILE_NAME} '.project.version' pom.xml
 
 EOF
 }

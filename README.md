@@ -20,8 +20,8 @@ Estes scripts instalam e configuram:
   - jq
   - libxml2-utils
   - nmap
-  - powerline (cria um arquivo ~/.config/powerline/config.json e altera o ~/.bashrc)
-  - powerline-gitstatus  - tmux (cria um arquivo ~/.tmux.conf)
+  - powerline (cria um arquivo `${HOME}/.config/powerline/config.json` e altera o `${HOME}/.bashrc`)
+  - powerline-gitstatus - tmux (cria um arquivo `${HOME}/.tmux.conf`)
   - tmux
   - translate-shell
   - tree

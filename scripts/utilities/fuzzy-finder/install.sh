@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-if [ ! -e ~/.fzf ]; then
-  git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+if [[ ! -e "${HOME}/.fzf" ]]; then
+  git clone --depth 1 https://github.com/junegunn/fzf.git ${HOME}/.fzf
   
-  ~/.fzf/install --key-bindings --completion --update-rc
+  "${HOME}/.fzf/install" --key-bindings --completion --update-rc
 fi

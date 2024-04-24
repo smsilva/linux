@@ -23,8 +23,8 @@ if ! which kubectl > /dev/null; then
 
   sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-# Add Kubernetes Repository
-cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  # Add Kubernetes Repository
+  cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
 deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
 EOF
 

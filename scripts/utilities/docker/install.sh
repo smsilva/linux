@@ -8,9 +8,9 @@ if ! which docker > /dev/null; then
     docker.io \
     runc
 
-  sudo apt-get update -q
+  sudo apt-get update -qq
 
-  sudo apt-get install -q \
+  sudo apt-get install -qq \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -30,9 +30,9 @@ if ! which docker > /dev/null; then
   "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
   sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-  sudo apt-get update -q
+  sudo apt-get update -qq
 
-  sudo apt-get install -q \
+  sudo apt-get install -qq \
     containerd.io \
     docker-buildx-plugin \
     docker-ce \

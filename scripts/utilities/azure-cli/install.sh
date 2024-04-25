@@ -21,10 +21,11 @@ if ! which az > /dev/null; then
 
   sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
 
-  AZ_DIST=$(lsb_release -cs)
-  echo "deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $AZ_DIST main" |
-    sudo tee /etc/apt/sources.list.d/azure-cli.list
+  INSTALLED_DISTRIBUTION=$(lsb_release --codename --short 2> /dev/null)
+  cat <<EOF | sudo tee /etc/apt/sources.list.d/azure-cli.list
+deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${INSTALLED_DISTRIBUTION?} main
+EOF
 
-  sudo apt-get update
+  sudo apt-get update -q
   sudo apt-get install azure-cli
 fi

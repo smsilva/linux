@@ -2,26 +2,31 @@
 set -e
 
 if ! which az > /dev/null; then
-  curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-  sudo apt-get update
-
   sudo apt-get install \
     ca-certificates \
     curl \
     apt-transport-https \
     lsb-release \
-    gnupg
+    gnupg --yes -qq
 
   sudo mkdir -p /etc/apt/keyrings
 
-  curl -sLS https://packages.microsoft.com/keys/microsoft.asc |
-    gpg --dearmor |
-    sudo tee /etc/apt/keyrings/microsoft.gpg > /dev/null
+  curl \
+    --silent \
+    --location \
+    --show-error \
+    --url https://packages.microsoft.com/keys/microsoft.asc |
+  gpg --dearmor |
+  sudo tee /etc/apt/keyrings/microsoft.gpg > /dev/null
 
   sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
 
   INSTALLED_DISTRIBUTION=$(lsb_release --codename --short 2> /dev/null)
+
+  if [[ "${INSTALLED_DISTRIBUTION?}" == "noble" ]]; then
+    INSTALLED_DISTRIBUTION="jammy"
+  fi
+
   cat <<EOF | sudo tee /etc/apt/sources.list.d/azure-cli.list
 deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${INSTALLED_DISTRIBUTION?} main
 EOF
@@ -29,3 +34,5 @@ EOF
   sudo apt-get update -q
   sudo apt-get install azure-cli
 fi
+
+az version --output yaml

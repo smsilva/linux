@@ -1,9 +1,5 @@
 #!/bin/bash
-echo ""
-echo "Installing basic utilities..."
-echo ""
-
-sudo apt-get update -qqq
+sudo apt-get update -q
 
 sudo apt-get upgrade --yes -qq
 

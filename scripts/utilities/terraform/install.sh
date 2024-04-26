@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 if ! which terraform > /dev/null; then
   VERSION="1.8.2"
 

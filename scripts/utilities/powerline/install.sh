@@ -38,10 +38,9 @@ EOF
 
     sudo wget -qO "/usr/share/fonts/${FONT_FILE_NAME}" "https://github.com/abertsch/Menlo-for-Powerline/raw/master/Menlo%20for%20Powerline.ttf"
 
-    if ! [ -e "${VSCODE_USER_SETTINGS_FILE}" ]; then
+    if [[ ! -e "${VSCODE_USER_SETTINGS_FILE}" ]]; then
       echo '{}' > "${VSCODE_USER_SETTINGS_FILE}"
+      echo "$(jq "${JQ_EXPRESSION}" "${VSCODE_USER_SETTINGS_FILE}")" > "${VSCODE_USER_SETTINGS_FILE}"
     fi
-
-    echo "$(jq "${JQ_EXPRESSION}" "${VSCODE_USER_SETTINGS_FILE}")" > "${VSCODE_USER_SETTINGS_FILE}"
   fi
 fi

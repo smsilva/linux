@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 if ! which az > /dev/null; then
   sudo apt-get install \
     ca-certificates \

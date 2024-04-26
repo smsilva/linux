@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 if ! which code &> /dev/null; then
   sudo apt-get update -q
 

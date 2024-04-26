@@ -1,12 +1,12 @@
 #!/bin/bash
-if ! which docker > /dev/null; then
+if ! which docker &> /dev/null; then
   sudo apt-get remove \
     containerd \
     docker \
     docker-compose-plugin \
     docker-engine \
     docker.io \
-    runc
+    runc &> /dev/null
 
   sudo apt-get update -qq
 

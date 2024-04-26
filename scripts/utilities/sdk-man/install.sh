@@ -6,9 +6,9 @@ checking() {
 }
 
 checking "SDKMAN"
-if ! sdk version &> /dev/null; then
+if [[ ! -e "${HOME}/.sdkman/bin/sdkman-init.sh" ]]; then
   curl -s "https://get.sdkman.io" | bash
-  sed -i s/sdkman_auto_answer=false/sdkman_auto_answer=true/ ~/.sdkman/etc/config > /dev/null
+  sed -i "s|sdkman_auto_answer=false|sdkman_auto_answer=true|" ~/.sdkman/etc/config > /dev/null
   source "${HOME}/.sdkman/bin/sdkman-init.sh"
 fi
 

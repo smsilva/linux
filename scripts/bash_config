@@ -1,26 +1,25 @@
 BIN_USER_DIRECTORY="bin-${USER##*\\}"
 KREW_BIN_DIRECTORY="${HOME}/.krew/bin"
 TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY="${HOME}/git/terraform-packager/scripts"
-NODE_BIN_DIRECTORY="${HOME}/bin/node/bin"
 APACHE_KAFKA_BIN_DIRECTORY="${HOME}/bin/apache-kafka/bin"
 APACHE_JMETER_BIN_DIRECTORY="${HOME}/bin/apache-jmeter/bin"
 
 if ! grep --quiet ${BIN_USER_DIRECTORY} <<< "${PATH}"; then
-  export PATH=${HOME}/${BIN_USER_DIRECTORY}:${PATH}:${TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY}:${KREW_BIN_DIRECTORY}:${NODE_BIN_DIRECTORY}:${APACHE_KAFKA_BIN_DIRECTORY}:${APACHE_JMETER_BIN_DIRECTORY}:${HOME}/.npm-packages/bin
+  export PATH=${HOME}/${BIN_USER_DIRECTORY}:${PATH}:${TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY}:${KREW_BIN_DIRECTORY}:${APACHE_KAFKA_BIN_DIRECTORY}:${APACHE_JMETER_BIN_DIRECTORY}:${HOME}/.npm-packages/bin
 fi
 
 if which today-fortune &> /dev/null; then
   today-fortune
 fi
 
-if [ -f /usr/share/powerline/bindings/bash/powerline.sh ]; then
+if [[ -f /usr/share/powerline/bindings/bash/powerline.sh ]]; then
   powerline-daemon -q
   POWERLINE_BASH_CONTINUATION=1
   POWERLINE_BASH_SELECT=1
   source /usr/share/powerline/bindings/bash/powerline.sh
 fi
 
-if [ -f ~/.fzf.bash ]; then
+if [[ -f ~/.fzf.bash ]]; then
   export FZF_DEFAULT_COMMAND="fdfind --type f --follow --exclude .git"
   export FZF_CTRL_T_COMMAND="fdfind --type f --follow --exclude .git"
   export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border"
@@ -50,44 +49,44 @@ export CREDENTIALS_DIRECTORY_AZURE="${CREDENTIALS_DIRECTORY}/azure"
 
 mkdir -p "${CREDENTIALS_DIRECTORY_AZURE}"
 
-if [ -e "${CREDENTIALS_DIRECTORY_AZURE}/current" ] && [ ! -e "${CREDENTIALS_DIRECTORY}/bash_azure" ]; then
+if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}/current" ]] && [[ ! -e "${CREDENTIALS_DIRECTORY}/bash_azure" ]]; then
   ln -s "${CREDENTIALS_DIRECTORY_AZURE}/current" "${CREDENTIALS_DIRECTORY}/bash_azure"
 fi
 
-if [ -e "${CREDENTIALS_DIRECTORY}" ]; then
+if [[ -e "${CREDENTIALS_DIRECTORY}" ]]; then
   while read -r BASH_FILE; do
-    if [ -n "${BASH_FILE}" ]; then
+    if [[ -n "${BASH_FILE}" ]]; then
       source "${BASH_FILE}"
     fi
   done <<< "$(find -L "${CREDENTIALS_DIRECTORY}" -maxdepth 1 -type f | sort)"
 fi
 
-if [ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]; then
+if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]]; then
   ARM_SAS_TOKEN_FILE=$(arm_sas_token_file)
 
-  if [ -f "${ARM_SAS_TOKEN_FILE}" ]; then
+  if [[ -f "${ARM_SAS_TOKEN_FILE}" ]]; then
     export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"
   fi
 fi
 
-# echo "SHLVL=${SHLVL}"
-# echo ${PATH} | tr ":" "\n" | sort
-
 export SDKMAN_DIR="${HOME}/.sdkman"
 
-if [ -f ${SDKMAN_DIR}/bin/sdkman-init.sh ]; then
+if [[ -f ${SDKMAN_DIR}/bin/sdkman-init.sh ]]; then
   source ${SDKMAN_DIR}/bin/sdkman-init.sh
 fi
 
-if [ -f ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring ]; then
+if [[ -f ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring ]]; then
   source ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
 fi
 
 export TOKEN_FILE="${HOME}/trash/token"
 
-if [ -f "${TOKEN_FILE}" ]; then
+if [[ -f "${TOKEN_FILE}" ]]; then
   export TOKEN="$(cat ${TOKEN_FILE})"
 fi
 
 export ISTIO_VERSION=1.21.2
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
+
+# echo "SHLVL=${SHLVL}"
+# echo ${PATH} | tr ":" "\n" | sort

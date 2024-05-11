@@ -25,10 +25,12 @@ if ! which docker &> /dev/null; then
   
   sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-  echo \
-  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  ARCHITECTURE=$(dpkg --print-architecture)
+  VERSION_CODENAME=$(. /etc/os-release && echo "${VERSION_CODENAME}")
+
+  cat <<EOF | sudo tee /etc/apt/sources.list.d/docker.list
+deb [arch=${ARCHITECTURE?} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME?} stable
+EOF
 
   sudo apt-get update -qq
 

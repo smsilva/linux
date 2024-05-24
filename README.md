@@ -42,6 +42,19 @@ Para cria uma a chave SSH, execute o comando abaixo:
 ssh-keygen -t ed25519 -C "address@example.com" -f ~/.ssh/id_ed25519_pessoal
 ```
 
+## Iniciar o ssh-agent
+
+```bash
+eval "$(ssh-agent -s)"
+```
+
+## Adicionar as chaves SSH ao ssh-agent
+
+```bash
+ssh-add ~/.ssh/id_ed25519_pessoal
+ssh-add ~/.ssh/id_rsa
+```
+
 ## Configurando qual chave usar
 
 Para configurar qual chave usar, crie um arquivo `~/.ssh/config` com o conteúdo abaixo:

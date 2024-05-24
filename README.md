@@ -33,3 +33,33 @@ Estes scripts instalam e configuram:
 
 ## Exemplo de Terminal com TMUX e Powerline configurados
 ![Terminal Configurado](/imagens/terminal.png)
+
+## Configurando SSH Key
+
+Para cria uma a chave SSH, execute o comando abaixo:
+
+```bash
+ssh-keygen -t ed25519 -C "address@example.com" -f ~/.ssh/id_ed25519_pessoal
+```
+
+## Configurando qual chave usar
+
+Para configurar qual chave usar, crie um arquivo `~/.ssh/config` com o conteúdo abaixo:
+
+```bash
+Host github.com-pessoal
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_pessoal
+
+Host github.com-enterprise
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_rsa
+```
+
+## Configurando o repositório para usar a chave correta
+
+```bash
+git remote set-url origin git@github.com-pessoal:smsilva/linux.git
+```

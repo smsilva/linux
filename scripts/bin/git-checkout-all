@@ -1,0 +1,42 @@
+#!/bin/bash
+export THIS_SCRIPT_NAME=$(basename $0)
+export THIS_SCRIPT_DIRECTORY=$(dirname $0)
+
+show_usage() {
+  cat <<EOF
+
+  ${THIS_SCRIPT_NAME}
+
+  ${THIS_SCRIPT_NAME} \\
+    --branch-name dev
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+case $1 in
+  -h | --help )
+    show_usage
+    exit
+    ;;
+
+  -bn | --branch-name )
+    shift; BRANCH_NAME=$1
+    ;;
+
+esac; shift; done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [ -z "${BRANCH_NAME}" ]; then
+  BRANCH_NAME="main"
+fi
+
+find -mindepth 1 -maxdepth 1 -type d \
+| sort \
+| while read -r DIRECTORY; do
+  echo "Updating ${DIRECTORY}"
+  git -C "${DIRECTORY}" checkout "${BRANCH_NAME?}"
+  git -C "${DIRECTORY}" pull --rebase
+  echo ""
+done

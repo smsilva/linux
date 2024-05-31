@@ -1,0 +1,16 @@
+#!/bin/bash
+
+export TOKEN="$(cat ~/trash/token)"
+
+curl \
+  --include \
+  --request POST \
+  --url http://localhost:8080/data \
+  --header "Content-Type: application/json" \
+  --header "Authorization: ${TOKEN?}" \
+  --data @- << EOF
+{
+    "id": "65c62612e8fc7235339d0de9",
+    "name": "A regular data"
+}
+EOF

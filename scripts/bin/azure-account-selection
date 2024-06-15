@@ -4,12 +4,12 @@ export AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
 export AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
 
 create_initial_subscription_credentials_file() {
-  mkdir -p "${AZURE_CREDENTIALS_DIRECTORY}"
+  mkdir --parents "${AZURE_CREDENTIALS_DIRECTORY}"
 
   export AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${AZURE_SUBSCRIPTION_ID}")"
-  export AZURE_KEYVAULT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${AZURE_SUBSCRIPTION_ID}")"
+  export AZURE_KEYVAULT_NAME="${AZURE_STORAGE_ACCOUNT_NAME}"
 
-cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+  cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
 export ARM_TENANT_ID="${AZURE_TENANT_ID}"
 export ARM_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
 export ARM_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME}"
@@ -55,21 +55,21 @@ change_active_subscription() {
   arm
 }
 
-AZURE_ACCOUNT_LIST=$(mktemp)
+AZURE_SUBSCRIPTION_LIST=$(mktemp)
 
 az account list \
-  --query [].name \
-  --output tsv > "${AZURE_ACCOUNT_LIST}"
+  --query "[].name" \
+  --output tsv > "${AZURE_SUBSCRIPTION_LIST}"
 
 if [[ -z "${AZURE_SUBSCRIPTION_NAME_INPUT}" ]]; then
-  export AZURE_SUBSCRIPTION_NAME="$(cat ${AZURE_ACCOUNT_LIST?} | fzf)"
+  export AZURE_SUBSCRIPTION_NAME="$(cat ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
 else
-  RECORD_COUNT=$(egrep "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_ACCOUNT_LIST?} | wc -l)
+  RECORD_COUNT=$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | wc -l)
 
   if [[ ${RECORD_COUNT} -eq 1 ]]; then
     export AZURE_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME_INPUT}"
   else
-    export AZURE_SUBSCRIPTION_NAME="$(egrep "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_ACCOUNT_LIST?} | fzf)"
+    export AZURE_SUBSCRIPTION_NAME="$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
   fi
 fi
 

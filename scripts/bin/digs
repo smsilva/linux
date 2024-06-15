@@ -2,5 +2,5 @@
 SERVER=$1
 
 dig ${SERVER} \
-| egrep "^[a-z]" \
+| grep -E "^[a-z]" \
 | column -t

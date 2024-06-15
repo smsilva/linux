@@ -57,4 +57,4 @@ az aks nodepool list \
   --cluster-name "${AKS_CLUSTER_NAME?}" \
   --resource-group "${AKS_CLUSTER_RESOURCE_GROUP_NAME?}" \
   --output table \
-| egrep "Name|^----|${NODEPOOL_NAME}"
+| grep --extended-regexp "Name|^----|${NODEPOOL_NAME}"

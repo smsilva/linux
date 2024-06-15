@@ -1,0 +1,13 @@
+#!/bin/bash
+BRANCH_NAME=${1-main}
+
+print-commit-hash-branches-and-tags() {
+  git log --pretty=format:"%h %d"
+}
+
+COMMITS=$(
+  print-commit-hash-branches-and-tags \
+  | awk "/origin\/${BRANCH_NAME?}/ { print NR -1 }"
+)
+
+gri ${COMMITS?}

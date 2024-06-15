@@ -1,5 +1,0 @@
-#!/bin/bash
-
-COMMITS=$1
-
-git rebase -i HEAD~${COMMITS?}

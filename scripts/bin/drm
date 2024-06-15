@@ -8,7 +8,7 @@ fi
 if [[ -z "${IMAGE_ID}" ]]; then
   docker image ls
 else
-  docker image rm "${IMAGE_ID}"
+  docker image rm -f "${IMAGE_ID}"
   echo ""
   docker image ls
 fi

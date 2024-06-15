@@ -14,7 +14,7 @@ EOF
 )
 
 docker images \
-| egrep -v "${IMAGE_NAME_EXPRESSION?}" \
+| grep --extended-regexp --invert-match "${IMAGE_NAME_EXPRESSION?}" \
 | sed 1d \
 | awk '{ print $3 }' \
 | while read -r DOCKER_IMAGE_ID; do

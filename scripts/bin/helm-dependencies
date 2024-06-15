@@ -10,7 +10,7 @@ find \
   CHART_DEPENDENCY_LIST=$( 
     helm dependency list ${CHART_NAME} 2> /dev/null \
     | sed 1d \
-    | egrep "^[a-zA-Z]" \
+    | grep --extended-regexp "^[a-zA-Z]" \
     | awk '{ print $1 }' \
     | tr '\n' ';' \
     | sed 's|;$||'

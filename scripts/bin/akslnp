@@ -6,7 +6,7 @@ DATA_FILE=$(mktemp)
 az aks list \
   --output table \
 | sed '1,2d' \
-| egrep "${FILTER_PARAMETER}" > "${DATA_FILE}"
+| grep --extended-regexp "${FILTER_PARAMETER}" > "${DATA_FILE}"
 
 LINE_COUNT=$(cat ${DATA_FILE} | wc -l)
 

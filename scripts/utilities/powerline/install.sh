@@ -3,7 +3,7 @@ POWERLINE_CONFIG_DIRECTORY=${HOME}/.config/powerline
 CONFIG_FILE_NAME=${POWERLINE_CONFIG_DIRECTORY}/config.json
 
 is_running_on_wsl2() {
-  uname -r | tr '[:upper:]' '[:lower:]' | egrep "microsoft.*wsl2" &> /dev/null
+  uname -r | tr '[:upper:]' '[:lower:]' | grep --extended-regexp "microsoft.*wsl2" &> /dev/null
   echo $?
 }
 

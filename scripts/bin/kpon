@@ -9,14 +9,14 @@ list_pods_from_all_namespaces() {
   kubectl get pods \
     --output wide \
     --all-namespaces \
-  | egrep "Running" \
-  | egrep "${NODE_NAME_REGEX}"
+  | grep "Running" \
+  | grep --extended-regexp "${NODE_NAME_REGEX}"
 }
 
 list_nodes() {
   kubectl get nodes \
     --output jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
-| egrep "${NODE_NAME_REGEX}"
+| grep --extended-regexp "${NODE_NAME_REGEX}"
 }
 
 pod_count() {

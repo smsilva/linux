@@ -4,7 +4,7 @@ MONGODB_HOST="${1-$MONGODB_HOST}"
 export IP_ADDRESS_LIST="$(mktemp)"
 
 nslookup -type=SRV _mongodb._tcp.${MONGODB_HOST?} \
-| egrep "^_mongodb._tcp." \
+| grep --extended-regexp "^_mongodb._tcp." \
 | awk '{ print $7 }' \
 | while read -r LINE; do
   SERVER_NAME=${LINE}
@@ -20,4 +20,4 @@ nslookup -type=SRV _mongodb._tcp.${MONGODB_HOST?} \
   fi
 done
 
-echo "tcpdump -r network.pcap | egrep \"$(cat ${IP_ADDRESS_LIST})\""
+echo "tcpdump -r network.pcap | grep --extended-regexp \"$(cat ${IP_ADDRESS_LIST})\""

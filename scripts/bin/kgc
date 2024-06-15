@@ -1,2 +1,3 @@
 #!/bin/bash
-kubectl config get-contexts | egrep "CURRENT|$1"
+kubectl config get-contexts \
+| grep --extended-regexp "CURRENT|$1"

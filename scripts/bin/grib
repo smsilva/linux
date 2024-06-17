@@ -1,13 +1,9 @@
 #!/bin/bash
 BRANCH_NAME=${1-main}
 
-print-commit-hash-branches-and-tags() {
-  git log --pretty=format:"%h %d"
-}
-
-COMMITS=$(
-  print-commit-hash-branches-and-tags \
-  | awk "/origin\/${BRANCH_NAME?}/ { print NR -1 }"
+COMMIT_COUNT=$(
+  git-commits-until "${BRANCH_NAME?}" | wc -l
 )
 
-gri ${COMMITS?}
+# Rebase using the number of commits until the specified branch
+gri ${COMMIT_COUNT?}

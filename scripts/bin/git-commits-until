@@ -1,0 +1,6 @@
+#!/bin/bash
+BRANCH_NAME=${1-main}
+
+# Print the commit hash and the branches until the origin/${BRANCH_NAME} is found
+git log --pretty=format:"%H %d" \
+| awk "/origin\/${BRANCH_NAME?}/{ exit } { print \$1 }"

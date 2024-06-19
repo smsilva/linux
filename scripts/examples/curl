@@ -1,16 +1,21 @@
 #!/bin/bash
+if [[ -f ~/trash/token ]]; then
+  TOKEN="$(cat ~/trash/token)"
+else
+  TOKEN="Bearer 123"
+fi
 
-export TOKEN="$(cat ~/trash/token)"
+GENERATED_UUID="$(uuidgen)"
 
 curl \
   --include \
   --request POST \
-  --url http://localhost:8080/data \
+  --url https://httpbin.org/post \
   --header "Content-Type: application/json" \
   --header "Authorization: ${TOKEN?}" \
   --data @- << EOF
 {
-    "id": "65c62612e8fc7235339d0de9",
+    "id": "${GENERATED_UUID?}",
     "name": "A regular data"
 }
 EOF

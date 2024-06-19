@@ -1,0 +1,14 @@
+#!/bin/bash
+DESIRED_STASH_NUMBER=$1
+
+if [[ -z ${DESIRED_STASH_NUMBER} ]]; then
+  DESIRED_STASH=$(
+    git stash list \
+    | fzf \
+    | awk -F ':' '{ print $1 }'
+  )
+
+  git stash show ${DESIRED_STASH}
+else
+  git stash show stash@{${DESIRED_STASH_NUMBER}}
+fi

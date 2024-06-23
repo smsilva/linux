@@ -15,7 +15,22 @@ curl \
   --header "Authorization: ${TOKEN?}" \
   --data @- << EOF
 {
-    "id": "${GENERATED_UUID?}",
-    "name": "A regular data"
+  "id": "${GENERATED_UUID?}",
+  "name": "A regular data"
 }
 EOF
+
+cat << EOF > /tmp/httpbin.json
+{
+  "id": "${GENERATED_UUID?}",
+  "name": "A regular data"
+}
+EOF
+
+curl \
+  --include \
+  --request POST \
+  --url https://httpbin.org/post \
+  --header "Content-Type: application/json" \
+  --header "Authorization: ${TOKEN?}" \
+  --data @/tmp/httpbin.json

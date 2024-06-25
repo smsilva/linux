@@ -1,0 +1,12 @@
+#!/bin/bash
+INPUT_JSON="${1:-data.json}"
+OUTPUT_TSV="${2:-output.tsv}"
+
+HEADER=$(jq -r '.properties.columns[].name' "$INPUT_JSON" | paste -sd, -)
+
+echo -e "${HEADER}" > "${OUTPUT_TSV}"
+
+jq -r '.properties.rows[] | @tsv' "${INPUT_JSON}" \
+| while IFS=$'\t' read -r ResourceId ResourceType ResourceGroupName ResourceLocation SubscriptionName SubscriptionId totalCost totalCostUSD; do
+  echo -e "$ResourceId,$ResourceType,$ResourceGroupName,$ResourceLocation,$SubscriptionName,$SubscriptionId,$totalCost,$totalCostUSD" >> "$OUTPUT_TSV"
+done

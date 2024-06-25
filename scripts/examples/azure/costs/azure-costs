@@ -1,0 +1,140 @@
+#!/bin/bash
+THIS_SCRIPT="$0"
+THIS_SCRIPT_NAME=$(basename "${THIS_SCRIPT?}")
+
+# Default values
+API_VERSION="2021-10-01"
+GRANULARITY="None"
+
+show_usage() {
+  cat <<EOF
+
+  Azure Costs
+
+    Options:
+
+      -h, --help                      Show this help
+      -s, --subscription              Subscription ID
+      -sd, --start-date               Start date
+      -ed, --end-date                 End date
+     
+
+    Examples:
+
+      ${THIS_SCRIPT_NAME} \\
+        --help
+
+      ${THIS_SCRIPT_NAME} \\
+        --subscription \${ARM_SUBSCRIPTION_ID} \\
+        --start-date "2021-10-01" \\
+        --end-date "2021-10-31"
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -s | --subscription )
+      shift; export SUBSCRIPTION_ID="${1}"
+      ;;
+
+    -sd | --start-date )
+      shift; export START_DATE="${1}"
+      ;;
+    
+    -ed | --end-date )
+      shift; export END_DATE="${1}"
+      ;;
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [[ -z "${SUBSCRIPTION_ID}" ]]; then
+  echo "Error: Subscription ID is required: -s | --subscrition"
+  show_usage
+  exit 1
+fi
+
+# If start date is not provided, set it to the first day of the last month
+if [[ -z "${START_DATE}" ]]; then
+  START_DATE=$(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m-01)
+fi
+
+# If end date is not provided, set it to the last day of the last month
+if [[ -z "${END_DATE}" ]]; then
+  END_DATE=$(date -d "$(date +%Y-%m-01) -1 day" +%Y-%m-%d)
+fi
+
+# Retrieve access token
+ACCESS_TOKEN=$(az account get-access-token \
+  --query accessToken \
+  --output tsv)
+
+# API URL
+COST_MANAGEMENT_URL="https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/providers/Microsoft.CostManagement/query?api-version=${API_VERSION}"
+
+# Payload request
+read -r -d '' PAYLOAD << EOF
+{
+  "type": "ActualCost",
+  "timeframe": "Custom",
+  "timePeriod": {
+    "from": "${START_DATE}",
+    "to": "${END_DATE}"
+  },
+  "dataset": {
+    "granularity": "${GRANULARITY}",
+    "aggregation": {
+      "totalCost": {
+        "name": "PreTaxCost",
+        "function": "Sum"
+      },
+      "totalCostUSD": {
+        "name": "CostUSD",
+        "function": "Sum"
+      }
+    },
+    "grouping": [
+      {
+        "type": "Dimension",
+        "name": "ResourceId"
+      },
+      {
+        "type": "Dimension",
+        "name": "ResourceType"
+      },
+      {
+        "type": "Dimension",
+        "name": "ResourceGroupName"
+      },
+      {
+        "type": "Dimension",
+        "name": "ResourceLocation"
+      },
+      {
+        "type": "Dimension",
+        "name": "SubscriptionName"
+      },
+      {
+        "type": "Dimension",
+        "name": "SubscriptionId"
+      }
+    ]
+  }
+}
+EOF
+
+curl \
+  -s \
+  -X POST "${COST_MANAGEMENT_URL}" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "${PAYLOAD}" \
+| jq .

@@ -1,0 +1,10 @@
+#!/bin/bash
+list_tsv_files() {
+  find . -name 'costs-*.tsv'
+}
+
+head -1 $(list_tsv_files | head -1)
+
+while read -r CSV_FILE; do
+  tail -n +2 "${CSV_FILE}"
+done < <(list_tsv_files)

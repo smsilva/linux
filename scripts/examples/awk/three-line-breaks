@@ -1,0 +1,21 @@
+#!/bin/bash
+cat <<EOF > /tmp/file
+line 1
+
+line 2
+
+
+line 3
+EOF
+
+awk '
+BEGIN { ORS="" }
+{
+    if (NR > 1) prev = prev "\n"
+    prev = prev $0
+}
+END {
+    gsub(/\n\n\n/, "\n\n", prev)
+    print prev "\n"
+}
+' /tmp/file

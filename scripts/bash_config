@@ -89,7 +89,8 @@ fi
 export ISTIO_VERSION=1.21.2
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
-export TF_PACKAGER_DOCKER_PROGRESS="plain"
+# Possible values: plain, auto, tty
+export TF_PACKAGER_DOCKER_PROGRESS="auto"
 
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort

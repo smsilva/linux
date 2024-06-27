@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "Checking..."
-sudo apt-get update | grep -v -E "^Hit|Get|^Ign" && \
-sudo apt-get upgrade -y && \
-sudo apt-get autoremove -y && \
-sudo apt-get auto-clean
+sudo apt-get update | grep --invert-match --extended-regexp "^Hit|Get|^Ign" && \
+sudo apt-get upgrade --yes && \
+sudo apt-get autoremove --yes && \
+sudo apt-get autoclean

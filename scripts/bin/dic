@@ -1,9 +1,10 @@
 #!/bin/bash
 export IMAGE_NAME_EXPRESSION=$(
   tr "\n" "|" <<EOF | sed 's/|$//'
-kafka
+artifacts
 k3d
 k3s
+kafka
 mongo
 mysql
 openjdk

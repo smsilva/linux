@@ -63,7 +63,7 @@ if [[ -e "${CREDENTIALS_DIRECTORY}" ]]; then
 fi
 
 if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]]; then
-  ARM_SAS_TOKEN_FILE=$(arm_sas_token_file)
+  ARM_SAS_TOKEN_FILE=$(arm-sas-token-file)
 
   if [[ -f "${ARM_SAS_TOKEN_FILE}" ]]; then
     export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"

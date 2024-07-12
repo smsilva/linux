@@ -3,7 +3,7 @@ export ARM_SAS_TOKEN_FILE="${CREDENTIALS_DIRECTORY_AZURE}/${ARM_STORAGE_ACCOUNT_
 
 if [ ! -e "${ARM_SAS_TOKEN_FILE}" ]; then
   if [ -z "${ARM_ACCESS_KEY}" ]; then
-    arm_sas_token_new > "${ARM_SAS_TOKEN_FILE}"
+    arm-sas-token-new > "${ARM_SAS_TOKEN_FILE}"
   else
     > "${ARM_SAS_TOKEN_FILE}"
   fi

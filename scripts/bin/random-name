@@ -1,0 +1,16 @@
+#!/bin/bash
+RETURN_LENGTH=${1:-4}
+ADJECTIVES=("sharp" "cold" "little" "quick" "funny" "sad" "happy" "angry" "brave" "bright" "calm" "clever" "cool")
+NOUNS=("fox" "turtle" "panda" "lion" "tiger" "bear" "wolf" "eagle" "shark" "whale" "wasp" "ant" "bee" "beetle" "dog")
+
+generate_random_suffix() {
+  tr --delete --complement 'a-z0-9' < /dev/urandom \
+  | fold --width ${RETURN_LENGTH?} \
+  | head --lines 1
+}
+
+ADJECTIVE=${ADJECTIVES[${RANDOM} % ${#ADJECTIVES[@]}]}
+NOUN=${NOUNS[$RANDOM % ${#NOUNS[@]}]}
+SUFFIX=$(generate_random_suffix)
+
+echo "${ADJECTIVE}-${NOUN}-${SUFFIX}"

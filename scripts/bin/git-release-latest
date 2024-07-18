@@ -1,0 +1,49 @@
+#!/bin/bash
+THIS_SCRIPT_NAME=$(basename $0)
+THIS_SCRIPT_DIRECTORY=$(dirname $0)
+
+show_usage() {
+  cat <<EOF
+
+  ${THIS_SCRIPT_NAME} \\
+    --owner <owner> \\
+    --repository <repository> \\
+    [--help]
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
+
+    -o | --owner )
+      shift; GITHUB_OWNER=$1
+      ;;
+    
+    -r | --repository )
+      shift; GITHUB_REPOSITORY=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [ -z "${GITHUB_OWNER}" ]; then
+  echo "ERROR: [ -o | --owner ] is required."
+  exit 1
+fi
+
+if [ -z "${GITHUB_REPOSITORY}" ]; then
+  echo "ERROR: [ -r | --repository ] is required."
+  exit 1
+fi
+
+curl \
+  --silent "https://api.github.com/repos/${GITHUB_OWNER?}/${GITHUB_REPOSITORY?}/releases/latest" \
+| grep '"tag_name"' \
+| sed -E 's|(.*")([^"]+)(".*)|\2|'

@@ -1,6 +1,14 @@
 #!/bin/bash
 if ! which terraform > /dev/null; then
-  VERSION="1.8.2"
+  VERSION=$(
+    curl \
+      --silent \
+      --url https://releases.hashicorp.com/terraform \
+    | grep --perl-regexp --only-matching '(?<=/terraform/)[^/]+' \
+    | sort --unique --version-sort --reverse \
+    | grep --invert-match --extended-regexp "alpha|beta|rc" \
+    | head -1  
+  )
 
   FILE_NAME="terraform_${VERSION?}_linux_amd64.zip"
   

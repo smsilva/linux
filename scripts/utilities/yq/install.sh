@@ -5,7 +5,7 @@ if ! which yq > /dev/null; then
   VERSION=$(curl \
     --silent "https://api.github.com/repos/mikefarah/yq/releases/latest" \
     | grep '"tag_name"' \
-    | sed -E 's|(.*")([^"]+)(".*)|\2|'
+    | awk -F '"' '{ print $4 }'
   )
 
   echo "VERSION..: ${VERSION}"

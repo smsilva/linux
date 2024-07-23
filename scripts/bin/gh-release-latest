@@ -46,4 +46,4 @@ fi
 curl \
   --silent "https://api.github.com/repos/${GITHUB_OWNER?}/${GITHUB_REPOSITORY?}/releases/latest" \
 | grep '"tag_name"' \
-| sed -E 's|(.*")([^"]+)(".*)|\2|'
+| awk -F '"' '{ print $4 }'

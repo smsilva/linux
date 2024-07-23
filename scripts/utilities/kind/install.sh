@@ -1,8 +1,20 @@
 #!/bin/bash
-EXECUTABLE_FILE_NAME="${HOME}/bin/kind"
-
 if ! which kind > /dev/null; then
-  curl -Lo "${EXECUTABLE_FILE_NAME}" https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+  EXECUTABLE_FILE_NAME="${HOME}/bin/kind"
+  GITHUB_OWNER="kubernetes-sigs"
+  GITHUB_REPOSITORY="kind"
 
-  chmod +x "${EXECUTABLE_FILE_NAME}"
+  LATEST_RELEASE=$(
+    curl \
+      --silent "https://api.github.com/repos/${GITHUB_OWNER?}/${GITHUB_REPOSITORY?}/releases/latest" \
+      | grep '"tag_name"' \
+      | sed -E 's|(.*")([^"]+)(".*)|\2|'
+  )
+
+  curl \
+    --location \
+    --url https://kind.sigs.k8s.io/dl/${LATEST_RELEASE?}/kind-linux-amd64 \
+    --output "${EXECUTABLE_FILE_NAME?}"
+
+  chmod +x "${EXECUTABLE_FILE_NAME?}"
 fi

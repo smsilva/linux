@@ -32,10 +32,12 @@ if which npm > /dev/null; then
   npm config set prefix "${HOME}/.npm-packages"
 
   if ! which tldr &> /dev/null; then
-    npm install tldr -g
+    npm install -g tldr
   fi
 
   if ! which cz &> /dev/null; then
-    npm install commitizen -g
+    npm install -g commitizen
+    npm install -g cz-conventional-changelog
+    echo '{ "path": "cz-conventional-changelog" }' > ~/.czrc
   fi
 fi

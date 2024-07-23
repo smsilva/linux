@@ -5,7 +5,8 @@ if ! which ytop > /dev/null; then
   VERSION=$(curl \
     --silent "https://api.github.com/repos/cjbassi/ytop/releases/latest" \
     | grep '"tag_name"' \
-    | sed -E 's/.*"([^"]+)".*/\1/')
+    | awk -F '"' '{ print $4 }'
+  )
 
   INSTALL_DIR="${HOME}/bin/"
 

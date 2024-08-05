@@ -1,0 +1,6 @@
+#!/bin/bash
+FILTER_EXPRESSION="${1}"
+
+az account list \
+  --output table \
+| grep -E "Name|^----|${FILTER_EXPRESSION}"

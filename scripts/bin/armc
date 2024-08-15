@@ -1,5 +1,5 @@
 #!/bin/bash
-CREDENTIALS_FILE="${HOME}/.credentials/azure/${ARM_SUBSCRIPTION_ID}"
+CREDENTIALS_FILE="$(arm-subscription-file-name)"
 
 if [[ -e "${CREDENTIALS_FILE}" ]]; then
   code ${CREDENTIALS_FILE}

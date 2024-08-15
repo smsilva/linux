@@ -1,5 +1,5 @@
 alias aac='az account show --output jsonc'
-alias aas='. azure-account-selection'
+alias aas='. arm-account-selection'
 alias acrl='az acr list --output table'
 alias aglp='agl | grep -E "Name|azure-.*|sample|dummy|^wasp|^be.*platform-c|^be.*platform-a"'
 alias aksgc='aksgetcred'

@@ -51,24 +51,33 @@ change_active_subscription() {
   arm
 }
 
+# Create a temporary file to store the Azure Subscription List
 AZURE_SUBSCRIPTION_LIST=$(mktemp)
 
+# Retrieve Azure Subscription List and save it to the temporary file
 az account list \
   --query "[].name" \
   --output tsv > "${AZURE_SUBSCRIPTION_LIST}"
 
+# If no input is provided
 if [[ -z "${AZURE_SUBSCRIPTION_NAME_INPUT}" ]]; then
+  # Use fzf to select the subscription
   export AZURE_SUBSCRIPTION_NAME="$(cat ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
 else
+  # Retrieve the number of records that match the provided input
   RECORD_COUNT=$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | wc -l)
 
+  # Check if the input is unique
   if [[ ${RECORD_COUNT} -eq 1 ]]; then
+    # If input is unique, use it as the subscription
     export AZURE_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME_INPUT}"
   else
+    # If input is not unique, use fzf to select the subscription
     export AZURE_SUBSCRIPTION_NAME="$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
   fi
 fi
 
+# If subscription is selected, change the active subscription
 if [[ -n "${AZURE_SUBSCRIPTION_NAME}" ]]; then
   change_active_subscription
 fi

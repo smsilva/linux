@@ -1,0 +1,4 @@
+#!/bin/bash
+FILE_NAME="${CREDENTIALS_DIRECTORY_AZURE}/${ARM_STORAGE_ACCOUNT_NAME}.sas-token"
+
+echo "${FILE_NAME?}"

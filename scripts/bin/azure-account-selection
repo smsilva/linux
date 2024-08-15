@@ -46,11 +46,7 @@ change_active_subscription() {
 
   source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
 
-  ARM_SAS_TOKEN_FILE=$(arm-sas-token-file)
-
-  if [ -f "${ARM_SAS_TOKEN_FILE}" ]; then
-    export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"
-  fi
+  export ARM_SAS_TOKEN="$(arm-sas-token-get)"
 
   arm
 }

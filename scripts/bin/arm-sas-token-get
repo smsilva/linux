@@ -1,0 +1,17 @@
+#!/bin/bash
+SAS_TOKEN_FILE_NAME="$(arm-sas-token-file-name)"
+
+# Check if the SAS token file exists
+if [ ! -e "${SAS_TOKEN_FILE_NAME}" ]; then
+  # If the ARM access key is not set
+  if [ -z "${ARM_ACCESS_KEY}" ]; then
+    # Generate a new SAS token and write it to the file
+    arm-sas-token-new > "${SAS_TOKEN_FILE_NAME}"
+  else
+    # Just create an empty file because the ARM access key is set
+    > "${SAS_TOKEN_FILE_NAME}"
+  fi
+fi
+
+# Always output the SAS token file content
+cat "${SAS_TOKEN_FILE_NAME}"

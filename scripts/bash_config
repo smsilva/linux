@@ -63,10 +63,10 @@ if [[ -e "${CREDENTIALS_DIRECTORY}" ]]; then
 fi
 
 if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]]; then
-  ARM_SAS_TOKEN_FILE=$(arm-sas-token-file)
+  ARM_SAS_TOKEN_FILE=$(arm-sas-token-file-name)
 
   if [[ -f "${ARM_SAS_TOKEN_FILE}" ]]; then
-    export ARM_SAS_TOKEN="$(cat ${ARM_SAS_TOKEN_FILE})"
+    export ARM_SAS_TOKEN="$(arm-sas-token-get)"
   fi
 fi
 
@@ -90,7 +90,7 @@ export ISTIO_VERSION=1.21.2
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 # Possible values: plain, auto, tty
-export TF_PACKAGER_DOCKER_PROGRESS="auto"
+export TF_PACKAGER_DOCKER_PROGRESS="plain"
 
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort

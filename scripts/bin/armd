@@ -1,6 +1,5 @@
 #!/bin/bash
-
-export SAS_TOKEN_FILE="${HOME}/.credentials/azure/${ARM_STORAGE_ACCOUNT_NAME}.sas-token"
+SAS_TOKEN_FILE="$(arm-sas-token-file-name)"
 
 if [ -e "${SAS_TOKEN_FILE?}" ]; then
   echo "${SAS_TOKEN_FILE}"

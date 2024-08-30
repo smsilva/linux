@@ -9,7 +9,7 @@ if ! which code &> /dev/null; then
 
   wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
 
-  sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
+  sudo add-apt-repository --yes "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
 
-  sudo apt-get install code --yes
+  sudo apt-get install code --yes -q
 fi

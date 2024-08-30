@@ -36,6 +36,11 @@ fi
 EOF
 fi
 
+# US International keyboard to work with cedilla
+if ! grep --quiet --extended-regexp "GTK_IM_MODULE=cedilla" /etc/environment; then
+  echo "export GTK_IM_MODULE=cedilla" | sudo tee --append /etc/environment
+fi
+
 mkdir -p ${HOME?}/bin
 
 source ${HOME?}/.bashrc

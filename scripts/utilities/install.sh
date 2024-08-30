@@ -9,6 +9,7 @@ sudo apt-get install --yes -q \
   cowsay \
   curl \
   fd-find \
+  flameshot \
   fortune \
   gnupg \
   ipcalc \

@@ -34,10 +34,4 @@ if which npm > /dev/null; then
   if ! which tldr &> /dev/null; then
     npm install -g tldr
   fi
-
-  if ! which cz &> /dev/null; then
-    npm install -g commitizen
-    npm install -g cz-conventional-changelog
-    echo '{ "path": "cz-conventional-changelog" }' > ~/.czrc
-  fi
 fi

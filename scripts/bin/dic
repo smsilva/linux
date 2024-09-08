@@ -2,6 +2,7 @@
 export IMAGE_NAME_EXPRESSION=$(
   tr "\n" "|" <<EOF | sed 's/|$//'
 artifacts
+commitizen
 k3d
 k3s
 kafka

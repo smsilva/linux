@@ -10,4 +10,4 @@ if [ -z ${BRANCH_NAME} ]; then
 fi
 
 git checkout ${BRANCH_NAME}
-git pull --rebase
+git pull --rebase --prune

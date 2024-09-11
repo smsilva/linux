@@ -1,5 +1,5 @@
 #!/bin/bash
-FILTER_EXPRESSION="${1}"
+FILTER_EXPRESSION="${@}"
 
 az account list \
   --output table \

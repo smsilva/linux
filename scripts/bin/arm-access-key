@@ -1,0 +1,22 @@
+#!/bin/bash
+STORAGE_ACCOUNT_NAME="${1}"
+
+if [ -z "${STORAGE_ACCOUNT_NAME}" ]; then
+  STORAGE_ACCOUNT_NAME="${ARM_STORAGE_ACCOUNT_NAME}"
+fi
+
+if [ -z "${STORAGE_ACCOUNT_NAME}" ]; then
+  echo "Usage: $0 <storage-account-name>"
+  exit 1
+fi
+
+ACCESS_KEY_VALUE=$(az storage account keys list \
+  --account-name ${ARM_STORAGE_ACCOUNT_NAME} \
+  --output json \
+  --query '[0].value' \
+  --output tsv
+)
+
+cat <<EOF
+export ARM_ACCESS_KEY="${ACCESS_KEY_VALUE}"
+EOF

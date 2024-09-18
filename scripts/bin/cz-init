@@ -1,0 +1,19 @@
+#!/bin/bash
+FILE_NAME="${1:-.cz.yaml}"
+TAG="${2:-0.0.1}"
+
+cat <<'EOF' > ${FILE_NAME?}
+---
+commitizen:
+  name: cz_conventional_commits
+  tag_format: $version
+  version: 0.0.1
+  version_scheme: semver
+EOF
+
+echo "cz configuration file created at ${FILE_NAME}"
+
+git add "${FILE_NAME}"
+git commit -m "feat: commitizen initial config"
+git tag 0.0.1
+git push --tags

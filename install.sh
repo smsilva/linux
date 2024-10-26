@@ -29,7 +29,7 @@ if ! [ -e "${BASH_CONFIG_FILE}" ]; then
 fi
 
 if ! grep --quiet --extended-regexp ".bash_config" ~/.bashrc; then
-cat <<EOF >> ~/.bashrc
+  cat <<EOF >> ~/.bashrc
 if [ -f ~/.bash_config ]; then
   . ~/.bash_config
 fi

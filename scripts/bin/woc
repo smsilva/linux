@@ -1,4 +1,11 @@
 #!/bin/bash
 COMMAND_NAME="${1}"
 
-which "${COMMAND_NAME}" | xargs code
+COMMAND_FILE=$(which "${COMMAND_NAME}")
+
+if [[ ! -f "${COMMAND_FILE}" ]]; then
+  echo "Command not found: ${COMMAND_NAME}"
+  exit 1
+fi
+
+code "${COMMAND_FILE}"

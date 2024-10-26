@@ -3,4 +3,4 @@ FILTER_EXPRESSION="${1}"
 
 az group list \
   --output table \
-| grep -E "Name|^----|${FILTER_EXPRESSION}"
+| grep --extended-regexp "Name|^----|${FILTER_EXPRESSION}"

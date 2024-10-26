@@ -4,15 +4,20 @@ set -e
 TAG=$1
 DESCRIPTION=$2
 
+log_errror() {
+  local MESSAGE="${1}"
+  echo "${MESSAGE}" 2>&1
+}
+
 if [ -z "${TAG}" ]; then
-  echo "You should inform a tag as a parameter"
+  log_errror "You should inform a tag as a parameter"
   exit 1
 fi
 
 if [ -z "${DESCRIPTION?}" ]; then
   DESCRIPTION=$(git log --pretty=format:%s -1)
 
-  echo "Tag description will be: ${DESCRIPTION}"
+  log_errror "Tag description will be: ${DESCRIPTION}"
   
   read -p "Press any key to resume ..."
 fi
@@ -27,4 +32,4 @@ fi
 
 CURRENT_BRANCH="$(git branch --show-current)"
 
-git push origin ${CURRENT_BRANCH} --tags
+git push origin "${CURRENT_BRANCH}" --tags

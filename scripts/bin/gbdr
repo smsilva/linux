@@ -2,7 +2,7 @@
 REMOTE_BRANCH_NAME="$1"
 
 if [[ -z ${REMOTE_BRANCH_NAME} ]]; then
-  REMOTE_BRANCH_NAME=$(git branch -r | fzf)
+  REMOTE_BRANCH_NAME=$(git branch --remotes | fzf)
 fi
 
 REMOTE_NAME=$(awk -F '/' '{ print $1 }' <<< ${REMOTE_BRANCH_NAME?})

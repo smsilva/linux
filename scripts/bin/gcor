@@ -3,11 +3,18 @@ BRANCH_NAME="$1"
 
 if [ -z ${BRANCH_NAME} ]; then
   BRANCH_NAME=$(
-    git branch -r \
+    git branch --remotes \
+    | grep --invert 'HEAD' \
     | fzf \
-    | sed 's|origin/||'
+    | awk -F '/' '{ print $2 }'
   )
 fi
 
-git checkout ${BRANCH_NAME}
+if [ -z ${BRANCH_NAME} ]; then
+  echo "No branch selected" >&2
+  exit 1
+fi
+
+git checkout "${BRANCH_NAME}"
+
 git pull --rebase --prune

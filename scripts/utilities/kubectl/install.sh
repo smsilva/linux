@@ -16,7 +16,7 @@ if ! which kubectl > /dev/null; then
     --silent \
     --show-error \
     --location \
-    "https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key" \
+    "https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key" \
   | sudo gpg \
     --dearmor \
     --output /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -25,7 +25,7 @@ if ! which kubectl > /dev/null; then
 
   # Add Kubernetes Repository
   cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /
+deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /
 EOF
 
   sudo apt-get update -qqq

@@ -1,0 +1,15 @@
+#!/bin/bash
+FILTER_EXPRESSION="${@}"
+
+AZURE_KEY_VAULT_SELECTED=$(akv)
+
+if [ -n "${AZURE_KEY_VAULT_SELECTED}" ]; then
+  IFS='|'
+  while read -r AZURE_KEY_VAULT_NAME AZURE_KEY_VAULT_LOCATION AZURE_KEY_VAULT_RESOURCE_GROUP; do
+    az keyvault secret list \
+      --subscription "${ARM_SUBSCRIPTION_ID?}" \
+      --vault-name "${AZURE_KEY_VAULT_NAME?}" \
+      --query "[].name" \
+      --output tsv
+  done <<< "${AZURE_KEY_VAULT_SELECTED}"
+fi

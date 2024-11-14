@@ -1,0 +1,16 @@
+#!/bin/bash
+FILTER_EXPRESSION="${@}"
+
+AZURE_KEY_VAULT_LIST="$(mktemp)"
+
+az keyvault list \
+  --query '[].{name:name,location:location,rg:resourceGroup} | [].join(`|`, [name, location,rg])' \
+  --output tsv > "${AZURE_KEY_VAULT_LIST}"
+
+AZURE_KEY_VAULT_SELECTED=$(
+  grep --extended-regexp "${FILTER_EXPRESSION}" "${AZURE_KEY_VAULT_LIST}" \
+  | sort \
+  | fzf
+)
+
+echo "${AZURE_KEY_VAULT_SELECTED}"

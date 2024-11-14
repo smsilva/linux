@@ -1,15 +1,17 @@
 #!/bin/bash
-FILTER_EXPRESSION="${@}"
+FILTER_EXPRESSION_KEY_VAULT="${1}"
+FILTER_EXPRESSION_SECRET="${2}"
 
-AZURE_KEY_VAULT_SELECTED=$(akv)
+AZURE_KEY_VAULT_SELECTED=$(akv "${FILTER_EXPRESSION_KEY_VAULT}")
 
 if [ -n "${AZURE_KEY_VAULT_SELECTED}" ]; then
-  IFS='|'
   while read -r AZURE_KEY_VAULT_NAME AZURE_KEY_VAULT_LOCATION AZURE_KEY_VAULT_RESOURCE_GROUP; do
     az keyvault secret list \
       --subscription "${ARM_SUBSCRIPTION_ID?}" \
       --vault-name "${AZURE_KEY_VAULT_NAME?}" \
       --query "[].name" \
-      --output tsv
+      --output tsv \
+    | grep --extended-regexp "${FILTER_EXPRESSION_SECRET}" \
+    | sort
   done <<< "${AZURE_KEY_VAULT_SELECTED}"
 fi

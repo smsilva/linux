@@ -1,16 +1,29 @@
 #!/bin/bash
 FILTER_EXPRESSION="${@}"
 
+find_records_using_expression() {
+  grep --extended-regexp "${FILTER_EXPRESSION}" "${AZURE_KEY_VAULT_LIST}" \
+  | sort \
+  | tr "|" " " \
+  | column -t
+}
+
 AZURE_KEY_VAULT_LIST="$(mktemp)"
 
 az keyvault list \
   --query '[].{name:name,location:location,rg:resourceGroup} | [].join(`|`, [name, location,rg])' \
-  --output tsv > "${AZURE_KEY_VAULT_LIST}"
+  --output tsv \
+| grep --extended-regexp "${FILTER_EXPRESSION}" > "${AZURE_KEY_VAULT_LIST}"
 
-AZURE_KEY_VAULT_SELECTED=$(
-  grep --extended-regexp "${FILTER_EXPRESSION}" "${AZURE_KEY_VAULT_LIST}" \
-  | sort \
-  | fzf
-)
+RECORDS_FOUND=$(wc --lines "${AZURE_KEY_VAULT_LIST}" | awk '{print $1}')
+
+if [ "${RECORDS_FOUND}" -gt 1 ]; then
+  AZURE_KEY_VAULT_SELECTED=$(
+    find_records_using_expression \
+    | fzf
+  )
+else
+  AZURE_KEY_VAULT_SELECTED=$(find_records_using_expression)
+fi
 
 echo "${AZURE_KEY_VAULT_SELECTED}"

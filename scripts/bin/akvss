@@ -1,17 +1,33 @@
 #!/bin/bash
-FILTER_EXPRESSION="${@}"
+FILTER_EXPRESSION_KEY_VAULT="${1}"
+FILTER_EXPRESSION_SECRET="${2}"
+SECRETS_LIST=$(mktemp)
 
-AZURE_KEY_VAULT_SELECTED=$(akv)
+AZURE_KEY_VAULT_SELECTED=$(akv "${FILTER_EXPRESSION_KEY_VAULT}")
+
+find_records_using_expression() {
+  grep --extended-regexp "${FILTER_EXPRESSION_SECRET}" "${SECRETS_LIST}" \
+  | sort
+}
 
 if [ -n "${AZURE_KEY_VAULT_SELECTED}" ]; then
-  IFS='|'
   while read -r AZURE_KEY_VAULT_NAME AZURE_KEY_VAULT_LOCATION AZURE_KEY_VAULT_RESOURCE_GROUP; do
-    SECRET_NAME=$(az keyvault secret list \
+    az keyvault secret list \
       --subscription "${ARM_SUBSCRIPTION_ID?}" \
       --vault-name "${AZURE_KEY_VAULT_NAME?}" \
       --query "[].name" \
       --output tsv \
-      | fzf)
+    | grep --extended-regexp "${FILTER_EXPRESSION_SECRET}" > "${SECRETS_LIST}"
+
+    RECORDS_FOUND=$(wc --lines "${SECRETS_LIST}" | awk '{print $1}')
+
+    if [ "${RECORDS_FOUND}" -gt 1 ]; then
+      SECRET_NAME=$(
+        find_records_using_expression | fzf
+      )
+    else
+      SECRET_NAME=$(find_records_using_expression)
+    fi
 
     if [ -n "${SECRET_NAME}" ]; then
       echo "${SECRET_NAME}"

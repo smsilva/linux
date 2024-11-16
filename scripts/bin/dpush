@@ -1,8 +1,15 @@
 #!/bin/bash
+LOCAL_IMAGE="${1}"
+CONTAINER_REPOSITORY="${2:-silviosilva}"
+
 set -e
 
-LOCAL_IMAGE="${1}"
-REMOTE_IMAGE="silviosilva/${LOCAL_IMAGE}"
+# Check if the LOCAL_IMAGE already starts with CONTAINER_REPOSITORY/
+if [[ ! "${LOCAL_IMAGE}" =~ ^${CONTAINER_REPOSITORY}/* ]]; then
+  REMOTE_IMAGE="${CONTAINER_REPOSITORY}/${LOCAL_IMAGE}"
+else
+  REMOTE_IMAGE="${LOCAL_IMAGE}"
+fi
 
 echo "${REMOTE_IMAGE}"
 

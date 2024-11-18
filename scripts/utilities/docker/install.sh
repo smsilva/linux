@@ -42,7 +42,9 @@ EOF
     docker-compose-plugin \
     --yes
 
-  sudo usermod --append --groups docker ${USER##*\\}
+  sudo usermod ${USER##*\\} \
+    --append \
+    --groups docker
 
   sudo systemctl enable docker
   sudo systemctl start docker

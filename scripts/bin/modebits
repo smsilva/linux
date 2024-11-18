@@ -12,15 +12,15 @@ PERMISSIONS=""
 
 for (( i=0; i<${#FILE_MODE_BITS}; i++ )); do
   case ${FILE_MODE_BITS:i:1} in
-    7) PERMISSIONS+="rwx" ;;  # Leitura, escrita e execução
-    6) PERMISSIONS+="rw-" ;;  # Leitura e escrita
-    5) PERMISSIONS+="r-x" ;;  # Leitura e execução
-    4) PERMISSIONS+="r--" ;;  # Apenas leitura
-    3) PERMISSIONS+="wx-" ;;  # Escrita e execução
-    2) PERMISSIONS+="-w-" ;;  # Apenas escrita
-    1) PERMISSIONS+="--x" ;;  # Apenas execução
-    0) PERMISSIONS+="---" ;;  # Sem permissões
+    7) PERMISSIONS+="rwx" ;;
+    6) PERMISSIONS+="rw-" ;;
+    5) PERMISSIONS+="r-x" ;;
+    4) PERMISSIONS+="r--" ;;
+    3) PERMISSIONS+="wx-" ;;
+    2) PERMISSIONS+="-w-" ;;
+    1) PERMISSIONS+="--x" ;;
+    0) PERMISSIONS+="---" ;;
   esac
 done
 
-echo "$PERMISSIONS"
+echo "${PERMISSIONS}"

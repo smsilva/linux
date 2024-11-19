@@ -30,14 +30,20 @@ if [ -n "${AZURE_KEY_VAULT_SELECTED}" ]; then
     fi
 
     if [ -n "${SECRET_NAME}" ]; then
-      echo "${SECRET_NAME}"
+      echo -n "${SECRET_NAME}"
 
-      az keyvault secret show \
-        --subscription "${ARM_SUBSCRIPTION_ID?}" \
-        --vault-name "${AZURE_KEY_VAULT_NAME?}" \
-        --name "${SECRET_NAME?}" \
-        --query "{value:value}" \
-        --output tsv
+      SECRET_VALUE=$(
+        az keyvault secret show \
+          --subscription "${ARM_SUBSCRIPTION_ID?}" \
+          --vault-name "${AZURE_KEY_VAULT_NAME?}" \
+          --name "${SECRET_NAME?}" \
+          --query "{value:value}" \
+          --output tsv
+      )
+
+      echo -n "="
+
+      echo "${SECRET_VALUE}"
     fi
   done <<< "${AZURE_KEY_VAULT_SELECTED}"
 fi

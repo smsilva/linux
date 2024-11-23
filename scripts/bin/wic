@@ -1,12 +1,12 @@
 #!/bin/bash
-export COMMAND_NAME="${1}"
+COMMAND_NAME="${1}"
 
 FILE_PATH=$(which "${COMMAND_NAME}" 2> /dev/null)
 
 if [[ -n "${FILE_PATH}" ]]; then
   bat "${FILE_PATH}"
 else
-  export ALIAS_CONFIGURATION=$(alias "${COMMAND_NAME}" 2> /dev/null)
+  ALIAS_CONFIGURATION=$(alias "${COMMAND_NAME}" 2> /dev/null)
 
   if [[ -n "${ALIAS_CONFIGURATION}" ]]; then
     echo "${ALIAS_CONFIGURATION}"

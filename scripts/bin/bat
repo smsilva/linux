@@ -1,9 +1,14 @@
 #!/bin/bash
-FILE_NAME="${1}"
+INPUT_PATH="${1}"
 
-if [[ -z ${FILE_NAME} ]]; then
-  FILE_NAME=$(fpa)
-  echo "${FILE_NAME}"
+if [[ -z ${INPUT_PATH} ]]; then
+  INPUT_PATH=$(fpa)
 fi
 
-batcat "${FILE_NAME}" -p
+if [[ -d ${INPUT_PATH} ]]; then
+  INPUT_PATH=$(fpa "${INPUT_PATH}")
+fi
+
+echo "${INPUT_PATH}"
+
+batcat "${INPUT_PATH}" --plain

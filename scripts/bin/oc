@@ -1,5 +1,5 @@
 #!/bin/bash
-FILE_PATH="${1}"
+INPUT_PATH="${1}"
 COMMAND="${2}"
 
 open_with_vscode() {
@@ -9,8 +9,15 @@ open_with_vscode() {
   exit 0
 }
 
-if [ -n "${FILE_PATH}" ] && [ -e "${FILE_PATH}" ]; then
-  open_with_vscode "${FILE_PATH}"
+if [ -n "${INPUT_PATH}" ]; then
+  if [ -f "${INPUT_PATH}" ]; then
+    open_with_vscode "${INPUT_PATH}"    
+  else
+    if [ -d "${INPUT_PATH}" ]; then
+      INPUT_PATH=$(fpa "${INPUT_PATH}")
+      open_with_vscode "${INPUT_PATH}"
+    fi
+  fi
 else
-  open_with_vscode "$(fdfind | fpa)"
+  open_with_vscode "$(fpa)"
 fi

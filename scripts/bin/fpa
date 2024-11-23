@@ -1,13 +1,15 @@
 #!/bin/bash
-FILE=$(
-  fdfind \
-    --type f \
-    --hidden \
-    --follow \
-    --exclude .git \
-| fzf \
-    --multi \
-    --preview 'batcat --style=numbers --color=always {} | head -50'
-)
+REFERENCE_PATH="${1:-.}"
 
-echo "${FILE}"
+fdfind \
+  --type f \
+  --hidden \
+  --follow \
+  --exclude .git \
+  . \
+  ${REFERENCE_PATH?} \
+| fzf \
+  --multi \
+  --preview 'batcat --style=numbers --color=always {} | head -50' \
+| xargs \
+  --no-run-if-empty realpath

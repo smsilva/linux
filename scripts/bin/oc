@@ -11,7 +11,7 @@ open_with_vscode() {
 
 if [ -n "${INPUT_PATH}" ]; then
   if [ -f "${INPUT_PATH}" ]; then
-    open_with_vscode "${INPUT_PATH}"    
+    open_with_vscode "${INPUT_PATH}"
   else
     if [ -d "${INPUT_PATH}" ]; then
       INPUT_PATH=$(fpa "${INPUT_PATH}")

@@ -1,0 +1,46 @@
+#!/bin/bash
+INPUT_FILE_PATH="file.yaml"
+
+cat <<EOF >| "${INPUT_FILE_PATH?}"
+---
+# Source: demo/templates/model.yaml
+api: apps/v1
+kind: FakeResource
+metadata:
+  name: id-1
+spec:
+  foo: bar
+---
+# Source: demo/templates/model.yaml
+api: apps/v1
+kind: FakeResource
+metadata:
+  name: id-2
+spec:
+  foo: bar
+EOF
+
+# Contador para os arquivos de saída
+COUNTER=1
+
+# Usando awk para separar o conteúdo
+awk --assign counter="${COUNTER}" '
+  /^---$/ {
+    if (file) {
+      print file > "output_file_" counter ".yaml"
+      counter++
+    }
+    file = $0 ORS  # Inicia um novo arquivo com a linha atual
+    next
+  }
+  
+  {
+    file = file $0 ORS  # Adiciona a linha ao arquivo atual
+  }
+  
+  END {
+    if (file) {
+      print file > "output_file_" counter ".yaml"  # Salva o último arquivo
+    }
+  }
+' "${INPUT_FILE_PATH?}"

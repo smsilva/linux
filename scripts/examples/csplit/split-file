@@ -1,0 +1,26 @@
+#!/bin/bash
+
+cat <<EOF >| file.yaml
+---
+# Source: demo/templates/model.yaml
+api: apps/v1
+kind: FakeResource
+metadata:
+  name: id-1
+spec:
+  foo: bar
+---
+# Source: demo/templates/model.yaml
+api: apps/v1
+kind: FakeResource
+metadata:
+  name: id-2
+spec:
+  foo: bar
+EOF
+
+csplit \
+  --elide-empty-files \
+  --prefix "file_" \
+  --suffix-format "%02d.yaml" \
+  --digits 1 file.yaml '/^---$/' '{*}'

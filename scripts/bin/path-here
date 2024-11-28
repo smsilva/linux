@@ -1,0 +1,11 @@
+#!/bin/bash
+INPUT_PATH="${1:-${PWD}}"
+PATH_TO_ADD="$(realpath ${INPUT_PATH})"
+
+if ! grep --quiet "${PATH_TO_ADD}" <<< "${PATH}"; then
+  export PATH=${PATH_TO_ADD}:$PATH
+fi
+
+echo $PATH \
+| tr ':' '\n' \
+| grep "${PATH_TO_ADD}"

@@ -1,0 +1,142 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Split Helm files into multiple files
+
+    Options:
+
+      -h,  --help     Show this help
+      -f,  --file     Input file to split
+      -p,  --prefix   Prefix for the output files
+      -df, --delete   Delete input file after a successful split
+      -q,  --quiet    Quiet mode
+      -o,  --output   Output directory
+      
+    Examples:
+
+      ${this_script_name} \\
+        --file /path/to/file.yaml \\
+        --delete \\
+        --output /path/to/output
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -f | --file )
+      shift
+      input_file="${1}"
+      ;;
+
+    -p | --prefix )
+      shift
+      file_prefix="${1}"
+      ;;
+
+    -o | --output )
+      shift
+      output_directory="${1}"
+      ;;
+    
+    -df | --delete )
+      delete_file=true
+      ;;
+
+    -q | --quiet )
+      quiet_mode=true
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+log_error() {
+  echo "ERROR: $1" >&2
+}
+
+if [[ -z "${input_file}" ]]; then
+  log_error "--file is required"
+  show_usage
+  exit 1
+fi
+
+if [[ ! -f "${input_file}" ]]; then
+  log_error "File not found: ${input_file}"
+  exit 1
+fi
+
+delete_file=${delete_file:-false}
+quiet_mode=${quiet_mode:-false}
+
+base_file_name=${input_file##*/}
+base_file_directory=${input_file%/*}
+base_file_extension=${base_file_name##*.}
+base_file_without_extension=${base_file_name%.*}
+base_file_prefix="${base_file_without_extension}_"
+
+csplit_prefix="${file_prefix}${base_file_prefix}"
+
+# If the output directory is not provided, use the input_file directory
+if [[ -z "${output_directory}" ]]; then
+  output_directory="${base_file_directory}"
+fi
+
+mkdir --parents "${output_directory}"
+
+if [[ "${quiet_mode}" = "false" ]]; then
+  cat <<EOF >&2
+file:
+  path:        ${input_file}
+  name:        ${base_file_name}
+  directory:   ${base_file_directory}
+  extension:   ${base_file_extension}
+  reference:   ${base_file_without_extension}
+split:
+  prefix:      ${csplit_prefix}
+  suffix:      ${base_file_extension}
+  delete:      ${delete_file}
+  output:      ${output_directory}
+
+EOF
+fi
+
+(
+  cd "${output_directory?}"
+
+  csplit \
+    --quiet \
+    --elide-empty-files \
+    --prefix "${csplit_prefix?}" \
+    --suffix-format "%02d.${base_file_extension?}" \
+    --digits 1 ${input_file?} '/^---$/' '{*}'
+
+  csplit_result_code=$?
+
+  if [[ "${delete_file}" = "true" && ${csplit_result_code} -eq 0 ]]; then
+    rm -f "${input_file?}"
+
+    if [[ $? -ne 0 ]]; then
+      log_error "Failed to remove file: ${input_file}"
+      exit 1
+    fi
+  fi
+
+  find "${output_directory?}" \
+    -maxdepth 1 \
+    -name "${csplit_prefix?}*.${base_file_extension?}"
+)

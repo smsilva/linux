@@ -1,0 +1,23 @@
+#!/bin/bash
+file_path="${1:-/dev/stdin}"
+
+api_value=""
+kind_value=""
+
+while IFS= read -r line; do
+  lower_case_line=${line,,}
+
+  if [[ ${lower_case_line} =~ ^api:\ (.+) ]]; then
+    api_value="${BASH_REMATCH[1]}"
+  fi
+
+  if [[ ${lower_case_line} =~ ^kind:\ (.+) ]]; then
+    kind_value="${BASH_REMATCH[1]}"
+  fi
+
+  if [[ -n "${api_value}" && -n "${kind_value}" ]]; then
+    echo "${kind_value}.${api_value}"
+    api_value=""
+    kind_value=""
+  fi
+done < "${file_path}"

@@ -24,39 +24,39 @@ case $1 in
     ;;
 
   --node-count )
-    shift; NODE_COUNT=$1
+    shift; node_count=$1
     ;;
 
   --node-ports )
-    shift; NODE_PORTS=$1
+    shift; node_ports=$1
     ;;
 esac; shift; done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${NODE_COUNT}"     ] || \
-   [ -z "${NODE_PORTS}" ]; then
+if [ -z "${node_count}"     ] || \
+   [ -z "${node_ports}" ]; then
   echo "You must use ALL parameters."
   show_usage
   exit 1
 fi
 
-AZURE_OUTBOUND_PORTS_BY_PUBLIC_IP=64000
+azure_outbound_ports_by_public_ip=64000
 
-PORTS_NEEDED=$(( ${NODE_COUNT} * ${NODE_PORTS}))
-OUTBOUND_IPS_NEEDED=$(( ${PORTS_NEEDED} / ${AZURE_OUTBOUND_PORTS_BY_PUBLIC_IP}))
+ports_needed=$(( ${node_count} * ${node_ports}))
+outbound_ips_needed=$(( ${ports_needed} / ${azure_outbound_ports_by_public_ip}))
 
-OUTBOUND_PORTS_TOTAL=$(( ${OUTBOUND_IPS_NEEDED} * ${AZURE_OUTBOUND_PORTS_BY_PUBLIC_IP}))
+outbound_ports_total=$(( ${outbound_ips_needed} * ${azure_outbound_ports_by_public_ip}))
 
-if [ ${OUTBOUND_PORTS_TOTAL} -lt ${PORTS_NEEDED} ]; then
-  OUTBOUND_IPS_NEEDED=$((${OUTBOUND_IPS_NEEDED} +1))
-  OUTBOUND_PORTS_TOTAL=$(( ${OUTBOUND_IPS_NEEDED} * ${AZURE_OUTBOUND_PORTS_BY_PUBLIC_IP}))
+if [ ${outbound_ports_total} -lt ${ports_needed} ]; then
+  outbound_ips_needed=$((${outbound_ips_needed} +1))
+  outbound_ports_total=$(( ${outbound_ips_needed} * ${azure_outbound_ports_by_public_ip}))
 fi
 
-OUTBOUND_PORTS_AVAILABLE=$(( ${OUTBOUND_PORTS_TOTAL} - ${PORTS_NEEDED}))
+outbound_ports_available=$(( ${outbound_ports_total} - ${ports_needed}))
 
 (
-echo "Ports_needed:    Nodes              (${NODE_COUNT})          * Node_Ports (${NODE_PORTS})                        = ${PORTS_NEEDED}"
-echo "Ports_available: Outbounbd_IP_Count (${OUTBOUND_IPS_NEEDED}) * IP_Ports   (${AZURE_OUTBOUND_PORTS_BY_PUBLIC_IP}) = ${OUTBOUND_PORTS_TOTAL} Available: ${OUTBOUND_PORTS_AVAILABLE}"
+echo "ports_needed:    Nodes              (${node_count})          * node_ports (${node_ports})                        = ${ports_needed}"
+echo "Ports_available: Outbounbd_IP_Count (${outbound_ips_needed}) * IP_Ports   (${azure_outbound_ports_by_public_ip}) = ${outbound_ports_total} Available: ${outbound_ports_available}"
 ) \
 | column -t

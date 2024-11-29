@@ -1,49 +1,105 @@
 #!/bin/bash
-FILTER_EXPRESSION_KEY_VAULT="${1}"
-FILTER_EXPRESSION_SECRET="${2}"
-SECRETS_LIST=$(mktemp)
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
 
-AZURE_KEY_VAULT_SELECTED=$(akv "${FILTER_EXPRESSION_KEY_VAULT}")
+PATH="${this_script_directory}:${PATH}"
 
-find_records_using_expression() {
-  grep --extended-regexp "${FILTER_EXPRESSION_SECRET}" "${SECRETS_LIST}" \
-  | sort
+show_usage() {
+  cat <<EOF
+
+  Azure Key Vault get secrets names
+
+    Options:
+
+      -h,  --help           Show this help
+      -s,  --subscription   Azure Subscription
+      
+    Examples:
+
+      ${this_script_name} \\
+        --subscription ${ARM_SUBSCRIPTION_ID:-11111111-2222-3333-4444-555555555555} \\
+        "foundation" \\
+        "arm*"
+
+EOF
 }
 
-if [ -n "${AZURE_KEY_VAULT_SELECTED}" ]; then
-  while read -r AZURE_KEY_VAULT_NAME AZURE_KEY_VAULT_LOCATION AZURE_KEY_VAULT_RESOURCE_GROUP; do
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -s | --subscription )
+      shift
+      subscription="${1}"
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+subscription="${subscription:-${ARM_SUBSCRIPTION_ID}}"
+filter_expression_key_vault="${filter_expression_key_vault:-$1}"
+filter_expression_secret="${filter_expression_secret:-$2}"
+
+if [ -z "${subscription}" ]; then
+  echo "--subscription is required because ARM_SUBSCRIPTION_ID is not set"
+  exit 1
+fi
+
+azure_key_vault_selected=$(akv \
+  --subscription "${subscription?}" \
+  "${filter_expression_key_vault}"
+)
+
+secrets_list=$(mktemp)
+
+find_records_using_expression() {
+  grep --extended-regexp "${filter_expression_secret}" "${secrets_list}" | sort
+}
+
+echo "${azure_key_vault_selected}" >&2
+
+if [ -n "${azure_key_vault_selected}" ]; then
+  while read -r azure_key_vault_name rest_of_the_line; do
+    echo "${azure_key_vault_name}" >&2
     az keyvault secret list \
-      --subscription "${ARM_SUBSCRIPTION_ID?}" \
-      --vault-name "${AZURE_KEY_VAULT_NAME?}" \
+      --subscription "${subscription?}" \
+      --vault-name "${azure_key_vault_name?}" \
       --query "[].name" \
       --output tsv \
-    | grep --extended-regexp "${FILTER_EXPRESSION_SECRET}" > "${SECRETS_LIST}"
+    | grep --extended-regexp "${filter_expression_secret}" > "${secrets_list}"
 
-    RECORDS_FOUND=$(wc --lines "${SECRETS_LIST}" | awk '{print $1}')
+    secrets_found_count=$(wc --lines < "${secrets_list}")
 
-    if [ "${RECORDS_FOUND}" -gt 1 ]; then
-      SECRET_NAME=$(
+    if [ "${secrets_found_count}" -gt 1 ]; then
+      secret_selected_name=$(
         find_records_using_expression | fzf
       )
     else
-      SECRET_NAME=$(find_records_using_expression)
+      secret_selected_name=$(find_records_using_expression)
     fi
 
-    if [ -n "${SECRET_NAME}" ]; then
-      echo -n "${SECRET_NAME}"
+    if [ -n "${secret_selected_name}" ]; then
+      echo -n "${secret_selected_name}"
 
-      SECRET_VALUE=$(
+      selecret_selected_value=$(
         az keyvault secret show \
-          --subscription "${ARM_SUBSCRIPTION_ID?}" \
-          --vault-name "${AZURE_KEY_VAULT_NAME?}" \
-          --name "${SECRET_NAME?}" \
+          --subscription "${subscription?}" \
+          --vault-name "${azure_key_vault_name?}" \
+          --name "${secret_selected_name?}" \
           --query "{value:value}" \
           --output tsv
       )
 
       echo -n "="
 
-      echo "${SECRET_VALUE}"
+      echo "${selecret_selected_value}"
     fi
-  done <<< "${AZURE_KEY_VAULT_SELECTED}"
+  done <<< "${azure_key_vault_selected}"
 fi

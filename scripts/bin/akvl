@@ -19,7 +19,7 @@ show_usage() {
 
       ${this_script_name} \\
         --subscription ${ARM_SUBSCRIPTION_ID:-11111111-2222-3333-4444-555555555555} \\
-        "cit-dev"
+        "foundation"
 
 EOF
 }

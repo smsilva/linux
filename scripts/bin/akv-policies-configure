@@ -1,0 +1,148 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Configure Service Principal to get secrets from Azure Key Vault if needed
+
+    Options:
+
+      -h,     --help                         Show this help
+      -kv,    --key-vault                    Azure Key Vault Name
+      -s,     --subscription                 Subscription ID
+      -sp,    --service-principal-id         Service Principal ID (ARM_CLIENT_ID value)
+      -spoid, --service-principal-object-id  Service Principal Object ID (optional, in case --service-principal-id is not provided)
+      
+    Examples:
+
+      ${this_script_name} \\
+        --subscription ${ARM_SUBSCRIPTION_ID:-11111111-1111-1111-1111-555555555555} \\
+        --service-principal-id ${ARM_CLIENT_ID:-11111111-2222-2222-2222-555555555555} \\
+        --key-vault keyvault-name
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -kv | --key-vault )
+      shift; key_vault_name=$1
+      ;;
+
+    -s | --subscription )
+      shift; subscription_id=$1
+      ;;
+
+    -sp | --service-principal-id )
+      shift; service_principal_id=$1
+      ;;
+
+    -spoid | --service-principal-object-id )
+      shift; service_principal_object_id=$1
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [[ -z "${key_vault_name}" ]]; then
+  echo "ERROR: --key-vault is required"
+  show_usage
+  exit 1
+fi
+
+if [[ -z "${subscription_id}" ]]; then
+  echo "ERROR: --subscription is required"
+  show_usage
+  exit 1
+fi
+
+cat <<EOF
+keyvault:
+  name:         ${key_vault_name}
+
+subscription
+  id:           ${subscription_id}
+
+spn:
+EOF
+
+if [[ -n "${service_principal_id}" ]]; then
+  service_principal_object_id=$(
+    az ad sp show \
+      --id ${service_principal_id?} \
+      --query 'id' \
+      --output tsv \
+      --only-show-errors
+  )
+fi
+
+if [[ -z "${service_principal_object_id}" ]]; then
+  echo "ERROR: Service Principal Object ID was not found using the provided Service Principal ID: ${service_principal_id?}"
+  show_usage
+  exit 1
+else
+  if [[ -z "${service_principal_id}" ]]; then
+    service_principal_id=$(
+      az ad sp show \
+        --id ${service_principal_object_id?} \
+        --query 'appId' \
+        --output tsv \
+        --only-show-errors
+    )   
+  fi
+fi
+
+if [[ -z "${service_principal_id}" ]]; then
+  echo "ERROR: Service Principal ID was not found using the provided Service Principal Object ID: ${service_principal_object_id?}"
+  show_usage
+  exit 1
+fi
+
+  cat <<EOF
+  id:           ${service_principal_id}
+EOF
+
+cat <<EOF
+  objectId:     ${service_principal_object_id}
+EOF
+
+arm_keyvault_policies_record_count=$(
+  az keyvault show \
+    --name ${key_vault_name?} \
+    --subscription ${subscription_id?} \
+    --query "properties.accessPolicies[?objectId=='${service_principal_object_id}']" \
+    --output tsv \
+    --only-show-errors \
+  | wc --lines
+)
+
+cat <<EOF
+
+policies:
+  count:        ${arm_keyvault_policies_record_count}
+
+EOF
+
+if [[ ${arm_keyvault_policies_record_count?} -lt 1 ]]; then
+  echo "Configuring Service Principal to get secrets from Azure Key Vault: ${key_vault_name?}"
+
+  az keyvault set-policy \
+    --name ${key_vault_name?} \
+    --subscription ${subscription_id?} \
+    --spn ${service_principal_id?} \
+    --secret-permissions list get set
+else
+  echo "Service Principal already has access to Azure Key Vault: ${key_vault_name?}"
+fi

@@ -67,6 +67,7 @@ if [[ -z "${input_file}" ]]; then
   input_file="${1:-/dev/stdin}"
 fi
 
+dry_run="${dry_run:-false}"
 name="${name:-bar}"
 
 while read -r line; do

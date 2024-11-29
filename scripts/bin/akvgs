@@ -57,6 +57,25 @@ azure_key_vault_selected=$(akv \
   "${filter_expression_key_vault}"
 )
 
+error_log_file=$(mktemp)
+
+configure_policies_command() {
+  local azure_key_vault_name="${1}"
+
+  cat <<EOF
+ 
+Forbiden error is due to the lack of permissions to list secrets in the Azure Key Vault ${azure_key_vault_name}.
+
+Try to use:
+
+  akv-policies-configure \\
+    --subscription ${subscription} \\
+    --service-principal-id ${ARM_CLIENT_ID:-ARM_CLIENT_ID} \\
+    --key-vault ${azure_key_vault_name}
+
+EOF
+}
+
 if [ -n "${azure_key_vault_selected}" ]; then
   while read -r azure_key_vault_name rest_of_the_line; do
     echo "${azure_key_vault_name}" >&2
@@ -64,8 +83,20 @@ if [ -n "${azure_key_vault_selected}" ]; then
       --subscription "${subscription?}" \
       --vault-name "${azure_key_vault_name?}" \
       --query "[].name" \
-      --output tsv \
+      --output tsv 2> "${error_log_file?}"  \
     | grep --extended-regexp "${filter_expression_secret}" \
     | sort
+
+    result_code=${PIPESTATUS[0]}
+
+    if [ ${result_code} -ne 0 ]; then
+      if grep --quiet "Forbidden" "${error_log_file}"; then
+        configure_policies_command "${azure_key_vault_name}" >&2
+        exit 1
+      fi
+      echo "Error: az keyvault secret list failed" >&2
+      echo "${azure_key_vault_name}" >&2
+      exit ${result_code}
+    fi
   done <<< "${azure_key_vault_selected}"
 fi

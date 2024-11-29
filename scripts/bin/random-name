@@ -1,16 +1,16 @@
 #!/bin/bash
-RETURN_LENGTH=${1:-4}
-ADJECTIVES=("sharp" "cold" "little" "quick" "funny" "happy" "angry" "brave" "bright" "calm" "clever" "cool" "fast" "heavy" "hungry" "kind" "nice" "polite" "proud" "quiet" "short" "smart" "soft" "strong" "sweet" "tall" "thin" "warm" "wild")
-NOUNS=("fox" "turtle" "panda" "tiger" "bear" "wolf" "eagle" "shark" "whale" "wasp" "ant" "bee" "beetle" "dog" "snake" "cat" "fish" "bird" "bat" "rabbit" "sheep" "goat" "cow" "horse" "zebra" "rhino" "hippo" "lemur" "parrot" "owl" "raven" "crow" "swan" "duck" "goose" "peacock" "seagull" "pelican" "stork" "heron" "crane" "ibis" "hawk" "falcon" "eagle" "condor" "osprey" "kite" "harrier" "finch" "thrush")
+return_length=${1:-4}
+adjectives=("sharp" "cold" "little" "quick" "funny" "happy" "angry" "brave" "bright" "calm" "clever" "cool" "fast" "heavy" "hungry" "kind" "nice" "polite" "proud" "quiet" "short" "smart" "soft" "strong" "sweet" "tall" "thin" "warm" "wild")
+nouns=("fox" "turtle" "panda" "tiger" "bear" "wolf" "eagle" "shark" "whale" "wasp" "ant" "bee" "beetle" "dog" "snake" "cat" "fish" "bird" "bat" "rabbit" "sheep" "goat" "cow" "horse" "zebra" "rhino" "hippo" "lemur" "parrot" "owl" "raven" "crow" "swan" "duck" "goose" "peacock" "seagull" "pelican" "stork" "heron" "crane" "ibis" "hawk" "falcon" "eagle" "condor" "osprey" "kite" "harrier" "finch" "thrush")
 
 generate_random_suffix() {
   tr --delete --complement 'a-z0-9' < /dev/urandom \
-  | fold --width ${RETURN_LENGTH?} \
+  | fold --width ${return_length?} \
   | head --lines 1
 }
 
-ADJECTIVE=${ADJECTIVES[${RANDOM} % ${#ADJECTIVES[@]}]}
-NOUN=${NOUNS[${RANDOM} % ${#NOUNS[@]}]}
-SUFFIX=$(generate_random_suffix)
+adjective=${adjectives[${RANDOM} % ${#adjectives[@]}]}
+noun=${nouns[${RANDOM} % ${#nouns[@]}]}
+suffix=$(generate_random_suffix)
 
-echo "${ADJECTIVE}-${NOUN}-${SUFFIX}"
+echo "${adjective}-${noun}-${suffix}"

@@ -1,0 +1,82 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Azure Key Vault List
+
+    Options:
+
+      -h,  --help           Show this help
+      -s,  --subscription   Azure Subscription
+      
+    Examples:
+
+      ${this_script_name} \\
+        --subscription ${ARM_SUBSCRIPTION_ID:-11111111-2222-3333-4444-555555555555} \\
+        "cit-dev"
+
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -s | --subscription )
+      shift
+      subscription="${1}"
+      ;;
+
+    - )
+      read filter_expression < /dev/stdin
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+filter_expression="${filter_expression:-$1}"
+subscription="${subscription:-${ARM_SUBSCRIPTION_ID}}"
+
+if [ -z "${subscription}" ]; then
+  echo "--subscription is required because ARM_SUBSCRIPTION_ID is not set"
+  exit 1
+fi
+
+find_records_using_expression() {
+  grep --extended-regexp "${filter_expression}" "${azure_key_vault_list}" \
+  | sort \
+  | tr "|" " " \
+  | column -t
+}
+
+azure_key_vault_list="$(mktemp)"
+
+az keyvault list \
+  --subscription "${subscription?}" \
+  --query '[].{name:name,location:location,rg:resourceGroup} | [].join(`|`, [name, location, rg])' \
+  --output tsv \
+| grep --extended-regexp "${filter_expression}" > "${azure_key_vault_list}"
+
+records_found=$(wc --lines "${azure_key_vault_list}" | awk '{print $1}')
+
+if [ "${records_found}" -gt 1 ]; then
+  azure_key_vault_selected=$(
+    find_records_using_expression
+  )
+else
+  azure_key_vault_selected=$(find_records_using_expression)
+fi
+
+echo "${azure_key_vault_selected}"

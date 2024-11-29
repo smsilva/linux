@@ -1,0 +1,74 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Simple script to read a file and print its content
+
+    Options:
+
+      -h,  --help     Show this help
+      -n,  --name     Name of something
+      -dr, --dry-run  Dry Run (default: false)
+      
+    Examples:
+
+      seq -f "%02g" 10 20 > file 
+
+      ${this_script_name} \\
+        --name bar \\
+        file
+
+      ${this_script_name} file
+
+      ${this_script_name} < file
+
+      sort file --reverse | ${this_script_name}
+EOF
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -n | --name )
+      shift
+      name="${1}"
+      ;;
+
+    -dr | --dry-run )
+      if [[ -n "$2" && "$2" =~ ^(true|false)$ ]]; then
+        dry_run="$2"
+        shift
+      else
+        dry_run=true
+      fi
+      ;;
+
+    - )
+      file="/dev/stdin"
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "$1" == '--' ]]; then shift; fi
+
+if [[ -z "${input_file}" ]]; then
+  input_file="${1:-/dev/stdin}"
+fi
+
+name="${name:-bar}"
+
+while read -r line; do
+  echo "${name}:${line}"
+done < "${input_file}"

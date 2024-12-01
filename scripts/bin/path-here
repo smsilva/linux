@@ -1,11 +1,21 @@
 #!/bin/bash
-INPUT_PATH="${1:-${PWD}}"
-PATH_TO_ADD="$(realpath ${INPUT_PATH})"
+input_path="${1:-${PWD}}"
+path_to_add="$(realpath ${input_path})"
 
-if ! grep --quiet "${PATH_TO_ADD}" <<< "${PATH}"; then
-  export PATH=${PATH_TO_ADD}:$PATH
+if [[ -d "${path_to_add}" ]]; then
+  if ! grep --quiet "${path_to_add}" <<< "${PATH}"; then
+    export PATH=${path_to_add}:$PATH
+  fi
+
+  echo $PATH \
+  | tr ':' '\n' \
+  | grep "${path_to_add}"
+else
+  cat <<EOF
+  
+  It does not exist:
+
+    ${path_to_add}
+
+EOF
 fi
-
-echo $PATH \
-| tr ':' '\n' \
-| grep "${PATH_TO_ADD}"

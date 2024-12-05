@@ -1,0 +1,65 @@
+#!/bin/bash
+mkdir --parents "/tmp/fifo"
+
+# List accounts files
+list_accounts_named_pipe="/tmp/fifo/list_accounts.result"
+list_accounts_log_file="/tmp/fifo/list_accounts.log"
+list_accounts_error_file="/tmp/fifo/list_accounts.err"
+
+# Show groups files
+show_group_named_pipe="/tmp/fifo/show_groups.result"
+show_group_log_file="/tmp/fifo/show_groups.log"
+show_group_error_file="/tmp/fifo/show_groups.err"
+
+# Named pipes creation
+if [[ ! -p "${list_accounts_named_pipe}" ]]; then
+  mkfifo "${list_accounts_named_pipe}"
+fi
+
+if [[ ! -p "${show_group_named_pipe}" ]]; then
+  mkfifo "${show_group_named_pipe}"
+fi
+
+list_accounts() {
+  az account list --output table
+
+  echo $? > "${list_accounts_named_pipe}"
+} > "${list_accounts_log_file?}" 2> "${list_accounts_error_file?}"
+
+show_groups() {
+  sleep 10 # Simulate a delay
+
+  az group show --resource-group undefined
+
+  echo $? > "${show_group_named_pipe}"
+} > "${show_group_log_file?}" 2> "${show_group_error_file?}"
+
+echo "Running commands in background..."
+
+list_accounts &
+show_groups &
+
+echo ""
+echo "Waiting for result: 1"
+list_accounts_result=$(cat "${list_accounts_named_pipe}")
+
+echo "Waiting for result: 2"
+show_group_result=$(cat "${show_group_named_pipe}")
+
+cat <<EOF
+
+results:
+  list_accounts: 
+    log:         ${list_accounts_log_file?}
+    err:         ${list_accounts_error_file?}
+    result:      ${list_accounts_result}
+
+  show_groups:
+    log:         ${show_group_log_file?}
+    err:         ${show_group_error_file?}
+    result:      ${show_group_result}
+
+EOF
+
+rm "${list_accounts_named_pipe}"
+rm "${show_group_named_pipe}"

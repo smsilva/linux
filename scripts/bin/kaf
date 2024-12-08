@@ -1,9 +1,9 @@
 #!/bin/bash
-FILE_NAME="${1}"
+file_name="${1}"
 
-if [ -z "${FILE_NAME}" ]; then
-  FILE_NAME=$(fdfind -t f | fzf)
-  echo "${FILE_NAME?}"
+if [ -z "${file_name}" ]; then
+  file_name=$(fdfind -t f | fzf)
+  echo "${file_name?}"
 fi
 
-kubectl apply -f "${FILE_NAME?}"
+kubectl apply -f "${file_name?}"

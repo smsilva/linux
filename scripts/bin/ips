@@ -1,12 +1,12 @@
 #!/bin/bash
-CIDR=${1-10.0.0.0/16}
+cidr=${1:-10.0.0.0/16}
 
-IP_COUNT=$(
-  ipcalc ${CIDR} \
+ip_count=$(
+  ipcalc ${cidr} \
   | grep "^Hosts.Net" \
   | awk '{ print $2 }'
 )
 
 # Azure: the first three IP addresses in a subnet are reserved for management operations
 # https://learn.microsoft.com/en-us/azure/aks/azure-cni-overlay#ip-address-planning
-echo $((${IP_COUNT} -3))
+echo $((${ip_count} -3))

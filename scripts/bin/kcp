@@ -1,46 +1,46 @@
 #!/bin/bash
 create_window() {
-  WINDOW_NAME=$1
-  WINDOW_ID=$2
-  PANE_COUNT=$3
+  window_name=$1
+  window_id=$2
+  pane_count=$3
 
-  tmux new-window -t ${SESSION_NAME}:${WINDOW_ID} -n ${WINDOW_NAME}
-  tmux select-window -t ${SESSION_NAME}:${WINDOW_ID}
+  tmux new-window -t ${session_name}:${window_id} -n ${window_name}
+  tmux select-window -t ${session_name}:${window_id}
   
-  for ((i=1; i < PANE_COUNT; i++)); do
-    tmux split-window -t ${SESSION_NAME}:${WINDOW_ID} -h
+  for ((i=1; i < pane_count; i++)); do
+    tmux split-window -t ${session_name}:${window_id} -h
     
-    MOD_VALUE=$(($i % 4))
+    mod_value=$(($i % 4))
     
-    if [[ ((${MOD_VALUE} == 0)) ]]; then
-      tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} tiled
+    if [[ ((${mod_value} == 0)) ]]; then
+      tmux select-layout -t ${session_name}:${window_id} tiled
     fi
   done
 
-  if [[ ((${PANE_COUNT} > 3)) ]]; then
-    tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} tiled
+  if [[ ((${pane_count} > 3)) ]]; then
+    tmux select-layout -t ${session_name}:${window_id} tiled
   else
-    tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} main-horizontal
+    tmux select-layout -t ${session_name}:${window_id} main-horizontal
   fi
 
   tmux select-pane -t 0
   tmux set-window synchronize-panes
   
-  tmux send-keys -t ${SESSION_NAME}:${WINDOW_ID}.${_pane} ''
+  tmux send-keys -t ${session_name}:${window_id}.${_pane} ''
 }
 
-SESSION_NAME="crossplane"
+session_name="crossplane"
 
-tmux has-session -t ${SESSION_NAME} &> /dev/null
+tmux has-session -t ${session_name} &> /dev/null
 
 if [ $? != 0 ]; then
-  tmux new-session -s ${SESSION_NAME} -n 'bash' -d
+  tmux new-session -s ${session_name} -n 'bash' -d
 
   create_window "argocd" 1 1
   create_window "crossplane" 2 1
   create_window "port-forward" 3 1
     
-  tmux select-window -t ${SESSION_NAME}:1
+  tmux select-window -t ${session_name}:1
 fi
 
-tmux attach -t ${SESSION_NAME}
+tmux attach -t ${session_name}

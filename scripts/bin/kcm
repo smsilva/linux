@@ -1,12 +1,12 @@
 #!/bin/bash
-CONFIG_MAP_NAME="${1}"
+config_map_name="${1}"
 
-if [ -z "${CONFIG_MAP_NAME}" ]; then
-  CONFIG_MAP_NAME="$(kubectl get configmaps | sed 1d | awk '{ print $1 }' | fzf)"
+if [ -z "${config_map_name}" ]; then
+  config_map_name="$(kubectl get configmaps | sed 1d | awk '{ print $1 }' | fzf)"
 
   if ! [ "$?" == "0" ]; then
     exit 1
   fi
 fi
 
-kubectl get cm "${CONFIG_MAP_NAME}" -o json | jq .data
+kubectl get cm "${config_map_name}" -o json | jq .data

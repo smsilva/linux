@@ -1,23 +1,25 @@
 #!/bin/bash
-export THIS_SCRIPT_NAME=$0
-export THIS_SCRIPT_DIRECTORY=$(dirname $0)
-export PATH=${PATH}:${THIS_SCRIPT_DIRECTORY}
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
 
 show_usage() {
   cat <<EOF
 
-  k8s-dns-test \\
+  ${this_script_name} \\
     --namespace example \\
     --pod-selector run=curl \\
     --target httpbin.example.svc
 
-  k8s-dns-test \\
+  ${this_script_name} \\
     --namespace example \\
     --pod-selector run=curl \\
     --target httpbin.example.svc \\
     --target-port 8000
 
-  k8s-dns-test \\
+  ${this_script_name} \\
     --namespace example \\
     --pod-selector run=curl \\
     --target httpbin.example.svc \\
@@ -28,63 +30,68 @@ EOF
 }
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
-  -h | --help )
-    show_usage
-    exit
-    ;;
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
 
-  --namespace )
-    shift; POD_NAMESPACE=$1
-    ;;
+    --namespace )
+      shift
+      pod_namespace="${1}"
+      ;;
 
-  --pod-selector )
-    shift; POD_SELECTOR=$1
-    ;;
+    --pod-selector )
+      shift
+      pod_selector="${1}"
+      ;;
 
-  --target )
-    shift; TARGET_SERVICE=$1
-    ;;
+    --target )
+      shift
+      target_service="${1}"
+      ;;
 
-  --target-port )
-    shift; TARGET_PORT=$1
-    ;;
+    --target-port )
+      shift
+      target_port="${1}"
+      ;;
 
-  --max-pods )
-    shift; POD_MAXIMUM=$1
-    ;;
-esac; shift; done
+    --max-pods )
+      shift
+      pod_maximum="${1}"
+      ;;
+
+  esac
+  shift
+done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-POD_NAMESPACE=${POD_NAMESPACE-default}
-TARGET_PORT=${TARGET_PORT-80}
+pod_namespace=${pod_namespace:-default}
+target_port=${target_port-80}
 
-if [ -z "${POD_SELECTOR}" ]; then
+if [ -z "${pod_selector}" ]; then
   show_usage
   exit 1
 fi
 
 list_pods() {
   kubectl get pods \
-  --namespace "${POD_NAMESPACE}" \
-  --selector "${POD_SELECTOR?}" \
+  --namespace "${pod_namespace}" \
+  --selector "${pod_selector?}" \
   --output custom-columns="NAME:.metadata.name,NODE:.spec.nodeName" \
   --no-headers \
-| head -${POD_MAXIMUM-5000}
+| head -${pod_maximum:-5000}
 }
 
 list_pods \
-| while read -r LINE; do
-  POD_NAME=$(awk '{ print $1 }' <<< "${LINE}")
-  NODE_NAME=$(awk '{ print $2 }' <<< "${LINE}")
+| while read -r pod_name node_name; do
+  printf "[%s] %s: " "${node_name}" "${pod_name}"
 
-  printf "[%s] %s: " "${NODE_NAME}" "${POD_NAME}"
+  exec_result=$(kubectl \
+    --namespace "${pod_namespace}" \
+    exec ${pod_name} -- nc -v -w 3 ${target_service?} ${target_port} 2>&1)
 
-  EXEC_RESULT=$(kubectl \
-    --namespace "${POD_NAMESPACE}" \
-    exec ${POD_NAME} -- nc -v -w 3 ${TARGET_SERVICE?} ${TARGET_PORT} 2>&1)
-
-  echo "${EXEC_RESULT}" | tr "\n" " "
+  echo "${exec_result}" | tr "\n" " "
   echo
 done

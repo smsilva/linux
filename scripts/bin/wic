@@ -1,16 +1,16 @@
 #!/bin/bash
-COMMAND_NAME="${1}"
+command_name="${1}"
 
-FILE_PATH=$(which "${COMMAND_NAME}" 2> /dev/null)
+file_path=$(which "${command_name}" 2> /dev/null)
 
-if [[ -n "${FILE_PATH}" ]]; then
-  bat "${FILE_PATH}"
+if [[ -n "${file_path}" ]]; then
+  bat "${file_path}"
 else
-  ALIAS_CONFIGURATION=$(alias "${COMMAND_NAME}" 2> /dev/null)
+  alias_configuration=$(alias "${command_name}" 2> /dev/null)
 
-  if [[ -n "${ALIAS_CONFIGURATION}" ]]; then
-    echo "${ALIAS_CONFIGURATION}"
+  if [[ -n "${alias_configuration}" ]]; then
+    echo "${alias_configuration}"
   else
-    echo "No binary or alias found: ${COMMAND_NAME}"
+    echo "No binary or alias found: ${command_name}"
   fi
 fi

@@ -1,4 +1,4 @@
 #!/bin/bash
-VALUE_TO_BE_URL_ENCODED="$1"
+value_to_be_url_encoded="${1}"
 
-jq -nr --arg v "$VALUE_TO_BE_URL_ENCODED" '$v|@uri'
+jq -nr --arg v "${value_to_be_url_encoded}" '$v|@uri'

@@ -1,4 +1,4 @@
 #!/bin/bash
-COMMAND_NAME="${1}"
+command_name="${1}"
 
-which "${COMMAND_NAME}"
+which "${command_name}"

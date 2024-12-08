@@ -1,83 +1,103 @@
 #!/bin/bash
-cli_help() {
-  echo "Arguments:"
-  echo ""
-  echo "  --tenant"
-  echo "  --subscription"
-  echo ""
-  echo "Examples:"
-  echo ""
-  echo "  1. Delete ALL Resources from All Subscriptions"
-  echo ""
-  echo "    aznuke \\"
-  echo "      --tenant a267367d-d04d-4a6b-84ef-0cc227ed6e9f"
-  echo ""
-  echo "  2. Delete ALL Resources from ONE Subscription"
-  echo ""
-  echo "    aznuke \\"
-  echo "      --tenant       a267367d-d04d-4a6b-84ef-0cc227ed6e9f \\"
-  echo "      --subscription 636a465c-d6b1-4533-b071-64cea37a2bf6"
-  echo ""
-  exit 1
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Script to remove all resources from Azure Subscription
+
+    Options:
+
+      -h, --help           Show this help
+      -t, --tenant         Tenant ID
+      -s, --subscription   Subscription ID
+
+    Examples:
+
+      1. Delete ALL Resources from All Subscriptions
+
+        ${this_script_name?} \\
+          --tenant a267367d-d04d-4a6b-84ef-0cc227ed6e9f
+
+      2. Delete ALL Resources from ONE Subscription
+
+        ${this_script_name?} \\
+          --tenant       a267367d-d04d-4a6b-84ef-0cc227ed6e9f \\
+          --subscription 636a465c-d6b1-4533-b071-64cea37a2bf6     
+
+EOF
 }
 
-while [[ -n "$1" ]]; do case $1 in
-  --tenant )
-    TENANT_ID=${2}
-    shift;
-    ;;
-  --subscription )
-    SUBSCRIPTION_ID=${2}
-    shift;
-    ;;
-  --help )
-    cli_help
-    ;;
-esac; shift; done
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case ${1} in
+    -h, --help )
+      show_usage
+      exit 1
+      ;;
+
+    -t, --tenant )
+      shift
+      tenant_id="${1}"
+      ;;
+
+    -s, --subscription )
+      shift
+      subscription_id="${1}"
+      ;;
+
+  esac
+  shift
+done
+
 if [[ "$1" == '--' ]]; then shift; fi
 
 clear
 
-if [ -z "${TENANT_ID}" ]; then
-  TENANT_ID=$(az account show --query tenantId --output tsv)
+if [ -z "${tenant_id}" ]; then
+  tenant_id=$(az account show --query tenantId --output tsv)
 fi
 
-AZURE_TENANT_ID_NUKE="${TENANT_ID}"
-AZURE_SUBSCRIPTION_ID="${SUBSCRIPTION_ID-*}"
+azure_tenant_id_nuke="${tenant_id}"
+azure_subscription_id="${subscription_id-*}"
 
-JQ_EXPRESSION='.[] | select(.tentantId | contains("%s"))'
+jq_expression='.[] | select(.tentantId | contains("%s"))'
 
-JQ_EXPRESSION="$(printf "${JQ_EXPRESSION}" "${AZURE_TENANT_ID_NUKE}")"
+jq_expression="$(printf "${jq_expression}" "${azure_tenant_id_nuke}")"
 
 select_subscriptions() {
   az account list \
     --output tsv \
-    --query '[].{tenantId:tenantId,id:id,name:name}' | grep "^${AZURE_TENANT_ID_NUKE}" | grep -E "${AZURE_SUBSCRIPTION_ID}"
+    --query '[].{tenantId:tenantId,id:id,name:name}' \
+  | grep "^${azure_tenant_id_nuke}" \
+  | grep --extended-regexp "${azure_subscription_id}"
 }
 
-SUBSCRIPTIONS_SELECTED=$(select_subscriptions | wc -l)
+subscriptions_selected=$(select_subscriptions | wc --lines)
 
-if [ "${SUBSCRIPTIONS_SELECTED}" == "" ] || [ "${SUBSCRIPTIONS_SELECTED}" == "0" ]; then
+if [[ "${subscriptions_selected}" == "" || "${subscriptions_selected}" == "0" ]]; then
   echo "There's no subscription selected. Please review the parameters values."
   exit 1
 fi
 
-echo ""
-echo "WARNING!!! WARNING!!! WARNING!!! WARNING!!!"
-echo ""
-echo "THIS IS A VERY DANGEROUS ACTION!!!"
-echo ""
-echo "ALL OF RESOURCE GROUPS UNDER WILL BE COMPLETELY AND UNRECOVER DELETED."
-echo ""
-echo "  TENTANT_ID......: ${AZURE_TENANT_ID_NUKE}"
-echo "  SUBSCRIPTION_ID.: ${AZURE_SUBSCRIPTION_ID}"
-echo ""
-echo "DO IT FOR YOUR OWN RISK!!!"
-echo ""
+cat <<EOF
 
-SUBSCRIPTION_LIST="$(select_subscriptions)"
+WARNING!!! WARNING!!! WARNING!!! WARNING!!!
 
-echo "${SUBSCRIPTION_LIST}"
+THIS IS A VERY DANGEROUS ACTION!!!
+
+ALL OF RESOURCE GROUPS UNDER WILL BE COMPLETELY AND UNRECOVER DELETED.
+
+  tentant_id......: ${azure_tenant_id_nuke}
+  subscription_id.: ${azure_subscription_id}
+
+DO IT FOR YOUR OWN RISK!!!
+
+EOF
+
+subscription_list="$(select_subscriptions)"
+
+echo "${subscription_list}"
 
 echo ""
 
@@ -86,52 +106,55 @@ read -r -p "Press any key to resume ..."
 echo ""
 echo ""
 
-SCRIPT_LOG_DIRECTORY="${HOME}/trash/aznuke/" && mkdir -p "${SCRIPT_LOG_DIRECTORY}"
-FILE_LOG_INFO="${SCRIPT_LOG_DIRECTORY}/aznuke-info.log"
-FILE_LOG_ERROR="${SCRIPT_LOG_DIRECTORY}/aznuke-error.log"
+log_directory="$(mktemp --directory)"
 
-while read -r LINE; do
-  NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"
-  NUKE_SUBSCRIPTION_ID="$(awk '{ print $2 }' <<< "${LINE}")"
-  NUKE_SUBSCRIPTION_NAME="$(awk '{ print $3 }' <<< "${LINE}")"
+mkdir --parents "${log_directory?}"
 
-  echo "NUKE_SUBSCRIPTION_NAME.: ${NUKE_SUBSCRIPTION_NAME}"
-  echo "NUKE_SUBSCRIPTION_ID...: ${NUKE_SUBSCRIPTION_ID}"
-  echo "NUKE_TENANT_ID.........: ${NUKE_TENANT_ID}"
+file_log_info="${log_directory?}/aznuke-info.log"
+file_log_error="${log_directory?}/aznuke-error.log"
 
-  while read -r RESOURCE_GROUP_NAME; do
-    if [ -n "${RESOURCE_GROUP_NAME}" ]; then
-      echo "RESOURCE_GROUP_NAME....: ${RESOURCE_GROUP_NAME}"
+while read -r line; do
+  nuke_tenant_id="$(awk '{ print $1 }' <<< "${line}")"
+  nuke_subscription_id="$(awk '{ print $2 }' <<< "${line}")"
+  nuke_subscription_name="$(awk '{ print $3 }' <<< "${line}")"
+
+  echo "nuke_subscription_name.: ${nuke_subscription_name}"
+  echo "nuke_subscription_id...: ${nuke_subscription_id}"
+  echo "nuke_tenant_id.........: ${nuke_tenant_id}"
+
+  while read -r resource_group_name; do
+    if [ -n "${resource_group_name}" ]; then
+      echo "resource_group_name....: ${resource_group_name}"
   
       az group delete \
-        --resource-group "${RESOURCE_GROUP_NAME}" \
-        --subscription "${NUKE_SUBSCRIPTION_ID}" \
+        --resource-group "${resource_group_name}" \
+        --subscription "${nuke_subscription_id}" \
         --no-wait \
-        --yes 1> >(tee -a "${FILE_LOG_INFO}") 2> >(tee -a "${FILE_LOG_ERROR}" >&2)
+        --yes 1> >(tee -a "${file_log_info}") 2> >(tee -a "${file_log_error}" >&2)
     fi
   done <<< "$(az group list \
-    --subscription "${NUKE_SUBSCRIPTION_ID}" \
+    --subscription "${nuke_subscription_id}" \
     --output tsv \
     --query '[].name' | grep -v iac)"
 
   echo ""
-done <<< "${SUBSCRIPTION_LIST}"
+done <<< "${subscription_list}"
 
 list_groups() {
-  while read -r LINE; do
-    NUKE_TENANT_ID="$(awk '{ print $1 }' <<< "${LINE}")"
-    NUKE_SUBSCRIPTION_ID="$(awk '{ print $2 }' <<< "${LINE}")"
-    NUKE_SUBSCRIPTION_NAME="$(awk '{ print $3 }' <<< "${LINE}")"
+  while read -r line; do
+    nuke_tenant_id="$(awk '{ print $1 }' <<< "${line}")"
+    nuke_subscription_id="$(awk '{ print $2 }' <<< "${line}")"
+    nuke_subscription_name="$(awk '{ print $3 }' <<< "${line}")"
      
-    echo "${NUKE_SUBSCRIPTION_NAME} [${NUKE_SUBSCRIPTION_ID}]"
+    echo "${nuke_subscription_name} [${nuke_subscription_id}]"
     echo ""
 
     az group list \
-      --subscription "${NUKE_SUBSCRIPTION_ID}" \
+      --subscription "${nuke_subscription_id}" \
       --output table
 
     echo ""
-  done <<< "${SUBSCRIPTION_LIST}"
+  done <<< "${subscription_list}"
 }
 
 while true; do

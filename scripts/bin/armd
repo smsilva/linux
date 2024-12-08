@@ -1,9 +1,9 @@
 #!/bin/bash
-SAS_TOKEN_FILE="$(arm-sas-token-file-name)"
+sas_token_file="$(arm-sas-token-file-name)"
 
-if [ -e "${SAS_TOKEN_FILE?}" ]; then
-  echo "${SAS_TOKEN_FILE}"
-  rm -rf "${SAS_TOKEN_FILE?}"
+if [[ -e "${sas_token_file?}" ]]; then
+  echo "${sas_token_file}"
+  rm -rf "${sas_token_file?}"
 fi
 
 unset ARM_SAS_TOKEN

@@ -1,4 +1,19 @@
 #!/bin/bash
+if [[ -z "${ARM_CLIENT_ID}" ]]; then
+  echo "ARM_CLIENT_ID is not set"
+  exit 1
+fi
+
+if [[ -z "${ARM_CLIENT_SECRET}" ]]; then
+  echo "ARM_CLIENT_SECRET is not set"
+  exit 1
+fi
+
+if [[ -z "${ARM_TENANT_ID}" ]]; then
+  echo "ARM_TENANT_ID is not set"
+  exit 1
+fi
+
 az login \
   --service-principal \
   --username "${ARM_CLIENT_ID}" \

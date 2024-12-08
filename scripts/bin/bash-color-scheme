@@ -9,26 +9,33 @@
 # Cyan         0;36     Light Cyan    1;36
 # Light Gray   0;37     White         1;37
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+red='\033[0;31m'
+green='\033[0;32m'
+nc='\033[0m'
+yellow='\033[0;33m'
 
 color() {
-  COLOR="${1}"
-  TEXT="${2}"
-  echo "${COLOR}${TEXT}${NC}"
+  color="${1}"
+  text="${2}"
+  echo "${color}${text}${nc}"
 }
 
 red() {
-  echo "$(color "${RED}" "${1}")"
+  echo "$(color "${red}" "${1}")"
 }
 
 green() {
-  echo "$(color "${GREEN}" "${1}")"
+  echo "$(color "${green}" "${1}")"
 }
 
-STATUS_NOT_FOUND=$(red " not found ")
-STATUS_CREATED=$(green " created   ")
+yellow() {
+  echo "$(color "${yellow}" "${1}")"
+}
 
-echo -e "This should be in red....: [${STATUS_NOT_FOUND}]"
-echo -e "This should be in green..: [${STATUS_CREATED}]"
+status_not_found=$(red    " not found ")
+status_created=$(  green  " created "  )
+status_warning=$(  yellow " warning "  )
+
+echo -e "This should be in red....: [ ${status_not_found} ]"
+echo -e "This should be in green..: [ ${status_created}   ]"
+echo -e "This should be in yellow.: [ ${status_warning}   ]"

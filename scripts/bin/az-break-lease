@@ -1,5 +1,5 @@
 #!/bin/bash
-BLOB_FILE_NAME="${1-stacks/default/file.state.json"
+blob_file_name="${1:-stacks/default/file.state.json"
 
 az login \
   --service-principal \
@@ -8,7 +8,7 @@ az login \
   --tenant "${ARM_TENANT_ID?}"
 
 az storage blob lease break \
-  --blob-name "${BLOB_FILE_NAME?}" \
+  --blob-name "${blob_file_name?}" \
   --account-name "${ARM_STORAGE_ACCOUNT_NAME?}" \
   --account-key "${ARM_ACCESS_KEY?}" \
   --container-name "${ARM_STORAGE_ACCOUNT_CONTAINER_NAME?}" \

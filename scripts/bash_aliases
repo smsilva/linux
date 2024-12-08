@@ -6,6 +6,7 @@ alias aksgc='aksgetcred'
 alias anagl='az network application-gateway list -o table'
 alias anl='az network vnet list -o table'
 alias armd=". armd && arm"
+alias armu='. arm-unset'
 alias azc='[ -e "${CREDENTIALS_DIRECTORY}" ] && code "${CREDENTIALS_DIRECTORY}/azure/${ARM_SUBSCRIPTION_ID}"'
 alias brc="source ~/.bashrc"
 alias c='clear'

@@ -32,7 +32,7 @@ show_usage() {
 EOF
 }
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
   case $1 in
     -h | --help )
       show_usage
@@ -45,8 +45,8 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
       ;;
 
     -dr | --dry-run )
-      if [[ -n "$2" && "$2" =~ ^(true|false)$ ]]; then
-        dry_run="$2"
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        dry_run="${2}"
         shift
       else
         dry_run=true
@@ -61,7 +61,7 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
   shift
 done
 
-if [[ "$1" == '--' ]]; then shift; fi
+if [[ "${1}" == '--' ]]; then shift; fi
 
 if [[ -z "${input_file}" ]]; then
   input_file="${1:-/dev/stdin}"

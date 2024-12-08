@@ -1,83 +1,74 @@
 #!/bin/bash
-export AZURE_SUBSCRIPTION_NAME_INPUT="${1}"
-export AZURE_CREDENTIALS_DIRECTORY="${CREDENTIALS_DIRECTORY?}/azure"
-export AZURE_CREDENTIALS_CURRENT_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/current"
+azure_subscription_name_input="${1}"
+azure_credentials_directory="${CREDENTIALS_DIRECTORY:-${HOME}/.credentials}/azure"
+azure_credentials_current_file="${azure_credentials_directory?}/current"
 
 create_initial_subscription_credentials_file() {
-  mkdir --parents "${AZURE_CREDENTIALS_DIRECTORY}"
+  mkdir --parents "${azure_credentials_directory}"
 
-  export AZURE_STORAGE_ACCOUNT_NAME="waspfoundation$(awk -F '-' '{ print $1 }' <<< "${AZURE_SUBSCRIPTION_ID}")"
-  export AZURE_KEYVAULT_NAME="${AZURE_STORAGE_ACCOUNT_NAME}"
+  azure_storage_account_name="foundation$(awk -F '-' '{ print $1 }' <<< "${azure_subscription_id}")"
+  azure_keyvault_name="${azure_storage_account_name}"
 
-  cat <<EOF > "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
-export ARM_TENANT_ID="${AZURE_TENANT_ID}"
-export ARM_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
-export ARM_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME}"
+  cat <<EOF > "${azure_credentials_subscription_file}"
+export ARM_TENANT_ID="${azure_tenant_id}"
+export ARM_SUBSCRIPTION_ID="${azure_subscription_id}"
+export ARM_SUBSCRIPTION_NAME="${azure_subscription_name}"
 export ARM_CLIENT_ID="SERVICE_PRINCIPAL_ID_HERE"
 export ARM_CLIENT_SECRET="SERVICE_PRINCIPAL_CLIENT_SECRET_HERE"
-export ARM_STORAGE_ACCOUNT_NAME="${AZURE_STORAGE_ACCOUNT_NAME}"
+export ARM_STORAGE_ACCOUNT_NAME="${azure_storage_account_name}"
 export ARM_STORAGE_ACCOUNT_CONTAINER_NAME="terraform"
-export ARM_KEYVAULT_NAME="${AZURE_KEYVAULT_NAME}"
+export ARM_KEYVAULT_NAME="${azure_keyvault_name}"
 unset ARM_ACCESS_KEY
 EOF
 
-  chmod +x "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}"
+  chmod +x "${azure_credentials_subscription_file}"
 }
 
 change_active_subscription() {
   az account set \
-    --subscription "${AZURE_SUBSCRIPTION_NAME}"
+    --subscription "${azure_subscription_name}"
 
-  export AZURE_SUBSCRIPTION_ID=$(az account show \
+  azure_subscription_id=$(az account show \
     --output tsv \
     --query id)
 
-  export AZURE_TENANT_ID=$(az account show \
+  azure_tenant_id=$(az account show \
     --output tsv \
     --query tenantId)
 
-  export AZURE_CREDENTIALS_SUBSCRIPTION_FILE="${AZURE_CREDENTIALS_DIRECTORY?}/${AZURE_SUBSCRIPTION_ID}"
+  azure_credentials_subscription_file="${azure_credentials_directory?}/${azure_subscription_id}"
 
-  if [ ! -e "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE}" ]; then
+  if [ ! -e "${azure_credentials_subscription_file}" ]; then
     create_initial_subscription_credentials_file
   fi
 
-  cp "${AZURE_CREDENTIALS_SUBSCRIPTION_FILE?}" "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+  cp "${azure_credentials_subscription_file?}" "${azure_credentials_current_file?}"
 
-  source "${AZURE_CREDENTIALS_CURRENT_FILE?}"
+  source "${azure_credentials_current_file?}"
 
-  export ARM_SAS_TOKEN="$(arm-sas-token-get)"
+  ARM_SAS_TOKEN="$(arm-sas-token-get)"
 
   arm
 }
 
-# Create a temporary file to store the Azure Subscription List
-AZURE_SUBSCRIPTION_LIST=$(mktemp)
+azure_subscription_list_file="$(mktemp)"
 
-# Retrieve Azure Subscription List and save it to the temporary file
 az account list \
   --query "[].name" \
-  --output tsv > "${AZURE_SUBSCRIPTION_LIST}"
+  --output tsv > "${azure_subscription_list_file}"
 
-# If no input is provided
-if [[ -z "${AZURE_SUBSCRIPTION_NAME_INPUT}" ]]; then
-  # Use fzf to select the subscription
-  export AZURE_SUBSCRIPTION_NAME="$(cat ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
+if [[ -z "${azure_subscription_name_input}" ]]; then
+  azure_subscription_name="$(cat ${azure_subscription_list_file?} | fzf)"
 else
-  # Retrieve the number of records that match the provided input
-  RECORD_COUNT=$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | wc -l)
+  record_count=$(grep --extended-regexp "${azure_subscription_name_input}" "${azure_subscription_list_file?}" | wc -l)
 
-  # Check if the input is unique
-  if [[ ${RECORD_COUNT} -eq 1 ]]; then
-    # If input is unique, use it as the subscription
-    export AZURE_SUBSCRIPTION_NAME="${AZURE_SUBSCRIPTION_NAME_INPUT}"
+  if [[ ${record_count} -eq 1 ]]; then
+    azure_subscription_name="${azure_subscription_name_input}"
   else
-    # If input is not unique, use fzf to select the subscription
-    export AZURE_SUBSCRIPTION_NAME="$(grep --extended-regexp "${AZURE_SUBSCRIPTION_NAME_INPUT}" ${AZURE_SUBSCRIPTION_LIST?} | fzf)"
+    azure_subscription_name="$(grep --extended-regexp "${azure_subscription_name_input}" "${azure_subscription_list_file?}" | fzf)"
   fi
 fi
 
-# If subscription is selected, change the active subscription
-if [[ -n "${AZURE_SUBSCRIPTION_NAME}" ]]; then
+if [[ -n "${azure_subscription_name}" ]]; then
   change_active_subscription
 fi

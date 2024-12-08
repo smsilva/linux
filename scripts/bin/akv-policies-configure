@@ -27,34 +27,38 @@ show_usage() {
 EOF
 }
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-  case $1 in
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case ${1} in
     -h | --help )
       show_usage
       exit 1
       ;;
 
     -kv | --key-vault )
-      shift; key_vault_name=$1
+      shift
+      key_vault_name="${1}"
       ;;
 
     -s | --subscription )
-      shift; subscription_id=$1
+      shift
+      subscription_id="${1}"
       ;;
 
     -sp | --service-principal-id )
-      shift; service_principal_id=$1
+      shift
+      service_principal_id="${1}"
       ;;
 
     -spoid | --service-principal-object-id )
-      shift; service_principal_object_id=$1
+      shift
+      service_principal_object_id="${1}"
       ;;
     
   esac
   shift
 done
 
-if [[ "$1" == '--' ]]; then shift; fi
+if [[ "${1}" == '--' ]]; then shift; fi
 
 if [[ -z "${key_vault_name}" ]]; then
   echo "ERROR: --key-vault is required"

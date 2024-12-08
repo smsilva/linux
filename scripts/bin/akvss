@@ -57,10 +57,10 @@ azure_key_vault_selected=$(akv \
   "${filter_expression_key_vault}"
 )
 
-secrets_list=$(mktemp)
+secrets_list_file=$(mktemp)
 
 find_records_using_expression() {
-  grep --extended-regexp "${filter_expression_secret}" "${secrets_list}" | sort
+  grep --extended-regexp "${filter_expression_secret}" "${secrets_list_file}" | sort
 }
 
 echo "${azure_key_vault_selected}" >&2
@@ -73,9 +73,9 @@ if [ -n "${azure_key_vault_selected}" ]; then
       --vault-name "${azure_key_vault_name?}" \
       --query "[].name" \
       --output tsv \
-    | grep --extended-regexp "${filter_expression_secret}" > "${secrets_list}"
+    | grep --extended-regexp "${filter_expression_secret}" > "${secrets_list_file}"
 
-    secrets_found_count=$(wc --lines < "${secrets_list}")
+    secrets_found_count=$(wc --lines < "${secrets_list_file}")
 
     if [ "${secrets_found_count}" -gt 1 ]; then
       secret_selected_name=$(

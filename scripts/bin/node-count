@@ -10,34 +10,39 @@ EOF
 }
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
-  -h | --help )
-    show_usage
-    exit
-    ;;
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
 
-  --cidr )
-    shift; CIDR=$1
-    ;;
+    --cidr )
+      shift
+      cidr="${1}"
+      ;;
 
-  --max-pods )
-    shift; MAX_PODS=$1
-    ;;
-esac; shift; done
+    --max-pods )
+      shift
+      max_pods="${1}"
+      ;;
+
+  esac
+  shift
+done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${CIDR}"     ] || \
-   [ -z "${MAX_PODS}" ]; then
+if [ -z "${cidr}"     ] || \
+   [ -z "${max_pods}" ]; then
   echo "You must use ALL parameters."
   show_usage
   exit 1
 fi
 
-IP_COUNT=$(ips ${CIDR?})
+ip_count=$(ips ${cidr?})
 
-MAX_PODS=$(( ${MAX_PODS} + 1))
+max_pods=$(( ${max_pods} + 1))
 
-NODE_COUNT=$(( ${IP_COUNT} / ${MAX_PODS}))
+node_count=$(( ${ip_count} / ${max_pods}))
 
-echo ${NODE_COUNT}
+echo ${node_count}

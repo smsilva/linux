@@ -1,10 +1,10 @@
 #!/bin/bash
 mkdir transcoded
 
-for FILE_NAME in *.mp4; do
+for file_name in *.mp4; do
   ffmpeg \
-    -i "${FILE_NAME}" \
+    -i "${file_name}" \
     -vcodec mjpeg \
     -acodec pcm_s16be \
-    -f mov "transcoded/${FILE_NAME%.*}.mov"
+    -f mov "transcoded/${file_name%.*}.mov"
 done

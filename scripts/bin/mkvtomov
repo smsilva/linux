@@ -1,13 +1,13 @@
 #!/bin/bash
-for FILE_NAME in *.mkv; do
+for file_name in *.mkv; do
   ffmpeg \
-    -i "${FILE_NAME}" \
+    -i "${file_name}" \
     -c:v prores \
     -profile:v 3 \
     -c:a pcm_s24le \
-    "${FILE_NAME%.*}.mov"
+    "${file_name%.*}.mov"
 
   ffmpeg \
-    -i "${FILE_NAME}" \
-    -c:a pcm_s24le "${FILE_NAME%.*}.wav"
+    -i "${file_name}" \
+    -c:a pcm_s24le "${file_name%.*}.wav"
 done

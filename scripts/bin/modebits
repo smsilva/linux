@@ -1,26 +1,26 @@
 #!/bin/bash
-FILE_MODE_BITS="${1}"
+file_mode_bits="${1}"
 
-if [ -z "${FILE_MODE_BITS}" ]; then
-  seq 1 7 | while read -r BIT; do
-    echo "${BIT}" $(modebits ${BIT})
+if [ -z "${file_mode_bits}" ]; then
+  seq 1 7 | while read -r bit; do
+    echo "${bit}" $(modebits ${bit})
   done
   exit 0
 fi
 
-PERMISSIONS=""
+permissions=""
 
-for (( i=0; i<${#FILE_MODE_BITS}; i++ )); do
-  case ${FILE_MODE_BITS:i:1} in
-    7) PERMISSIONS+="rwx" ;;
-    6) PERMISSIONS+="rw-" ;;
-    5) PERMISSIONS+="r-x" ;;
-    4) PERMISSIONS+="r--" ;;
-    3) PERMISSIONS+="wx-" ;;
-    2) PERMISSIONS+="-w-" ;;
-    1) PERMISSIONS+="--x" ;;
-    0) PERMISSIONS+="---" ;;
+for (( i=0; i<${#file_mode_bits}; i++ )); do
+  case ${file_mode_bits:i:1} in
+    7) permissions+="rwx" ;;
+    6) permissions+="rw-" ;;
+    5) permissions+="r-x" ;;
+    4) permissions+="r--" ;;
+    3) permissions+="wx-" ;;
+    2) permissions+="-w-" ;;
+    1) permissions+="--x" ;;
+    0) permissions+="---" ;;
   esac
 done
 
-echo "${PERMISSIONS}"
+echo "${permissions}"

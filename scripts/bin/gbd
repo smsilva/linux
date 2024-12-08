@@ -1,8 +1,8 @@
 #!/bin/bash
-BRANCH_NAME="$1"
+branch_name="$1"
 
-if [[ -z ${BRANCH_NAME} ]]; then
-  BRANCH_NAME=$(git branch | grep --extended-regexp --invert-match "^\*" | awk '{ print $1 }' | fzf)
+if [[ -z ${branch_name} ]]; then
+  branch_name=$(git branch | grep --extended-regexp --invert-match "^\*" | awk '{ print $1 }' | fzf)
 fi
 
-git branch -D ${BRANCH_NAME?}
+git branch -D ${branch_name?}

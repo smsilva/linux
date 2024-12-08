@@ -1,10 +1,10 @@
 #!/bin/bash
-BRANCH_NAME="$1"
+branch_name="$1"
 
-CURRENT_BRANCH_NAME=$(git branch --show-current)
+current_branch_name=$(git branch --show-current)
 
-if [[ -z ${BRANCH_NAME} ]]; then
-  git checkout $(git branch | grep --invert "${CURRENT_BRANCH_NAME}" | fzf)
+if [[ -z ${branch_name} ]]; then
+  git checkout $(git branch | grep --invert "${current_branch_name}" | fzf)
 else
-  git checkout "${BRANCH_NAME}"
+  git checkout "${branch_name}"
 fi

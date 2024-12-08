@@ -1,5 +1,5 @@
 #!/bin/bash
-REFERENCE_PATH="${1:-.}"
+reference_path="${1:-.}"
 
 fdfind \
   --type f \
@@ -7,7 +7,7 @@ fdfind \
   --follow \
   --exclude .git \
   . \
-  ${REFERENCE_PATH?} \
+  ${reference_path?} \
 | fzf \
   --multi \
   --preview 'batcat --style=numbers --color=always {} | head -50' \

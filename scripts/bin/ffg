@@ -1,5 +1,5 @@
 #!/bin/bash
-FILE_SEARCH_PATTERN="${1}"
-LOCATION_TO_SEARCH="${2-.}"
+file_search_pattern="${1}"
+location_to_search="${2-.}"
 
-fdfind . "${LOCATION_TO_SEARCH}" | grep -E "${FILE_SEARCH_PATTERN}"
+fdfind . "${location_to_search}" | grep -E "${file_search_pattern}"

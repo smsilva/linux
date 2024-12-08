@@ -1,8 +1,8 @@
 #!/bin/bash
-BRANCH_NAME="$1"
+branch_name="$1"
 
-if [ -z ${BRANCH_NAME} ]; then
-  BRANCH_NAME=$(
+if [ -z ${branch_name} ]; then
+  branch_name=$(
     git branch --remotes \
     | grep --invert 'HEAD' \
     | fzf \
@@ -10,11 +10,11 @@ if [ -z ${BRANCH_NAME} ]; then
   )
 fi
 
-if [ -z ${BRANCH_NAME} ]; then
+if [ -z ${branch_name} ]; then
   echo "No branch selected" >&2
   exit 1
 fi
 
-git checkout "${BRANCH_NAME}"
+git checkout "${branch_name}"
 
 git pull --rebase --prune

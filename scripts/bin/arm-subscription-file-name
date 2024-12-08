@@ -1,4 +1,5 @@
 #!/bin/bash
-FILE_NAME="${CREDENTIALS_DIRECTORY_AZURE}/${ARM_SUBSCRIPTION_ID}"
+base_directory="${CREDENTIALS_DIRECTORY_AZURE:-${HOME}./credentials/azure}"
+subscription_file_name="${base_directory}/${ARM_SUBSCRIPTION_ID}"
 
-echo "${FILE_NAME?}"
+echo "${subscription_file_name}"

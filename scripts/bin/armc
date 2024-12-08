@@ -1,6 +1,6 @@
 #!/bin/bash
-CREDENTIALS_FILE="$(arm-subscription-file-name)"
+credentials_file="$(arm-subscription-file-name)"
 
-if [[ -e "${CREDENTIALS_FILE}" ]]; then
-  code ${CREDENTIALS_FILE}
+if [[ -e "${credentials_file}" ]]; then
+  code "${credentials_file}"
 fi

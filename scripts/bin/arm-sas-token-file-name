@@ -1,4 +1,6 @@
 #!/bin/bash
-FILE_NAME="${CREDENTIALS_DIRECTORY_AZURE}/${ARM_STORAGE_ACCOUNT_NAME}.sas-token"
+storage_account_name="${ARM_STORAGE_ACCOUNT_NAME:-undefined-storage-account-name}"
+base_directory="${CREDENTIALS_DIRECTORY_AZURE:-${HOME}./credentials/azure}"
+sas_token_file_name="${base_directory}/${storage_account_name}.sas-token"
 
-echo "${FILE_NAME?}"
+echo "${sas_token_file_name}"

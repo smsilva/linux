@@ -1,14 +1,14 @@
 #!/bin/bash
-DEPENDENCY_LIST_FILE=$(mktemp)
+dependency_list_file=$(mktemp)
 
 find \
   -mindepth 1 \
   -maxdepth 1 \
   -type d \
 | sort -u \
-| while read -r CHART_NAME; do
-  CHART_DEPENDENCY_LIST=$( 
-    helm dependency list ${CHART_NAME} 2> /dev/null \
+| while read -r chart_name; do
+  chart_dependency_list=$( 
+    helm dependency list ${chart_name} 2> /dev/null \
     | sed 1d \
     | grep --extended-regexp "^[a-zA-Z]" \
     | awk '{ print $1 }' \
@@ -16,6 +16,6 @@ find \
     | sed 's|;$||'
   )
 
-  echo "${CHART_NAME}|${CHART_DEPENDENCY_LIST}|" \
+  echo "${chart_name}|${chart_dependency_list}|" \
   | sed 's|./||'
 done

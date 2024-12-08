@@ -1,14 +1,14 @@
 #!/bin/bash
-DESIRED_STASH_NUMBER=$1
+desired_stash_number=${1}
 
-if [[ -z ${DESIRED_STASH_NUMBER} ]]; then
-  DESIRED_STASH=$(
+if [[ -z ${desired_stash_number} ]]; then
+  desired_stash=$(
     git stash list \
     | fzf \
     | awk -F ':' '{ print $1 }'
   )
 
-  git stash show ${DESIRED_STASH}
+  git stash show ${desired_stash}
 else
-  git stash show stash@{${DESIRED_STASH_NUMBER}}
+  git stash show stash@{${desired_stash_number}}
 fi

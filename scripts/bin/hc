@@ -1,8 +1,8 @@
 #!/bin/bash
 history -c
 
-HISTORY_FILE="${HOME}/.bash_history"
+history_file="${HOME}/.bash_history"
 
-if [ -f "${HISTORY_FILE}" ]; then
-  rm "${HISTORY_FILE}"
+if [ -f "${history_file}" ]; then
+  rm "${history_file}"
 fi

@@ -1,9 +1,9 @@
 #!/bin/bash
-BRANCH_NAME=${1-main}
+branch_name="${1: -main}"
 
-COMMIT_COUNT=$(
-  git-commits-until "${BRANCH_NAME?}" | wc -l
+commit_count=$(
+  git-commits-until "${branch_name?}" | wc -l
 )
 
 # Rebase using the number of commits until the specified branch
-gri ${COMMIT_COUNT?}
+gri ${commit_count?}

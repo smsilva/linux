@@ -1,13 +1,13 @@
 #!/bin/bash
-BACKEND_FILE="backend.conf"
+backend_file="backend.conf"
 
-STATE_FILE_NAME="$(uuidgen)"
+state_file_name="$(uuidgen)"
 
-cat <<EOF > "${BACKEND_FILE}"
-key                  = "${USER##*\\}/${STATE_FILE_NAME}.json"
+cat <<EOF > "${backend_file}"
+key                  = "${USER##*\\}/${state_file_name}.json"
 storage_account_name = "${ARM_STORAGE_ACCOUNT_NAME}"
 container_name       = "${ARM_STORAGE_ACCOUNT_CONTAINER_NAME}"
 sas_token            = "${ARM_SAS_TOKEN}"
 EOF
 
-cat "${BACKEND_FILE}"
+cat "${backend_file}"

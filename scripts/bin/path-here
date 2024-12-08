@@ -4,7 +4,7 @@ path_to_add="$(realpath ${input_path})"
 
 if [[ -d "${path_to_add}" ]]; then
   if ! grep --quiet "${path_to_add}" <<< "${PATH}"; then
-    export PATH=${path_to_add}:$PATH
+    export PATH=${path_to_add}:${PATH}
   fi
 
   echo $PATH \

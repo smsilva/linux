@@ -1,16 +1,16 @@
 #!/bin/bash
-FILE=${1}
+file=${1}
 
 simulate_typing() {
-  LINE=${1}
+  line=${1}
 
-  for (( i=0; i<${#LINE}; i++ )); do
-    echo -n "${LINE:$i:1}"
+  for (( i=0; i<${#line}; i++ )); do
+    echo -n "${line:$i:1}"
     sleep 0.05
   done
   echo ""
 }
 
-while read -r LINE; do
-  simulate_typing "${LINE}"
-done <<< "$(cat "${FILE?}")"
+while read -r line; do
+  simulate_typing "${line}"
+done <<< "$(cat "${file?}")"

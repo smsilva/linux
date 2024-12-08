@@ -1,21 +1,21 @@
 #!/bin/bash
-INPUT_PATH="${1}"
-COMMAND="${2}"
+input_path="${1}"
+command="${2}"
 
 open_with_vscode() {
-  FILE="${1}"
-  echo "${FILE}"
-  code "${FILE}" &> /dev/null
+  file="${1}"
+  echo "${file}"
+  code "${file}" &> /dev/null
   exit 0
 }
 
-if [ -n "${INPUT_PATH}" ]; then
-  if [ -f "${INPUT_PATH}" ]; then
-    open_with_vscode "${INPUT_PATH}"
+if [ -n "${input_path}" ]; then
+  if [ -f "${input_path}" ]; then
+    open_with_vscode "${input_path}"
   else
-    if [ -d "${INPUT_PATH}" ]; then
-      INPUT_PATH=$(fpa "${INPUT_PATH}")
-      open_with_vscode "${INPUT_PATH}"
+    if [ -d "${input_path}" ]; then
+      input_path=$(fpa "${input_path}")
+      open_with_vscode "${input_path}"
     fi
   fi
 else

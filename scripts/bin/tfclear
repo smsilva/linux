@@ -1,10 +1,10 @@
 #!/bin/bash
 
 delete() {
-  FILE_NAME=$1
+  file_name=$1
 
-  for FILE in $(find -name "${FILE_NAME?}"); do
-    [ -e "${FILE?}" ] && echo "${FILE?}" && sudo rm -rf "${FILE?}"
+  for file in $(find -name "${file_name?}"); do
+    [ -e "${file?}" ] && echo "${file?}" && sudo rm -rf "${file?}"
   done
 }
 

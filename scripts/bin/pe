@@ -1,4 +1,4 @@
 #!/bin/bash
-REGEX="${1}"
+regex="${1}"
 
-printenv | grep --extended-regexp "${REGEX}"
+printenv | grep --extended-regexp "${regex}"

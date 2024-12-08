@@ -1,18 +1,20 @@
 #!/bin/bash
-export THIS_SCRIPT_NAME=$(basename $0)
-export THIS_SCRIPT_DIRECTORY=$(dirname $0)
-export PATH=${PATH}:${THIS_SCRIPT_DIRECTORY}
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
 
 show_usage() {
   cat <<EOF
 
-  ${THIS_SCRIPT_NAME} --cluster-name aks-cluster-example
+  ${this_script_name} --cluster-name aks-cluster-example
 
-  ${THIS_SCRIPT_NAME} \\
+  ${this_script_name} \\
     --cluster-name aks-cluster-example \\
     --resource-group aks-cluster-example
   
-  ${THIS_SCRIPT_NAME} \\
+  ${this_script_name} \\
     --cluster-name aks-cluster-example \\
     --resource-group aks-cluster-example \\
     --name user2
@@ -20,41 +22,47 @@ show_usage() {
 EOF
 }
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+case ${1} in
   -h | --help )
     show_usage
     exit
     ;;
 
   -cn | --cluster-name )
-    shift; AKS_CLUSTER_NAME=$1
+    shift
+    aks_cluster_name="${1}"
     ;;
 
   -rg | --resource-group )
-    shift; AKS_CLUSTER_RESOURCE_GROUP_NAME=$1
+    shift
+    aks_cluster_resource_group_name="${1}"
     ;;
 
   -n | --name )
-    shift; NODEPOOL_NAME=$1
+    shift
+    nodepool_name="${1}"
     ;;
-esac; shift; done
 
-if [[ "$1" == '--' ]]; then shift; fi
+  esac
+  shift
+done
 
-DRY_RUN=${DRY_RUN-n}
+if [[ "${1}" == '--' ]]; then shift; fi
 
-if [ -z "${AKS_CLUSTER_NAME}" ]; then
+dry_run=${dry_run:-n}
+
+if [ -z "${aks_cluster_name}" ]; then
   show_usage
   exit 1
 fi
 
-if [ -z "${AKS_CLUSTER_RESOURCE_GROUP_NAME}" ]; then
-  AKS_CLUSTER_RESOURCE_GROUP_NAME=${AKS_CLUSTER_NAME}
+if [ -z "${aks_cluster_resource_group_name}" ]; then
+  aks_cluster_resource_group_name=${aks_cluster_name}
 fi
 
 az aks nodepool list \
-  --cluster-name "${AKS_CLUSTER_NAME?}" \
-  --resource-group "${AKS_CLUSTER_RESOURCE_GROUP_NAME?}" \
+  --cluster-name "${aks_cluster_name?}" \
+  --resource-group "${aks_cluster_resource_group_name?}" \
   --output table \
-| grep --extended-regexp "Name|^----|${NODEPOOL_NAME}"
+| grep --extended-regexp "Name|^----|${nodepool_name}"

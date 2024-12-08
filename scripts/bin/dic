@@ -1,5 +1,5 @@
 #!/bin/bash
-export IMAGE_NAME_EXPRESSION=$(
+image_name_expression=$(
   tr "\n" "|" <<EOF | sed 's/|$//'
 artifacts
 commitizen
@@ -16,12 +16,12 @@ EOF
 )
 
 docker images \
-| grep --extended-regexp --invert-match "${IMAGE_NAME_EXPRESSION?}" \
+| grep --extended-regexp --invert-match "${image_name_expression?}" \
 | sed 1d \
 | awk '{ print $3 }' \
-| while read -r DOCKER_IMAGE_ID; do
-  if [ -n "${DOCKER_IMAGE_ID}" ]; then
-    docker rmi -f "${DOCKER_IMAGE_ID?}" &> /dev/null
+| while read -r docker_image_id; do
+  if [ -n "${docker_image_id}" ]; then
+    docker rmi -f "${docker_image_id?}" &> /dev/null
   fi
 done
 

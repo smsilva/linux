@@ -1,6 +1,6 @@
 #!/bin/bash
-LOCATION="${1-eastus2}"
+location="${1-eastus2}"
 
 az aks get-versions \
   --output table \
-  --location ${LOCATION?}
+  --location ${location?}

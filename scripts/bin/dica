@@ -1,7 +1,7 @@
 #!/bin/bash
-while read -r DOCKER_IMAGE_ID; do
-  if [ -n "${DOCKER_IMAGE_ID}" ]; then
-    docker rmi -f "${DOCKER_IMAGE_ID?}" &> /dev/null
+while read -r docker_image_id; do
+  if [ -n "${docker_image_id}" ]; then
+    docker rmi -f "${docker_image_id?}" &> /dev/null
   fi
 done <<< "$(docker images | sed 1d | grep -vE "terraform" | awk '{ print $3 }')"
 

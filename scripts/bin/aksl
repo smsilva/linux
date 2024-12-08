@@ -1,6 +1,6 @@
 #!/bin/bash
-FILTER_EXPRESSION="${1}"
+filter_expression="${1}"
 
 az aks list \
   --output table \
-| grep --extended-regexp "Name|^----|${FILTER_EXPRESSION}"
+| grep --extended-regexp "Name|^----|${filter_expression}"

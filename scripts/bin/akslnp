@@ -1,37 +1,37 @@
 #!/bin/bash
-FILTER_PARAMETER="${1}"
+filter_parameter="${1}"
 
-DATA_FILE=$(mktemp)
+data_file=$(mktemp)
 
 az aks list \
   --output table \
 | sed '1,2d' \
-| grep --extended-regexp "${FILTER_PARAMETER}" > "${DATA_FILE}"
+| grep --extended-regexp "${filter_parameter}" > "${data_file}"
 
-LINE_COUNT=$(cat ${DATA_FILE} | wc -l)
+line_count=$(cat ${data_file} | wc -l)
 
-if [ "${LINE_COUNT}" == 0 ]; then
+if [ "${line_count}" == 0 ]; then
   exit 1
 fi
 
-if [ "${LINE_COUNT}" == 1 ]; then
-  LINE=$(cat ${DATA_FILE})
+if [ "${line_count}" == 1 ]; then
+  line=$(cat ${data_file})
 else
-  LINE=$(cat ${DATA_FILE} | fzf)
+  line=$(cat ${data_file} | fzf)
 fi
 
-if [ -z "${LINE}" ]; then
+if [ -z "${line}" ]; then
   exit 1
 fi
 
-AKS_CLUSTER_NAME=$(                awk '{ print $1 }' <<< "${LINE}")
-AKS_CLUSTER_RESOURCE_GROUP_NAME=$( awk '{ print $3 }' <<< "${LINE}")
+aks_cluster_name=$(                awk '{ print $1 }' <<< "${line}")
+aks_cluster_resource_group_name=$( awk '{ print $3 }' <<< "${line}")
 
 echo ""
-echo "${AKS_CLUSTER_NAME?}"
+echo "${aks_cluster_name?}"
 echo ""
 
 az aks nodepool list \
-  --cluster-name ${AKS_CLUSTER_NAME?} \
-  --resource-group ${AKS_CLUSTER_RESOURCE_GROUP_NAME?} \
+  --cluster-name ${aks_cluster_name?} \
+  --resource-group ${aks_cluster_resource_group_name?} \
   --output table

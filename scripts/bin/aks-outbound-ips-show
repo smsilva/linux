@@ -20,33 +20,35 @@ case $1 in
     ;;
 
   --cluster-name )
-    shift; CLUSTER_NAME=$1
+    shift
+    cluster_name=$1
     ;;
 
   --resource-group )
-    shift; RESOURCE_GROUP=$1
+    shift
+    resource_group=$1
     ;;
 esac; shift; done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${CLUSTER_NAME}"   ] || \
-   [ -z "${RESOURCE_GROUP}" ]; then
+if [ -z "${cluster_name}"   ] || \
+   [ -z "${resource_group}" ]; then
   echo "You must use ALL parameters."
   show_usage
   exit 1
 fi
 
-COLUMN_LIST_MAPPING="{\
+column_list_mapping="{\
 AKS_NETWORKPROFILE_LOADBALANCERPROFILE_MANAGEDOUTBOUNDIPS_COUNT: .managedOutboundIPs.count,\
 AKS_NETWORKPROFILE_LOADBALANCERPROFILE_ALLOCATEDOUTBOUNDPORTS: .allocatedOutboundPorts\
 }"
 
-JQ_COMMAND=$(printf '%s | to_entries | map("export \(.key)=\(.value|tostring)") | .[]' "${COLUMN_LIST_MAPPING}")
+jq_expression=$(printf '%s | to_entries | map("export \(.key)=\(.value|tostring)") | .[]' "${column_list_mapping}")
 
 az aks show \
-  --name "${CLUSTER_NAME}" \
-  --resource-group "${RESOURCE_GROUP}" \
+  --name "${cluster_name}" \
+  --resource-group "${resource_group}" \
   --output json \
   --query 'networkProfile.loadBalancerProfile' \
-| jq -r "${JQ_COMMAND}"
+| jq -r "${jq_expression}"

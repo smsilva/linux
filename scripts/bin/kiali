@@ -1,4 +1,4 @@
 #!/bin/bash
-KIALI_SA_TOKEN_SECRET_NAME=$(kubectl get secret -n istio-system | grep kiali-service-account | awk '{ print $1 }')
-kubectl get secret -n istio-system ${KIALI_SA_TOKEN_SECRET_NAME} -o jsonpath='{.data.token}' | base64 --decode | xclip -sel clip
+kiali_sa_token_secret_name=$(kubectl get secret -n istio-system | grep kiali-service-account | awk '{ print $1 }')
+kubectl get secret -n istio-system ${kiali_sa_token_secret_name} -o jsonpath='{.data.token}' | base64 --decode | xclip -sel clip
 istioctl dash kiali

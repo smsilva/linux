@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-KUBECONFIG_FILE="${HOME}/.kube/config_${USER##*\\}"
+kubeconfig_file="${HOME}/.kube/config_${USER##*\\}"
 
-if ! [ -e "${KUBECONFIG_FILE}" ]; then
+if [[ ! -e "${kubeconfig_file}" ]]; then
   echo "Kube config file doesn't exists"
   echo ""
 
@@ -17,6 +17,6 @@ if ! [ -e "${KUBECONFIG_FILE}" ]; then
   exit 1
 fi
 
-cp "${KUBECONFIG_FILE}" ${HOME}/.kube/config
+cp "${kubeconfig_file}" ${HOME}/.kube/config
 
 kgc

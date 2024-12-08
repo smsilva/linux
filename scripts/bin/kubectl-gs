@@ -20,49 +20,53 @@ show_usage() {
   echo ""
 }
 
-NAMESPACE=""
-SECRET_NAME=""
+namespace=""
+secret_name=""
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
-  -h | --help )
-    show_usage
-    exit
-    ;;
-  -n | --namespace )
-    shift; NAMESPACE=$1
-    ;;
-esac; shift; done
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
+
+    -n | --namespace )
+      shift
+      namespace="${1}"
+      ;;
+
+  esac
+  shift
+done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${NAMESPACE}" ]; then
-  KUBECONFIG_CURRENT_CONTEXT=$(kubectl config view --output jsonpath='{.current-context}')
+if [ -z "${namespace}" ]; then
+  kubeconfig_current_context=$(kubectl config view --output jsonpath='{.current-context}')
 
-  NAMESPACE=$(kubectl config view \
-    --output jsonpath="{.contexts[?(@.context.cluster == \"${KUBECONFIG_CURRENT_CONTEXT}\")].context.namespace}")  
+  namespace=$(kubectl config view \
+    --output jsonpath="{.contexts[?(@.context.cluster == \"${kubeconfig_current_context}\")].context.namespace}")  
 fi
 
-if [ -z "${NAMESPACE}" ]; then
-  NAMESPACE="default"
+if [ -z "${namespace}" ]; then
+  namespace="default"
 fi
 
-export NAMESPACE
-export SECRET_NAME=$1
-export SECRET_KEY_NAME=$2
+secret_name=$1
+secret_key_name=$2
 
-if [ -n "${SECRET_KEY_NAME}" ]; then
-  if grep --silent '.' <<< "${SECRET_KEY_NAME}"; then
-    JQ_EXPRESSION=$(printf ".\"%s\"" "${SECRET_KEY_NAME}")
+if [ -n "${secret_key_name}" ]; then
+  if grep --silent '.' <<< "${secret_key_name}"; then
+    jq_expression=$(printf ".\"%s\"" "${secret_key_name}")
   else
-    JQ_EXPRESSION=$(printf ".%s" "${SECRET_KEY_NAME}")
+    jq_expression=$(printf ".%s" "${secret_key_name}")
   fi
 
-  kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}" | base64 -d
+  kubectl -n ${namespace} get secret ${secret_name} -o jsonpath='{.data}' | jq -r "${jq_expression}" | base64 -d
 else
-  if [ -n "${SECRET_NAME}" ]; then
-    kubectl -n ${NAMESPACE} get secret ${SECRET_NAME} -o jsonpath='{.data}' | jq .
+  if [ -n "${secret_name}" ]; then
+    kubectl -n ${namespace} get secret ${secret_name} -o jsonpath='{.data}' | jq .
   else
-    kubectl -n ${NAMESPACE} get secret
+    kubectl -n ${namespace} get secret
   fi
 fi

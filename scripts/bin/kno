@@ -1,5 +1,5 @@
 #!/bin/bash
-NODE_NAME_REGEX="${1-.*}"
+node_name_regex="${1-.*}"
 
 kubectl get nodes \
-| grep -E "NAME|${NODE_NAME_REGEX}"
+| grep -E "NAME|${node_name_regex}"

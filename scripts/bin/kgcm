@@ -24,49 +24,54 @@ show_usage() {
   echo ""
 }
 
-NAMESPACE=""
-CONFIGMAP_NAME=""
+namespace=""
+configmap_name=""
 
 while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
-  -h | --help )
-    show_usage
-    exit
-    ;;
-  -n | --namespace )
-    shift; NAMESPACE=$1
-    ;;
-esac; shift; done
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
+
+    -n | --namespace )
+      shift
+      namespace="${1}"
+      ;;
+
+  esac
+  shift
+done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${NAMESPACE}" ]; then
-  KUBECONFIG_CURRENT_CONTEXT=$(kubectl config view --output jsonpath='{.current-context}')
+if [ -z "${namespace}" ]; then
+  kubeconfig_current_context=$(kubectl config view --output jsonpath='{.current-context}')
 
-  NAMESPACE=$(kubectl config view \
-    --output jsonpath="{.contexts[?(@.context.cluster == \"${KUBECONFIG_CURRENT_CONTEXT}\")].context.namespace}")  
+  namespace=$(kubectl config view \
+    --output jsonpath="{.contexts[?(@.context.cluster == \"${kubeconfig_current_context}\")].context.namespace}")  
 fi
 
-if [ -z "${NAMESPACE}" ]; then
-  NAMESPACE="default"
+if [ -z "${namespace}" ]; then
+  namespace="default"
 fi
 
-export NAMESPACE
-export CONFIGMAP_NAME=$1
-export CONFIGMAP_KEY_NAME=$2
+export namespace
+export configmap_name=$1
+export configmap_key_name=$2
 
-if [ -n "${CONFIGMAP_KEY_NAME}" ]; then
-  if grep --silent '.' <<< "${CONFIGMAP_KEY_NAME}"; then
-    JQ_EXPRESSION=$(printf ".\"%s\"" "${CONFIGMAP_KEY_NAME}")
+if [ -n "${configmap_key_name}" ]; then
+  if grep --silent '.' <<< "${configmap_key_name}"; then
+    jq_expression=$(printf ".\"%s\"" "${configmap_key_name}")
   else
-    JQ_EXPRESSION=$(printf ".%s" "${CONFIGMAP_KEY_NAME}")
+    jq_expression=$(printf ".%s" "${configmap_key_name}")
   fi
 
-  kubectl -n ${NAMESPACE} get configmap ${CONFIGMAP_NAME} -o jsonpath='{.data}' | jq -r "${JQ_EXPRESSION}"
+  kubectl -n ${namespace} get configmap ${configmap_name} -o jsonpath='{.data}' | jq -r "${jq_expression}"
 else
-  if [ -n "${CONFIGMAP_NAME}" ]; then
-    kubectl -n ${NAMESPACE} get configmap ${CONFIGMAP_NAME} -o jsonpath='{.data}' | jq .
+  if [ -n "${configmap_name}" ]; then
+    kubectl -n ${namespace} get configmap ${configmap_name} -o jsonpath='{.data}' | jq .
   else
-    kubectl -n ${NAMESPACE} get configmap
+    kubectl -n ${namespace} get configmap
   fi
 fi

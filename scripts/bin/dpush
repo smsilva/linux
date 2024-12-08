@@ -1,18 +1,18 @@
 #!/bin/bash
-LOCAL_IMAGE="${1}"
-CONTAINER_REPOSITORY="${2:-silviosilva}"
+local_image="${1}"
+container_repository="${2:-silviosilva}"
 
 set -e
 
-# Check if the LOCAL_IMAGE already starts with CONTAINER_REPOSITORY/
-if [[ ! "${LOCAL_IMAGE}" =~ ^${CONTAINER_REPOSITORY}/* ]]; then
-  REMOTE_IMAGE="${CONTAINER_REPOSITORY}/${LOCAL_IMAGE}"
+# Check if the local_image already starts with container_repository/
+if [[ ! "${local_image}" =~ ^${container_repository}/* ]]; then
+  remote_image="${container_repository}/${local_image}"
 else
-  REMOTE_IMAGE="${LOCAL_IMAGE}"
+  remote_image="${local_image}"
 fi
 
-echo "${REMOTE_IMAGE}"
+echo "${remote_image}"
 
-docker tag "${LOCAL_IMAGE}" "${REMOTE_IMAGE}"
+docker tag "${local_image}" "${remote_image}"
 
-docker push "${REMOTE_IMAGE}"
+docker push "${remote_image}"

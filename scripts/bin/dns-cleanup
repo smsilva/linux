@@ -1,33 +1,33 @@
 #!/bin/bash
-ENVIRONMENT_ID="$1"
-DNS_ZONE_NAME="${2-sandbox.wasp.silvios.me}"
-DNS_ZONE_RESOURCE_GROUP_NAME="wasp-foundation"
-DNS_ZONE_RECORDS_FILE="$(mktemp)"
+environment_id="$1"
+dns_zone_name="${2-sandbox.wasp.silvios.me}"
+dns_zone_resource_group_name="wasp-foundation"
+dns_zone_records_file="$(mktemp)"
 
 list_records() {
-  RECORD_TYPE=${1?}
+  record_type="${1?}"
 
-  az network dns record-set ${RECORD_TYPE?} list \
-    --resource-group "${DNS_ZONE_RESOURCE_GROUP_NAME?}" \
-    --zone-name ${DNS_ZONE_NAME?} \
+  az network dns record-set ${record_type?} list \
+    --resource-group "${dns_zone_resource_group_name?}" \
+    --zone-name ${dns_zone_name?} \
     --output tsv \
-    --query '[*].name' > ${DNS_ZONE_RECORDS_FILE?}.${RECORD_TYPE?}
+    --query '[*].name' > ${dns_zone_records_file?}.${record_type?}
 }
 
 remove_records() {
-  RECORD_TYPE=${1?}
+  record_type="${1?}"
 
-  grep ${ENVIRONMENT_ID?} "${DNS_ZONE_RECORDS_FILE?}.${RECORD_TYPE?}" \
+  grep ${environment_id?} "${dns_zone_records_file?}.${record_type?}" \
   | sort -u \
-  | while read LINE; do
-    RECORD_NAME=${LINE}
+  | while read line; do
+    record_name=${line}
 
-    echo "RECORD_TYPE=${RECORD_TYPE} RECORD_NAME=${RECORD_NAME}"
+    echo "record_type=${record_type} record_name=${record_name}"
     
-    az network dns record-set ${RECORD_TYPE,,} delete \
-      --name "${RECORD_NAME?}" \
-      --resource-group "${DNS_ZONE_RESOURCE_GROUP_NAME?}" \
-      --zone-name ${DNS_ZONE_NAME?} \
+    az network dns record-set ${record_type,,} delete \
+      --name "${record_name?}" \
+      --resource-group "${dns_zone_resource_group_name?}" \
+      --zone-name ${dns_zone_name?} \
       --yes \
       --only-show-errors
   done

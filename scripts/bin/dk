@@ -1,14 +1,14 @@
 #!/bin/bash
-CONTAINER_NAME="$1"
+container_name="${1}"
 
-if [[ -z "${CONTAINER_NAME}" ]]; then
-  CONTAINER_NAME=$(docker ps | sed 1d | fzf | awk '{ print $1 }')
+if [[ -z "${container_name}" ]]; then
+  container_name=$(docker ps | sed 1d | fzf | awk '{ print $1 }')
 fi
 
-if [[ -z "${CONTAINER_NAME}" ]]; then
+if [[ -z "${container_name}" ]]; then
   docker ps
 else
-  docker kill "${CONTAINER_NAME}"
+  docker kill "${container_name}"
   echo ""
   docker ps
 fi

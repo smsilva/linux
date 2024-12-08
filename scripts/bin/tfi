@@ -3,21 +3,21 @@ set -e
 
 clear
 
-BACKEND_FILE="backend.conf"
+backend_file="backend.conf"
 
 mkdir -p "${HOME}/terraform/output/"
 
-if [ -e "${BACKEND_FILE}" ]; then
+if [[ -e "${backend_file}" ]]; then
   echo ""
-  echo "${BACKEND_FILE}:"
-  cat "${BACKEND_FILE}"
+  echo "${backend_file}:"
+  cat "${backend_file}"
   echo ""
 
   terraform init \
     -input=false \
     -reconfigure \
     -upgrade=false \
-    --backend-config="${BACKEND_FILE}"
+    --backend-config="${backend_file}"
 else
   terraform init \
     -input=false

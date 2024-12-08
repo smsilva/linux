@@ -1,19 +1,18 @@
 #!/bin/bash
+log_dir="${HOME}/.log/fortune"
 
-LOG_DIR="${HOME}/.log/fortune"
+mkdir -p "${log_dir}"
 
-mkdir -p "${LOG_DIR}"
+day_file="${log_dir}/fortune-$(date +%Y-%m-%d).log"
 
-DAY_FILE="${LOG_DIR}/fortune-$(date +%Y-%m-%d).log"
-
-if [[ ! -e "${DAY_FILE}" ]]; then
-  rm "${LOG_DIR}/*.log" 2> /dev/null
+if [[ ! -e "${day_file}" ]]; then
+  rm "${log_dir}/*.log" 2> /dev/null
   
-  MESSAGE=$(fortune)
+  message=$(fortune)
   
-  echo ${MESSAGE} > ${DAY_FILE}
+  echo ${message} > ${day_file}
   
-  cowsay ${MESSAGE}
+  cowsay ${message}
 
   echo ""
 

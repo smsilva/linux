@@ -1,14 +1,14 @@
 #!/bin/bash
-INPUT_PATH="${1}"
+input_path="${1}"
 
-if [[ -z ${INPUT_PATH} ]]; then
-  INPUT_PATH=$(fpa)
+if [[ -z ${input_path} ]]; then
+  input_path=$(fpa)
 fi
 
-if [[ -d ${INPUT_PATH} ]]; then
-  INPUT_PATH=$(fpa "${INPUT_PATH}")
+if [[ -d ${input_path} ]]; then
+  input_path=$(fpa "${input_path}")
 fi
 
-echo "${INPUT_PATH}"
+echo "${input_path}"
 
-batcat "${INPUT_PATH}" --plain
+batcat "${input_path}" --plain

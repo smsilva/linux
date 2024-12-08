@@ -1,11 +1,10 @@
 #!/bin/bash
-
-REMOTE_HOST_NAME="$1"
+remote_host_name="${1}"
 
 echo \
 | openssl s_client \
-    -servername "${REMOTE_HOST_NAME?}" \
-    -connect "${REMOTE_HOST_NAME?}":443 2>/dev/null \
+    -servername "${remote_host_name?}" \
+    -connect "${remote_host_name?}":443 2>/dev/null \
 | openssl x509 \
     -noout \
     -subject \

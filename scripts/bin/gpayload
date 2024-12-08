@@ -13,16 +13,16 @@ if [[ $* =~ "-h" ]]; then
   exit 0
 fi
 
-MAX="$1"
-SOURCE_JSON_FILE="$2"
+max="$1"
+source_json_file="$2"
 
 echo "["
 
-for ((line=1; line <= ${MAX}; line++)); do
-  if ((line < MAX)); then
-    sed '$ s/$/,/' "${SOURCE_JSON_FILE}"
+for ((line=1; line <= ${max}; line++)); do
+  if ((line < max)); then
+    sed '$ s/$/,/' "${source_json_file}"
   else
-    sed '$ s/$//' "${SOURCE_JSON_FILE}"
+    sed '$ s/$//' "${source_json_file}"
   fi
 done
 

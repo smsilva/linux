@@ -1,14 +1,23 @@
 #!/bin/bash
-THIS_SCRIPT_NAME=$(basename $0)
-THIS_SCRIPT_DIRECTORY=$(dirname $0)
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
 
 show_usage() {
   cat <<EOF
 
-  ${THIS_SCRIPT_NAME} \\
-    --owner <owner> \\
-    --repository <repository> \\
-    [--help]
+  Get the latest release tag from a GitHub repository
+
+    Options:
+
+      -h,  --help     Show this help
+      -o,  --owner    Owner of the repository
+      -r,  --repository Repository name
+
+    Examples:
+
+      ${this_script_name} \\
+        --owner <owner> \\
+        --repository <repository>
 
 EOF
 }
@@ -21,29 +30,32 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
       ;;
 
     -o | --owner )
-      shift; GITHUB_OWNER=$1
+      shift
+      github_owner="${1}"
       ;;
     
     -r | --repository )
-      shift; GITHUB_REPOSITORY=$1
+      shift
+      github_repository="${1}"
       ;;
+
   esac
   shift
 done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [ -z "${GITHUB_OWNER}" ]; then
-  echo "ERROR: [ -o | --owner ] is required."
+if [ -z "${github_owner}" ]; then
+  echo "--owner is required."
   exit 1
 fi
 
-if [ -z "${GITHUB_REPOSITORY}" ]; then
-  echo "ERROR: [ -r | --repository ] is required."
+if [ -z "${github_repository}" ]; then
+  echo "--repository is required."
   exit 1
 fi
 
 curl \
-  --silent "https://api.github.com/repos/${GITHUB_OWNER?}/${GITHUB_REPOSITORY?}/releases/latest" \
+  --silent "https://api.github.com/repos/${github_owner?}/${github_repository?}/releases/latest" \
 | grep '"tag_name"' \
 | awk -F '"' '{ print $4 }'

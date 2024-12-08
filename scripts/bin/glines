@@ -1,9 +1,9 @@
 #!/bin/bash
-START="$1"
-FINISH="$2"
-PREFIX="$3"
-SUFFIX="$4"
-LINE_SEPARATOR="$5"
+start="$1"
+finish="$2"
+prefix="$3"
+suffix="$4"
+line_separator="$5"
 
 usage() {
   echo "Please use the correct sintax as showed below:" && \
@@ -17,16 +17,16 @@ usage() {
   exit 1
 }
 
-if [[ -z "${START}" ]] || [[ -z "${FINISH}" ]] ; then
+if [[ -z "${start}" ]] || [[ -z "${finish}" ]] ; then
   usage
 fi
 
-for line in $(bash -c "echo {$START..$FINISH}"); do
-  echo -n "${PREFIX}${line}${SUFFIX}"
+for line in $(bash -c "echo {$start..$finish}"); do
+  echo -n "${prefix}${line}${suffix}"
 
-  if [ ${line} == ${FINISH} ]; then
+  if [ ${line} == ${finish} ]; then
     echo ""
   else
-    echo "${LINE_SEPARATOR}"
+    echo "${line_separator}"
   fi
 done

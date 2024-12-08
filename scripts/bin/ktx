@@ -1,37 +1,37 @@
 #!/bin/bash
 create_window() {
-  WINDOW_NAME=$1
-  WINDOW_ID=$2
-  PANE_COUNT=$3
+  window_name=$1
+  window_id=$2
+  pane_count=$3
 
-  tmux new-window -t ${SESSION_NAME}:${WINDOW_ID} -n ${WINDOW_NAME}
-  tmux select-window -t ${SESSION_NAME}:${WINDOW_ID}
+  tmux new-window -t ${session_name}:${window_id} -n ${window_name}
+  tmux select-window -t ${session_name}:${window_id}
   
-  for ((i=1; i < PANE_COUNT; i++)); do
-    tmux split-window -t ${SESSION_NAME}:${WINDOW_ID} -h
+  for ((i=1; i < pane_count; i++)); do
+    tmux split-window -t ${session_name}:${window_id} -h
     
-    MOD_VALUE=$(($i % 4))
+    mod_value=$(($i % 4))
     
-    if [[ ((${MOD_VALUE} == 0)) ]]; then
-      tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} tiled
+    if [[ ((${mod_value} == 0)) ]]; then
+      tmux select-layout -t ${session_name}:${window_id} tiled
     fi
   done
 
-  if [[ ((${PANE_COUNT} > 3)) ]]; then
-    tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} tiled
+  if [[ ((${pane_count} > 3)) ]]; then
+    tmux select-layout -t ${session_name}:${window_id} tiled
   else
-    tmux select-layout -t ${SESSION_NAME}:${WINDOW_ID} main-horizontal
+    tmux select-layout -t ${session_name}:${window_id} main-horizontal
   fi
 
   tmux select-pane -t 0
   tmux set-window synchronize-panes
   
-  tmux send-keys -t ${SESSION_NAME}:${WINDOW_ID}.${_pane} './conn.sh'
+  tmux send-keys -t ${session_name}:${window_id}.${_pane} './conn.sh'
 }
 
-SESSION_NAME="k8s"
+session_name="k8s"
 
-tmux has-session -t ${SESSION_NAME} &> /dev/null
+tmux has-session -t ${session_name} &> /dev/null
 
 if [ $? != 0 ]; then
   if [[ -e Vagrantfile ]]; then
@@ -42,30 +42,30 @@ if [ $? != 0 ]; then
 
   export NODES=$(cat .running | grep -E "^master|^worker" | awk '{ print $1 }')
 
-  MASTERS_WINDOW_ID=1
-  WORKERS_WINDOW_ID=2
-  ALL_WINDOW_ID=3
+  masters_window_id=1
+  workers_window_id=2
+  all_window_id=3
 
-  SERVERS_COUNT=0
-  MASTERS_COUNT=0
-  WORKERS_COUNT=0
+  servers_count=0
+  masters_count=0
+  workers_count=0
 
   for node in ${NODES}; do
-    ((SERVERS_COUNT++))
+    ((servers_count++))
     if [[ ${node} =~ ^master ]]; then
-      ((MASTERS_COUNT++))
+      ((masters_count++))
     else
-      ((WORKERS_COUNT++))
+      ((workers_count++))
     fi
   done
 
-  tmux new-session -s ${SESSION_NAME} -n 'bash' -d
+  tmux new-session -s ${session_name} -n 'bash' -d
 
-  create_window "masters" ${MASTERS_WINDOW_ID} ${MASTERS_COUNT}
-  create_window "workers" ${WORKERS_WINDOW_ID} ${WORKERS_COUNT}
-  create_window "all" ${ALL_WINDOW_ID} ${SERVERS_COUNT}
+  create_window "masters" ${masters_window_id} ${masters_count}
+  create_window "workers" ${workers_window_id} ${workers_count}
+  create_window "all" ${all_window_id} ${servers_count}
     
-  tmux select-window -t ${SESSION_NAME}:${ALL_WINDOW_ID}
+  tmux select-window -t ${session_name}:${all_window_id}
 fi
 
-tmux attach -t ${SESSION_NAME}
+tmux attach -t ${session_name}

@@ -1,8 +1,8 @@
 #!/bin/bash
-COMMANDS=$@
+commands=${@}
 
 docker run -it --rm \
-  --volume $PWD:/app \
+  --volume ${PWD}:/app \
   --volume ~/.gitconfig:/etc/gitconfig \
   --user $(id -u) \
-  commitizen/commitizen:3 ${COMMANDS}
+  commitizen/commitizen:3 ${commands}

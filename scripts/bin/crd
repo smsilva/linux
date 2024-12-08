@@ -1,4 +1,4 @@
 #!/bin/bash
-CRD_NAME="${1}"
+resource_name="${1}"
 
-kubectl api-resources | grep -E "NAME|${CRD_NAME}"
+kubectl api-resources | grep --extended-regexp "NAME|${resource_name}"

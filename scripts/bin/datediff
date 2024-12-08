@@ -1,13 +1,13 @@
 #!/bin/bash
-HOURS_IN_ONE_DAY=24
-MINUTES_IN_ONE_HOUR=60
-SECONDS_IN_ONE_MINUTE=60
-SECONDS_IN_ONE_DAY=$((HOURS_IN_ONE_DAY * MINUTES_IN_ONE_HOUR * SECONDS_IN_ONE_MINUTE))
+hours_in_one_day=24
+minutes_in_one_hour=60
+seconds_in_one_minute=60
+seconds_in_one_day=$((hours_in_one_day * minutes_in_one_hour * seconds_in_one_minute))
 
-START_DATE=$(date -d "$1" +%s)
-END_DATE=$(date -d "$2" +%s)
+start_date=$(date --date "${1}" +%s)
+end_date=$(date --date "${2}" +%s)
 
-DIFFERENCE_IN_SECONDS=$(( END_DATE - START_DATE ))
-DIFFERENCE_IN_DAYS=$(( DIFFERENCE_IN_SECONDS / SECONDS_IN_ONE_DAY ))
+difference_in_seconds=$(( end_date - start_date ))
+difference_in_days=$(( difference_in_seconds / seconds_in_one_day ))
 
-echo "${DIFFERENCE_IN_DAYS}"
+echo "${difference_in_days}"

@@ -17,78 +17,92 @@ Create baseline file:
 EOF
 }
 
-while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
-case $1 in
-  -h | --help )
-    show_usage
-    exit
-    ;;
-  -s | --source )
-    shift; SOURCE_DIRECTORY=$1
-    ;;
-  -d | --destination )
-    shift; DESTINATION_DIRECTORY=$1
-    ;;
-  -b | --baseline )
-    shift; BASELINE_FILE_PATH=$1
-    ;;
-  -c | --create-baseline )
-    CREATE_BASELINE_FILE_PATH="y"
-    ;;
-esac; shift; done
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit
+      ;;
 
-if [[ "$1" == '--' ]]; then shift; fi
+    -s | --source )
+      shift
+      source_directory="${1}"
+      ;;
 
-if [ -z "${SOURCE_DIRECTORY}" ]; then
+    -d | --destination )
+      shift
+      destination_directory="${1}"
+      ;;
+
+    -b | --baseline )
+      shift
+      baseline_file_path="${1}"
+      ;;
+
+    -c | --create-baseline )
+      create_baseline_file_path="y"
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+if [[ -z "${source_directory}" ]]; then
   echo "You must use --source parameter."
   echo ""
   show_usage
   exit 1
 fi
 
-CHECKOV_VERSION="${CHECKOV_VERSION-2.0.708}"
-CHECKOV_IMAGE="bridgecrew/checkov:${CHECKOV_VERSION}"
+if [[ -z "${CHECKOV_IMAGE}" ]]; then
+  checkov_version="${CHECKOV_VERSION:-2.0.708}"
+  checkov_image="bridgecrew/checkov:${checkov_version}"
+fi
+
+checkov_image="${CHECKOV_IMAGE:-${checkov_image}}"
 
 docker pull \
-  --quiet ${CHECKOV_IMAGE?} > /dev/null
+  --quiet ${checkov_image?} > /dev/null
 
-if [ "${CREATE_BASELINE_FILE_PATH}" == "y" ]; then
+if [[ "${create_baseline_file_path}" == "y" ]]; then
   docker run \
-    --volume ${SOURCE_DIRECTORY?}:/source_directory_under_analisys \
-    ${CHECKOV_IMAGE?} \
+    --volume ${source_directory?}:/source_directory_under_analisys \
+    ${checkov_image?} \
       --directory /source_directory_under_analisys \
       --create-baseline
 else
-  if [ ! -f "${BASELINE_FILE_PATH}" ]; then
-    BASELINE_FILE_PATH="$(mktemp --suffix .json)"
+  if [[ ! -f "${baseline_file_path}" ]]; then
+    baseline_file_path="$(mktemp --suffix .json)"
     
-    cat <<EOF > ${BASELINE_FILE_PATH}
+    cat <<EOF > ${baseline_file_path}
 {
   "failed_checks": []
 }
 EOF
   fi
 
-  CHECKOV_REPORT_FILE_XML="${DESTINATION_DIRECTORY}/Checkov-Report.xml"
-  CHECKOV_REPORT_FILE_TXT="${DESTINATION_DIRECTORY}/Checkov-Report.txt"
+  checkov_report_file_xml="${destination_directory}/Checkov-Report.xml"
+  checkov_report_file_txt="${destination_directory}/Checkov-Report.txt"
 
-  if [ -n "${DESTINATION_DIRECTORY}" ]; then
-    mkdir -p "${DESTINATION_DIRECTORY}"
+  if [[ -n "${destination_directory}" ]]; then
+    mkdir -p "${destination_directory}"
   fi
 
   docker run \
-    --volume ${SOURCE_DIRECTORY?}:/source_directory_under_analisys \
-    --volume ${BASELINE_FILE_PATH}:/baseline/file.json \
-    ${CHECKOV_IMAGE?} \
+    --volume ${source_directory?}:/source_directory_under_analisys \
+    --volume ${baseline_file_path}:/baseline/file.json \
+    ${checkov_image?} \
       --directory /source_directory_under_analisys \
       --baseline /baseline/file.json \
-      --output junitxml > "${CHECKOV_REPORT_FILE_XML}"
+      --output junitxml > "${checkov_report_file_xml}"
 
   docker run \
-    --volume ${SOURCE_DIRECTORY?}:/source_directory_under_analisys \
-    --volume ${BASELINE_FILE_PATH}:/baseline/file.json \
-    ${CHECKOV_IMAGE?} \
+    --volume ${source_directory?}:/source_directory_under_analisys \
+    --volume ${baseline_file_path}:/baseline/file.json \
+    ${checkov_image?} \
       --directory /source_directory_under_analisys \
       --baseline /baseline/file.json \
-  | tee "${CHECKOV_REPORT_FILE_TXT}"
+  | tee "${checkov_report_file_txt}"
 fi

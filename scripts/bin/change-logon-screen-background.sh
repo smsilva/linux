@@ -1,17 +1,17 @@
 #!/bin/bash
-LOGON_SCREEN_BACKGROUND_IMAGE_FILE="${HOME}/Pictures/logon-screen.jpg"
-BACKGROUND_CHANGE_LOCAL_COMMAND="${HOME}/bin/change-gdm-background"
-BACKGROUND_CHANGE_REMOTE_COMMAND="https://raw.githubusercontent.com/thiggy01/change-gdm-background/master/change-gdm-background"
+logon_screen_background_image_file="${HOME}/Pictures/logon-screen.jpg"
+background_change_local_command="${HOME}/bin/change-gdm-background"
+background_change_remote_command="https://raw.githubusercontent.com/thiggy01/change-gdm-background/master/change-gdm-background"
 
-if [ -e ${LOGON_SCREEN_BACKGROUND_IMAGE_FILE?} ]; then
-  cp /usr/share/backgrounds/matt-mcnulty-nyc-2nd-ave.jpg ${LOGON_SCREEN_BACKGROUND_IMAGE_FILE?}
+if [ -e ${logon_screen_background_image_file?} ]; then
+  cp /usr/share/backgrounds/matt-mcnulty-nyc-2nd-ave.jpg ${logon_screen_background_image_file?}
 
   sudo apt install \
     libglib2.0-dev-bin -y -qq
 
-  wget --output-document ${BACKGROUND_CHANGE_LOCAL_COMMAND?} ${BACKGROUND_CHANGE_REMOTE_COMMAND?}
+  wget --output-document ${background_change_local_command?} ${background_change_remote_command?}
 
-  chmod +x ${BACKGROUND_CHANGE_LOCAL_COMMAND?}
+  chmod +x ${background_change_local_command?}
 
-  echo "y" | sudo ${BACKGROUND_CHANGE_LOCAL_COMMAND?} ${LOGON_SCREEN_BACKGROUND_IMAGE_FILE?}
+  echo "y" | sudo ${background_change_local_command?} ${logon_screen_background_image_file?}
 fi

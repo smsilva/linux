@@ -41,7 +41,7 @@ if ! grep --quiet --extended-regexp "GTK_IM_MODULE=cedilla" /etc/environment; th
   echo "export GTK_IM_MODULE=cedilla" | sudo tee --append /etc/environment
 fi
 
-mkdir -p ${HOME?}/bin
+mkdir --parents ${HOME?}/bin
 
 source ${HOME?}/.bashrc
 

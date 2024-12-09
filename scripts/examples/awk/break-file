@@ -1,7 +1,7 @@
 #!/bin/bash
-INPUT_FILE_PATH="file.yaml"
+input_file_path="file.yaml"
 
-cat <<EOF >| "${INPUT_FILE_PATH?}"
+cat <<EOF >| "${input_file_path?}"
 ---
 # Source: demo/templates/model.yaml
 api: apps/v1
@@ -21,10 +21,10 @@ spec:
 EOF
 
 # Contador para os arquivos de saída
-COUNTER=1
+counter=1
 
 # Usando awk para separar o conteúdo
-awk --assign counter="${COUNTER}" '
+awk --assign counter="${counter}" '
   /^---$/ {
     if (file) {
       print file > "output_file_" counter ".yaml"
@@ -43,4 +43,4 @@ awk --assign counter="${COUNTER}" '
       print file > "output_file_" counter ".yaml"  # Salva o último arquivo
     }
   }
-' "${INPUT_FILE_PATH?}"
+' "${input_file_path?}"

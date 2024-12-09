@@ -1,4 +1,0 @@
-#!/bin/bash
-FILE_PATH="${1}"
-
-idea "$(wo "${FILE_PATH}")" &> /dev/null

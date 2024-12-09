@@ -1,11 +1,11 @@
 #!/bin/bash
-COMMAND_NAME="${1}"
+command_name="${1}"
 
-COMMAND_FILE=$(which "${COMMAND_NAME}")
+command_file=$(which "${command_name}")
 
-if [[ ! -f "${COMMAND_FILE}" ]]; then
-  echo "Command not found: ${COMMAND_NAME}"
+if [[ ! -f "${command_file}" ]]; then
+  echo "Command not found: ${command_name}"
   exit 1
 fi
 
-code "${COMMAND_FILE}"
+code "${command_file}"

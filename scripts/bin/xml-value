@@ -1,7 +1,9 @@
 #!/bin/bash
-THIS_SCRIPT_FILE_NAME=$(basename $0)
-XPATH_EXPRESSION="${1}"
-FILE_NAME="${2}"
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+
+xpath_expression="${1}"
+file_name="${2}"
 
 show_usage() {
   cat <<EOF
@@ -9,15 +11,15 @@ show_usage() {
   This script evaluates an XPath expression in an XML file using xmllint.
 
 
-  Usage: ${THIS_SCRIPT_FILE_NAME} <XPATH_EXPRESSION> <FILE_NAME>
+  Usage: ${this_script_path} <xpath_expression> <file_name>
 
-    XPATH_EXPRESSION.: The XPath expression to be evaluated.
-    FILE_NAME........: The XML file to be evaluated.
+    xpath_expression.: The XPath expression to be evaluated.
+    file_name........: The XML file to be evaluated.
 
 
   Example:
 
-    ${THIS_SCRIPT_FILE_NAME} '.project.version' pom.xml
+    ${this_script_path} '.project.version' pom.xml
 
 EOF
 }
@@ -34,27 +36,27 @@ EOF
   exit 1
 fi
 
-if [[ -z "${XPATH_EXPRESSION}" ]] || \
-   [[ -z "${FILE_NAME}"        ]]; then
+if [[ -z "${xpath_expression}" ]] || \
+   [[ -z "${file_name}"        ]]; then
   show_usage
   exit 1
 fi
 
-if [[ ! -e "${FILE_NAME}" ]]; then
-  echo "File not found: ${FILE_NAME}"
+if [[ ! -e "${file_name}" ]]; then
+  echo "File not found: ${file_name}"
   exit 1
 fi
 
-XPATH_EXPRESSION_RESULT=""
+xpath_expression_result=""
 
-for XPATH_EXPRESSION_ITEM in $(echo "${XPATH_EXPRESSION}" | tr '.' '\n'); do
-  if [[ -z "${XPATH_EXPRESSION_RESULT}" ]]; then
-    XPATH_EXPRESSION_RESULT="//*[local-name()='${XPATH_EXPRESSION_ITEM}']"
+for xpath_expression_item in $(echo "${xpath_expression}" | tr '.' '\n'); do
+  if [[ -z "${xpath_expression_result}" ]]; then
+    xpath_expression_result="//*[local-name()='${xpath_expression_item}']"
   else
-    XPATH_EXPRESSION_RESULT="${XPATH_EXPRESSION_RESULT}/*[local-name()='${XPATH_EXPRESSION_ITEM}']/text()"
+    xpath_expression_result="${xpath_expression_result}/*[local-name()='${xpath_expression_item}']/text()"
   fi
 done
 
-echo "${XPATH_EXPRESSION_RESULT}"
+echo "${xpath_expression_result}"
 
-xmllint --xpath "${XPATH_EXPRESSION_RESULT}" "${FILE_NAME}"
+xmllint --xpath "${xpath_expression_result}" "${file_name}"

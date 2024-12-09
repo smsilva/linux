@@ -1,12 +1,13 @@
 #!/bin/bash
-CURRENT_USERNAME=$1
-SUDOER_FILE="/etc/sudoers.d/${CURRENT_USERNAME}"
+username="${1}"
 
-if [[ ! -e "${SUDOER_FILE?}" ]]; then
-  echo "Creating ${SUDOER_FILE?} file:"
+sudoer_file="/etc/sudoers.d/${username}"
 
-  cat << EOF | sudo tee ${SUDOER_FILE?}
-${CURRENT_USERNAME} ALL=(ALL) NOPASSWD: ALL
+if [[ ! -e "${sudoer_file?}" ]]; then
+  echo "Creating ${sudoer_file?} file:"
+
+  cat << EOF | sudo tee ${sudoer_file?}
+${username} ALL=(ALL) NOPASSWD: ALL
 EOF
 
 fi

@@ -2,23 +2,23 @@
 if ! which ytop > /dev/null; then
   set -e
 
-  VERSION=$(curl \
+  version=$(curl \
     --silent "https://api.github.com/repos/cjbassi/ytop/releases/latest" \
     | grep '"tag_name"' \
     | awk -F '"' '{ print $4 }'
   )
 
-  INSTALL_DIR="${HOME}/bin/"
+  install_dir="${HOME}/bin/"
 
-  TAR_FILE="ytop-${VERSION?}-x86_64-unknown-linux-gnu.tar.gz"
+  tar_file="ytop-${version?}-x86_64-unknown-linux-gnu.tar.gz"
   
-  wget "https://github.com/cjbassi/ytop/releases/download/${VERSION}/${TAR_FILE}"
+  wget "https://github.com/cjbassi/ytop/releases/download/${version}/${tar_file}"
   
-  [ ! -e "${INSTALL_DIR}" ] && mkdir "${INSTALL_DIR}"
+  [ ! -e "${install_dir}" ] && mkdir "${install_dir}"
   
-  tar xvf "${TAR_FILE}" && \
-  mv ytop "${INSTALL_DIR}" && \
-  rm "${TAR_FILE}"
+  tar xvf "${tar_file}" && \
+  mv ytop "${install_dir}" && \
+  rm "${tar_file}"
   
   mkdir -p ${HOME}/.config/ytop/
   

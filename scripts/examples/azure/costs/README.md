@@ -3,30 +3,30 @@
 ## Retrieve costs
 
 ```bash
-START_DATE="2024-06-01"
-END_DATE="2024-06-30"
+start_date="2024-06-01"
+end_date="2024-06-30"
 
-while read -r SUBSCRIPTION_ID; do
-  echo "Subscription: ${SUBSCRIPTION_ID?}"
+while read -r subscription_id; do
+  echo "Subscription: ${subscription_id?}"
 
-  BASE_FILE_NAME="costs-${SUBSCRIPTION_ID?}_${START_DATE?}_${END_DATE?}"
-  DATA_FILE_NAME="${BASE_FILE_NAME?}.json"
-  ERROR_FILE_NAME="${BASE_FILE_NAME?}.log"
+  base_file_name="costs-${subscription_id?}_${start_date?}_${end_date?}"
+  data_file_name="${base_file_name?}.json"
+  error_file_name="${base_file_name?}.log"
 
   ./azure-costs \
-    --subscription "${SUBSCRIPTION_ID?}" \
-    --start-date "${START_DATE?}" \
-    --end-date "${END_DATE?}" > ${DATA_FILE_NAME?} 2> ${ERROR_FILE_NAME?}
+    --subscription "${subscription_id?}" \
+    --start-date "${start_date?}" \
+    --end-date "${end_date?}" > ${data_file_name?} 2> ${error_file_name?}
 done < <(az account list --query '[].id' -o tsv)
 ```
 
 ## Convert json to tsv
 
 ```bash
-while read -r JSON_FILE; do
-  echo "Converting: ${JSON_FILE}"
-  TSV_FILE_NAME="${JSON_FILE%.*}.tsv"
-  ./json-to-tsv "${JSON_FILE}" > "${TSV_FILE_NAME}"
+while read -r json_file; do
+  echo "Converting: ${json_file}"
+  tsv_file_name="${json_file%.*}.tsv"
+  ./json-to-tsv "${json_file}" > "${tsv_file_name}"
 done < <(find . -name 'costs-*.json')
 ```
 

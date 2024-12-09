@@ -1,31 +1,31 @@
 #!/bin/bash
-SCRIPTS_LOCATION="${PWD}/scripts"
-BIN_USER_LOCATION="${HOME}/bin-${USER##*\\}"
-CURRENT_USERNAME="${USER##*\\}"
-GIT_GLOBAL_TEMPLATES="${HOME}/.git-templates"
+scripts_location="${PWD}/scripts"
+bin_user_location="${HOME}/bin-${USER##*\\}"
+current_username="${USER##*\\}"
+git_global_templates="${HOME}/.git-templates"
 
-chmod +x ${SCRIPTS_LOCATION}/*
+chmod +x ${scripts_location}/*
 
-if ! [ -e "${BIN_USER_LOCATION}" ]; then
-  ln --symbolic "${SCRIPTS_LOCATION}/bin/" "${BIN_USER_LOCATION}" &> /dev/null
+if ! [ -e "${bin_user_location}" ]; then
+  ln --symbolic "${scripts_location}/bin/" "${bin_user_location}" &> /dev/null
 fi
 
-if ! [ -e "${GIT_GLOBAL_TEMPLATES}" ]; then
-  ln --symbolic "${SCRIPTS_LOCATION}/git" "${GIT_GLOBAL_TEMPLATES}"
+if ! [ -e "${git_global_templates}" ]; then
+  ln --symbolic "${scripts_location}/git" "${git_global_templates}"
 
-  git config --global init.templatedir "${GIT_GLOBAL_TEMPLATES}"
+  git config --global init.templatedir "${git_global_templates}"
 fi
 
-BASH_ALIASES_FILE="${HOME}/.bash_aliases"
+bash_aliases_file="${HOME}/.bash_aliases"
 
-if ! [ -e "${BASH_ALIASES_FILE}" ]; then
-  ln --symbolic "${SCRIPTS_LOCATION}/bash_aliases" "${BASH_ALIASES_FILE}" &> /dev/null
+if ! [ -e "${bash_aliases_file}" ]; then
+  ln --symbolic "${scripts_location}/bash_aliases" "${bash_aliases_file}" &> /dev/null
 fi
 
-BASH_CONFIG_FILE="${HOME}/.bash_config"
+bash_config_file="${HOME}/.bash_config"
 
-if ! [ -e "${BASH_CONFIG_FILE}" ]; then
-  ln --symbolic "${SCRIPTS_LOCATION}/bash_config" "${BASH_CONFIG_FILE}" &> /dev/null
+if ! [ -e "${bash_config_file}" ]; then
+  ln --symbolic "${scripts_location}/bash_config" "${bash_config_file}" &> /dev/null
 fi
 
 if ! grep --quiet --extended-regexp ".bash_config" ~/.bashrc; then
@@ -45,7 +45,7 @@ mkdir -p ${HOME?}/bin
 
 source ${HOME?}/.bashrc
 
-scripts/sudoers/setup.sh "${CURRENT_USERNAME?}"
+scripts/sudoers/setup.sh "${current_username?}"
 scripts/vscode/install.sh
 scripts/utilities/install.sh
 

@@ -1,7 +1,7 @@
 #!/bin/bash
-INSTALL_DIR="${HOME}/.krew"
+install_dir="${HOME}/.krew"
 
-if [[ ! -e "${INSTALL_DIR?}" ]]; then
+if [[ ! -e "${install_dir?}" ]]; then
   (
     set -x; cd "$(mktemp -d)" &&
     curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/download/v0.4.4/krew-linux_amd64.tar.gz" &&

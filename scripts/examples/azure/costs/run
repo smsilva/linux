@@ -1,7 +1,9 @@
 #!/bin/bash
-THIS_SCRIPT_NAME=$0
-THIS_SCRIPT_DIRECTORY=$(dirname $0)
-PATH=${PATH}:${THIS_SCRIPT_DIRECTORY}
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
 
 show_usage() {
   cat <<EOF
@@ -18,10 +20,10 @@ show_usage() {
 
     Examples:
 
-      ${THIS_SCRIPT_NAME} \\
+      ${this_script_name} \\
         --help
 
-      ${THIS_SCRIPT_NAME} \\
+      ${this_script_name} \\
         --subscription \${ARM_SUBSCRIPTION_ID} \\
         --start-date "2021-10-01" \\
         --end-date "2021-10-31"
@@ -37,24 +39,28 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
       ;;
 
     -s | --subscription )
-      shift; SUBSCRIPTION_ID="${1}"
+      shift
+      subscription_id="${1}"
       ;;
 
     -sd | --start-date )
-      shift; START_DATE="${1}"
+      shift
+      start_date="${1}"
       ;;
     
     -ed | --end-date )
-      shift; END_DATE="${1}"
+      shift
+      end_date="${1}"
       ;;
+
   esac
   shift
 done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-START_DATE="${START_DATE-2024-06-01}"
-END_DATE="${END_DATE-2024-06-30}"
+start_date="${start_date-2024-06-01}"
+end_date="${end_date-2024-06-30}"
 
 azure_account_list() {
   az account list \
@@ -65,24 +71,24 @@ azure_account_list() {
 
 rm costs-* &> /dev/null
 
-while read -r SUBSCRIPTION_ID SUBSCRIPTION_DESCRIPTION; do
-  echo "Subscription: ${SUBSCRIPTION_ID} ${SUBSCRIPTION_DESCRIPTION}"
+while read -r subscription_id subscription_description; do
+  echo "Subscription: ${subscription_id} ${subscription_description}"
 
-  BASE_FILE_NAME="costs-${SUBSCRIPTION_ID?}_${START_DATE?}_${END_DATE?}"
-  DATA_FILE_NAME="${BASE_FILE_NAME?}.json"
-  ERROR_FILE_NAME="${BASE_FILE_NAME?}.log"
+  base_file_name="costs-${subscription_id?}_${start_date?}_${end_date?}"
+  data_file_name="${base_file_name?}.json"
+  error_file_name="${base_file_name?}.log"
 
   azure-costs \
-    --subscription "${SUBSCRIPTION_ID?}" \
-    --start-date "${START_DATE?}" \
-    --end-date "${END_DATE?}" > ${DATA_FILE_NAME?} 2> ${ERROR_FILE_NAME?}
+    --subscription "${subscription_id?}" \
+    --start-date "${start_date?}" \
+    --end-date "${end_date?}" > ${data_file_name?} 2> ${error_file_name?}
 done < <(azure_account_list)
 
 ## Convert json to tsv
-while read -r JSON_FILE; do
-  TSV_FILE_NAME="${JSON_FILE%.*}.tsv"
-  echo "Converting: ${JSON_FILE} to ${TSV_FILE_NAME}"	
-  json-to-tsv "${JSON_FILE}" > "${TSV_FILE_NAME}"
+while read -r json_file; do
+  tsv_file_name="${json_file%.*}.tsv"
+  echo "Converting: ${json_file} to ${tsv_file_name}"	
+  json-to-tsv "${json_file}" > "${tsv_file_name}"
 done < <(find -name 'costs-*.json' 2> /dev/null)
 
 merge-tsv-files > costs-merged.tsv

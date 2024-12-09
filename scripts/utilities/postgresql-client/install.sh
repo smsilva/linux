@@ -1,17 +1,17 @@
 #!/bin/bash
 if ! which psql > /dev/null; then
-  LOCAL_KEYRING_GPG_FILE="/usr/share/keyrings/postgresql-archive-keyring.gpg"
+  local_keyring_gpg_file="/usr/share/keyrings/postgresql-archive-keyring.gpg"
 
   wget \
     --quiet \
     --output-document - https://www.postgresql.org/media/keys/ACCC4CF8.asc \
   | gpg --dearmor \
-  | sudo tee "${LOCAL_KEYRING_GPG_FILE?}"
+  | sudo tee "${local_keyring_gpg_file?}"
 
   source /etc/os-release
   
   cat <<EOF | sudo tee /etc/apt/sources.list.d/pgdg.list
-deb [signed-by=${LOCAL_KEYRING_GPG_FILE}] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main
+deb [signed-by=${local_keyring_gpg_file}] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME?}-pgdg main
 EOF
  
   sudo apt-get update -q

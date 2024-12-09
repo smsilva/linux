@@ -1,27 +1,27 @@
 #!/bin/bash
 if ! which yq > /dev/null; then
-  BINARY="yq_linux_amd64"
-  TAR_FILE="${BINARY?}.tar.gz"
-  VERSION=$(curl \
+  binary="yq_linux_amd64"
+  tar_file="${binary?}.tar.gz"
+  version=$(curl \
     --silent "https://api.github.com/repos/mikefarah/yq/releases/latest" \
     | grep '"tag_name"' \
     | awk -F '"' '{ print $4 }'
   )
 
-  echo "VERSION..: ${VERSION}"
-  echo "BINARY...: ${BINARY}"
-  echo "TAR_FILE.: ${TAR_FILE}"
+  echo "version..: ${version}"
+  echo "binary...: ${binary}"
+  echo "tar_file.: ${tar_file}"
 
-  if [[ ! -e "${TAR_FILE?}" ]]; then
-    wget https://github.com/mikefarah/yq/releases/download/${VERSION?}/${TAR_FILE?}
+  if [[ ! -e "${tar_file?}" ]]; then
+    wget https://github.com/mikefarah/yq/releases/download/${version?}/${tar_file?}
   fi
 
-  tar xvf "${TAR_FILE?}" "./${BINARY?}"
+  tar xvf "${tar_file?}" "./${binary?}"
 
-  if [[ -e "${BINARY?}" ]]; then
+  if [[ -e "${binary?}" ]]; then
     mkdir -p "${HOME}/bin"
-    mv ${BINARY} "${HOME}/bin/yq"
-    rm "${TAR_FILE?}"
+    mv ${binary} "${HOME}/bin/yq"
+    rm "${tar_file?}"
   fi
 
   ${HOME}/bin/yq --version

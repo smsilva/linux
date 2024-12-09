@@ -1,10 +1,9 @@
 #!/bin/bash
-THIS_SCRIPT="$0"
-THIS_SCRIPT_NAME=$(basename "${THIS_SCRIPT?}")
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
 
-# Default values
-API_VERSION="2021-10-01"
-GRANULARITY="None"
+api_version="2021-10-01"
+granularity="None"
 
 show_usage() {
   cat <<EOF
@@ -21,10 +20,10 @@ show_usage() {
 
     Examples:
 
-      ${THIS_SCRIPT_NAME} \\
+      ${this_script_name} \\
         --help
 
-      ${THIS_SCRIPT_NAME} \\
+      ${this_script_name} \\
         --subscription \${ARM_SUBSCRIPTION_ID} \\
         --start-date "2021-10-01" \\
         --end-date "2021-10-31"
@@ -40,57 +39,61 @@ while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
       ;;
 
     -s | --subscription )
-      shift; export SUBSCRIPTION_ID="${1}"
+      shift
+      subscription_id="${1}"
       ;;
 
     -sd | --start-date )
-      shift; export START_DATE="${1}"
+      shift
+      start_date="${1}"
       ;;
     
     -ed | --end-date )
-      shift; export END_DATE="${1}"
+      shift
+      end_date="${1}"
       ;;
+
   esac
   shift
 done
 
 if [[ "$1" == '--' ]]; then shift; fi
 
-if [[ -z "${SUBSCRIPTION_ID}" ]]; then
+if [[ -z "${subscription_id}" ]]; then
   echo "Error: Subscription ID is required: -s | --subscrition"
   show_usage
   exit 1
 fi
 
 # If start date is not provided, set it to the first day of the last month
-if [[ -z "${START_DATE}" ]]; then
-  START_DATE=$(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m-01)
+if [[ -z "${start_date}" ]]; then
+  start_date=$(date -d "$(date +%Y-%m-01) -1 month" +%Y-%m-01)
 fi
 
 # If end date is not provided, set it to the last day of the last month
-if [[ -z "${END_DATE}" ]]; then
-  END_DATE=$(date -d "$(date +%Y-%m-01) -1 day" +%Y-%m-%d)
+if [[ -z "${end_date}" ]]; then
+  end_date=$(date -d "$(date +%Y-%m-01) -1 day" +%Y-%m-%d)
 fi
 
 # Retrieve access token
-ACCESS_TOKEN=$(az account get-access-token \
+access_token=$(az account get-access-token \
   --query accessToken \
   --output tsv)
 
 # API URL
-COST_MANAGEMENT_URL="https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/providers/Microsoft.CostManagement/query?api-version=${API_VERSION}"
+cost_management_url="https://management.azure.com/subscriptions/${subscription_id}/providers/Microsoft.CostManagement/query?api-version=${api_version}"
 
 # Payload request
-read -r -d '' PAYLOAD << EOF
+read -r -d '' payload << EOF
 {
   "type": "ActualCost",
   "timeframe": "Custom",
   "timePeriod": {
-    "from": "${START_DATE}",
-    "to": "${END_DATE}"
+    "from": "${start_date}",
+    "to": "${end_date}"
   },
   "dataset": {
-    "granularity": "${GRANULARITY}",
+    "granularity": "${granularity}",
     "aggregation": {
       "totalCost": {
         "name": "PreTaxCost",
@@ -132,9 +135,9 @@ read -r -d '' PAYLOAD << EOF
 EOF
 
 curl \
-  -s \
-  -X POST "${COST_MANAGEMENT_URL}" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "${PAYLOAD}" \
+  --silent \
+  --request POST "${cost_management_url}" \
+  --header "Authorization: Bearer ${access_token}" \
+  --header "Content-Type: application/json" \
+  --data-urlencode "${payload}" \
 | jq .

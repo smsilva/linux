@@ -1,9 +1,8 @@
 #!/bin/bash
-
-COMMIT_MSG_FILE=$1
+commit_msg_file="${1}"
 
 # Check if the commit message matches the conventional commit pattern
-if ! grep -qE "^(bump|build|feat|fix|docs|style|refactor|perf|test|chore)(\([^)]+\))?(\!)?\: .{1,}$" "${COMMIT_MSG_FILE}"; then
+if ! grep -qE "^(bump|build|feat|fix|docs|style|refactor|perf|test|chore)(\([^)]+\))?(\!)?\: .{1,}$" "${commit_msg_file}"; then
   cat <<EOF
 
   Error:
@@ -29,7 +28,7 @@ if ! grep -qE "^(bump|build|feat|fix|docs|style|refactor|perf|test|chore)(\([^)]
 
   Your commit message:
 
-    $(cat ${COMMIT_MSG_FILE})
+    $(cat ${commit_msg_file})
 
 EOF
   exit 1

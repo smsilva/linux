@@ -1,28 +1,28 @@
 #!/bin/bash
 if [[ -f ~/trash/token ]]; then
-  TOKEN="$(cat ~/trash/token)"
+  token="$(cat ~/trash/token)"
 else
-  TOKEN="Bearer 123"
+  token="Bearer 123"
 fi
 
-GENERATED_UUID="$(uuidgen)"
+generated_uuid="$(uuidgen)"
 
 curl \
   --include \
   --request POST \
   --url https://httpbin.org/post \
   --header "Content-Type: application/json" \
-  --header "Authorization: ${TOKEN?}" \
+  --header "Authorization: ${token?}" \
   --data @- << EOF
 {
-  "id": "${GENERATED_UUID?}",
+  "id": "${generated_uuid?}",
   "name": "A regular data"
 }
 EOF
 
 cat << EOF > /tmp/httpbin.json
 {
-  "id": "${GENERATED_UUID?}",
+  "id": "${generated_uuid?}",
   "name": "A regular data"
 }
 EOF
@@ -32,5 +32,5 @@ curl \
   --request POST \
   --url https://httpbin.org/post \
   --header "Content-Type: application/json" \
-  --header "Authorization: ${TOKEN?}" \
+  --header "Authorization: ${token?}" \
   --data @/tmp/httpbin.json

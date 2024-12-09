@@ -1,8 +1,8 @@
 #!/bin/bash
 checking() {
-  MESSAGE=$1
+  message="${1}"
   echo ""
-  echo "Checking ${MESSAGE}..."
+  echo "Checking ${message}..."
 }
 
 checking "SDKMAN"

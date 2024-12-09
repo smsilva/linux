@@ -30,12 +30,12 @@ find scripts/utilities/ \
   -maxdepth 1 \
   -type d \
 | sort \
-| while read FOLDER; do
+| while read folder; do
   echo "============================================"
-  echo "FOLDER.: ${FOLDER}"
+  echo "folder.: ${folder}"
   echo ""
 
-  . ${FOLDER}/install.sh
+  . ${folder}/install.sh
 
   sleep 2
   echo ""

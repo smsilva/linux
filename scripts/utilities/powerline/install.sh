@@ -1,21 +1,21 @@
 #!/bin/bash
-POWERLINE_CONFIG_DIRECTORY=${HOME}/.config/powerline
-CONFIG_FILE_NAME=${POWERLINE_CONFIG_DIRECTORY}/config.json
+powerline_config_directory=${HOME}/.config/powerline
+config_file_name=${powerline_config_directory}/config.json
 
 is_running_on_wsl2() {
   uname -r | tr '[:upper:]' '[:lower:]' | grep --extended-regexp "microsoft.*wsl2" &> /dev/null
   echo $?
 }
 
-if [[ ! -e "${POWERLINE_CONFIG_DIRECTORY?}" ]]; then
+if [[ ! -e "${powerline_config_directory?}" ]]; then
   # Create a Directory
-  mkdir --parents "${POWERLINE_CONFIG_DIRECTORY?}"
+  mkdir --parents "${powerline_config_directory?}"
 
   # Copy Powerline Config Default
-  cp /usr/share/powerline/config_files/config.json ${CONFIG_FILE_NAME?}
+  cp /usr/share/powerline/config_files/config.json ${config_file_name?}
 
   # Change Theme
-  sed 's/default_leftonly/default/g' ${CONFIG_FILE_NAME?} --in-place
+  sed 's/default_leftonly/default/g' ${config_file_name?} --in-place
 
   # ~/.vimrc
   cat <<EOF > ~/.vimrc
@@ -27,20 +27,20 @@ EOF
 
   if [[ ! $(is_running_on_wsl2) ]]; then
     # Set the VS Code Terminal Font
-    VSCODE_USER_SETTINGS_FILE="${HOME}/.config/Code/User/settings.json"
-    FONT_FILE_NAME="Menlo for Powerline.ttf" && \
-    JQ_EXPRESSION=$(printf '."terminal.integrated.fontFamily" = "%s"' "'monospace', 'PowerlineSymbols'") && \
+    vscode_user_settings_file="${HOME}/.config/Code/User/settings.json"
+    font_file_name="Menlo for Powerline.ttf" && \
+    jq_expression=$(printf '."terminal.integrated.fontFamily" = "%s"' "'monospace', 'PowerlineSymbols'") && \
     echo "" && \
-    echo "VSCODE_USER_SETTINGS_FILE...: ${VSCODE_USER_SETTINGS_FILE}" && \
-    echo "FONT_FILE_NAME..............: ${FONT_FILE_NAME}" && \
-    echo "JQ_EXPRESSION...............: ${JQ_EXPRESSION}" && \
+    echo "vscode_user_settings_file...: ${vscode_user_settings_file}" && \
+    echo "font_file_name..............: ${font_file_name}" && \
+    echo "jq_expression...............: ${jq_expression}" && \
     echo ""
 
-    sudo wget -qO "/usr/share/fonts/${FONT_FILE_NAME}" "https://github.com/abertsch/Menlo-for-Powerline/raw/master/Menlo%20for%20Powerline.ttf"
+    sudo wget -qO "/usr/share/fonts/${font_file_name}" "https://github.com/abertsch/Menlo-for-Powerline/raw/master/Menlo%20for%20Powerline.ttf"
 
-    if [[ ! -e "${VSCODE_USER_SETTINGS_FILE}" ]]; then
-      echo '{}' > "${VSCODE_USER_SETTINGS_FILE}"
-      echo "$(jq "${JQ_EXPRESSION}" "${VSCODE_USER_SETTINGS_FILE}")" > "${VSCODE_USER_SETTINGS_FILE}"
+    if [[ ! -e "${vscode_user_settings_file}" ]]; then
+      echo '{}' > "${vscode_user_settings_file}"
+      echo "$(jq "${jq_expression}" "${vscode_user_settings_file}")" > "${vscode_user_settings_file}"
     fi
   fi
 fi

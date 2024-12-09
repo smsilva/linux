@@ -1,6 +1,6 @@
 #!/bin/bash
 if ! which terraform > /dev/null; then
-  VERSION=$(
+  version=$(
     curl \
       --silent \
       --url https://releases.hashicorp.com/terraform \
@@ -10,13 +10,13 @@ if ! which terraform > /dev/null; then
     | head -1  
   )
 
-  FILE_NAME="terraform_${VERSION?}_linux_amd64.zip"
+  file_name="terraform_${version?}_linux_amd64.zip"
   
-  wget https://releases.hashicorp.com/terraform/${VERSION?}/${FILE_NAME?}
+  wget https://releases.hashicorp.com/terraform/${version?}/${file_name?}
   
-  unzip ${FILE_NAME?}
+  unzip ${file_name?}
   
-  rm ${FILE_NAME?}
+  rm ${file_name?}
   
   chmod +x terraform
   

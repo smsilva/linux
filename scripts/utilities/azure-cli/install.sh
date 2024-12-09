@@ -19,14 +19,14 @@ if ! which az > /dev/null; then
 
   sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
 
-  INSTALLED_DISTRIBUTION=$(lsb_release --codename --short 2> /dev/null)
+  installed_distribution=$(lsb_release --codename --short 2> /dev/null)
 
-  if [[ "${INSTALLED_DISTRIBUTION?}" == "noble" ]]; then
-    INSTALLED_DISTRIBUTION="jammy"
+  if [[ "${installed_distribution?}" == "noble" ]]; then
+    installed_distribution="jammy"
   fi
 
   cat <<EOF | sudo tee /etc/apt/sources.list.d/azure-cli.list
-deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${INSTALLED_DISTRIBUTION?} main
+deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ ${installed_distribution?} main
 EOF
 
   sudo apt-get update -q

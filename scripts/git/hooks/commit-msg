@@ -2,7 +2,7 @@
 commit_msg_file="${1}"
 
 # Check if the commit message matches the conventional commit pattern
-if ! grep -qE "^(bump|build|feat|fix|docs|style|refactor|perf|test|chore)(\([^)]+\))?(\!)?\: .{1,}$" "${commit_msg_file}"; then
+if ! grep -qE "^(bump|build|feat|fix|docs|style|refactor|perf|test|chore|ci|revert)(\([^)]+\))?(\!)?\: .{1,}$" "${commit_msg_file}"; then
   cat <<EOF
 
   Error:

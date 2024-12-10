@@ -13,6 +13,10 @@ if which today-fortune &> /dev/null; then
   today-fortune
 fi
 
+if [[ -f "${HOME}/.bash_functions" ]]; then
+  source "${HOME}/.bash_functions"
+fi
+
 if [[ -f /usr/share/powerline/bindings/bash/powerline.sh ]]; then
   powerline-daemon -q
   POWERLINE_BASH_CONTINUATION=1

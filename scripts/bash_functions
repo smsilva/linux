@@ -8,19 +8,21 @@ filler() {
 padr() {
   local value="${1}"
   local final_desired_size="${2:-80}"
+  local value_delimited="${value:0:${final_desired_size}}"
   local filler_char="${3:- }"
-  local filler_size=$((final_desired_size - ${#value}))
+  local filler_size=$((final_desired_size - ${#value_delimited}))
   local filler_string="$(filler ${filler_size?} "${filler_char}")"
-  local final_string="${value}${filler_string}"
+  local final_string="${value_delimited}${filler_string}"
   echo ${final_string:0:${final_desired_size}}
 }
 
 padl() {
   local value="${1}"
   local final_desired_size="${2:-80}"
+  local value_delimited="${value:0:${final_desired_size}}"
   local filler_char="${3:- }"
-  local filler_size=$((final_desired_size - ${#value}))
+  local filler_size=$((final_desired_size - ${#value_delimited}))
   local filler_string="$(filler ${filler_size?} "${filler_char}")"
-  local final_string="${filler_string}${value:0:${final_desired_size}}"
+  local final_string="${filler_string}${value_delimited}"
   echo ${final_string:(-${final_desired_size}):${final_desired_size}}
 }

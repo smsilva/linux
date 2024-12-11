@@ -1,5 +1,6 @@
 #!/bin/bash
 input_path="${1:-${PWD}}"
+
 path_to_add="$(realpath ${input_path})"
 
 if [[ -d "${path_to_add}" ]]; then
@@ -7,7 +8,7 @@ if [[ -d "${path_to_add}" ]]; then
     export PATH=${path_to_add}:${PATH}
   fi
 
-  echo $PATH \
+  echo ${PATH} \
   | tr ':' '\n' \
   | grep "${path_to_add}"
 else

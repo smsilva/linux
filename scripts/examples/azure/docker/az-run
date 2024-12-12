@@ -1,0 +1,147 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+# Update default permisions for new files and directories:
+#   - files:       rw-rw-r--
+#   - directories: rwxrwxr-x
+umask 0002
+
+show_usage() {
+  cat <<EOF
+
+  Execute any operation on a Docker image
+
+    Options:
+
+      -h,  --help          Show this help
+      -i,  --image         Docker image
+      -f,  --file          File to be available into the container (can be called multiple times)
+      -t,  --directory     Directory (optional, default: /tmp/work/<random_uuid>)
+      -o,  --operation     Operation to be executed: [plan|apply]
+      -dl, --debug-level   Debug Level:
+                             - 0: Quiet
+                             - 1: Error
+                             - 2: Warning
+                             - 3: Info (default)
+                             - 4: Debug
+      
+    Examples:
+
+      ${this_script_path} \\
+        --image image:local \\
+        --file /tmp/work/templates/resource.yaml \\
+        --directory /tmp/work \\
+        --operation plan
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case ${1} in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -i | --image )
+      shift
+      container_image="${1}"
+      ;;
+
+    -f | --file )
+      shift
+      file="${1}"
+      ;;
+
+    -td | --directory )
+      shift
+      directory="${1}"
+      ;;
+
+    -o | --operation )
+      shift
+      operation="${1}"
+      ;;
+
+    -dl | --debug-level )
+      shift
+      debug_level="${1}"
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+if [[ -z "${container_image}" ]]; then
+  echo "--image is required"
+  show_usage
+  exit 1
+fi
+
+if [[ -z "${file}" ]]; then
+  echo "--file is required"
+  show_usage
+  exit 1
+fi
+
+if [[ ! -f "${file}" ]]; then
+  echo "ERROR: File does not exist: ${file}"
+  exit 1
+fi
+
+debug_level="${debug_level:-3}"
+directory="${directory:-/tmp/work/$(uuidgen)}"
+operation="${operation:-plan}"
+file="$(realpath ${file})"
+
+mkdir --parents "${directory?}"
+
+cat <<EOF
+
+arguments:
+  image:            ${container_image?}
+  file:             ${file?}
+  directory:        ${directory?}
+  operation:        ${operation?}
+  debug:            ${debug_level?}
+
+EOF
+
+list_docker_images() {
+  docker images \
+| awk 'NR>1 { print $1 ":" $2 }' \
+| sort
+}
+
+if ! grep --quiet "${container_image?}" < <(list_docker_images); then
+  if [[ "${debug_level?}" -ge 4 ]]; then
+    echo "::group::Pulling image ${container_image?}"
+    docker pull "${container_image?}"
+    echo "::endgroup::"
+  else
+    docker pull "${container_image?}" --quiet
+  fi
+fi
+
+target_file="${directory?}/${file##*/}"
+
+# Copy file to work directory
+cp ${file?} "${target_file?}"
+
+# Make sure that the group has write permissions to the copied files
+sudo chmod g+w --recursive "${directory?}"
+
+# The WORK_DIRECTORY variable is used by the az-docker-run script
+export WORK_DIRECTORY="${directory?}"
+
+az-docker-run ${container_image?} run \
+  --file "${target_file?}" \
+  --operation "${operation?}" \
+  --directory "${directory?}" \
+  --debug-level "${debug_level?}"

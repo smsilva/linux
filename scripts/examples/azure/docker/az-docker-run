@@ -1,0 +1,78 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+azure_cli_image="${AZURE_CLI_IMAGE:-mcr.microsoft.com/azure-cli:2.67.0-cbl-mariner2.0}"
+
+# Docker socket file
+docker_socket_file="/var/run/docker.sock"
+docker_socket_gid=$(stat -c %g ${docker_socket_file?})
+
+# Container user and group
+container_user_id=1001
+container_group_id=${docker_socket_gid?}
+
+# Define temporary work directory
+work_directory="${WORK_DIRECTORY:-/tmp/work}"
+
+# Create temporary work directory
+mkdir --parents "${work_directory?}"
+
+# Create a temporary Azure CLI configuration directory
+azure_temporary_directory=$(
+  az-config \
+    --generate-token \
+    --renew-token \
+    --target-directory "${work_directory?}"
+)
+
+if [[ $? -ne 0 ]]; then
+  cat <<EOF >&2
+Failed to create a temporary Azure CLI configuration directory
+
+Please, try to run:
+
+  az-config \\
+    --generate-token \\
+    --renew-token \\
+    --target-directory "${work_directory?}"
+
+EOF
+  exit 1
+fi
+
+# Change the temporary work directory user and group
+sudo chown --recursive ${container_user_id?}:${container_group_id?} "${work_directory?}"
+
+# Upgrade directory permissions and ownership enabling the container to access the temporary Azure CLI configuration directory
+# The 777 permission is required because the container will run as a different user and group
+sudo chmod 775 "${work_directory?}"
+sudo chmod 775 "${azure_temporary_directory?}"
+
+# Gives write and read permissions to the group of the temporary Azure CLI configuration directory
+sudo chmod --recursive g+wr "${azure_temporary_directory?}"
+
+arguments=()
+arguments+=("--rm")
+arguments+=("--user ${container_user_id?}:${container_group_id?}")
+arguments+=("--group-add ${docker_socket_gid?}")
+arguments+=("--env WORK_DIRECTORY=${work_directory?}")
+arguments+=("--env AZURE_CONFIG_DIR=${azure_temporary_directory?}")
+arguments+=("--env ARM_TENANT_ID=${ARM_TENANT_ID?}")
+arguments+=("--env ARM_SUBSCRIPTION_ID=${ARM_SUBSCRIPTION_ID?}")
+arguments+=("--env ARM_CLIENT_ID=${ARM_CLIENT_ID?}")
+arguments+=("--env ARM_CLIENT_SECRET=${ARM_CLIENT_SECRET?}")
+arguments+=("--env AZURE_CLI_IMAGE=${azure_cli_image}")
+arguments+=("--env CONTAINER_USER_ID=${container_user_id?}")
+arguments+=("--env CONTAINER_GROUP_ID=${container_group_id?}")
+arguments+=("--volume ${work_directory?}:${work_directory?}")
+arguments+=("--volume ${docker_socket_file?}:${docker_socket_file?}")
+
+if [ -t 1 ]; then
+  arguments+=("--interactive")
+  arguments+=("--tty")
+fi
+
+docker run ${arguments[@]} ${@}

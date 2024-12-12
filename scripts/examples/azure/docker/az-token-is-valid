@@ -1,0 +1,34 @@
+#!/bin/bash
+access_token_file="${1?}"
+
+# Return codes
+return_code_token_is_valid=0
+return_code_file_not_found=1
+return_code_token_expired=2
+
+if [[ ! -f "${access_token_file}" ]]; then
+  echo "Access Token file not found: ${access_token_file}" >&2
+  exit ${return_code_file_not_found?}
+fi
+
+# Retrieves expiration date of the Azure Access Token
+token_expiration_timestamp=$(grep "expires_on" "${access_token_file?}" | awk '{ print $2 }' | tr -d ",")
+
+# Get current timestamp
+current_system_timestamp=$(date +%s)
+
+# Check if Azure Access Token has expired
+if [[ ${token_expiration_timestamp} -lt ${current_system_timestamp} ]]; then
+  token_expiration_formated_date=$(date -d @${token_expiration_timestamp} +"%Y-%m-%d %H:%M:%S %:z")
+  cat <<EOF >&2
+Azure CLI Access Token has expired since: ${token_expiration_formated_date}
+
+Please generate a new one and try again:
+
+  az account get-access-token > ${access_token_file}
+
+EOF
+  exit ${return_code_token_expired?}
+fi
+
+exit ${return_code_token_is_valid?}

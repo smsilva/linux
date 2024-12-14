@@ -2,7 +2,7 @@ filler() {
   local final_desired_size="${1:-80}"
   local filler_char="${2:- }"
   local filler_string="$(printf "%${final_desired_size}s" | tr ' ' "${filler_char}")"
-  echo ${filler_string}
+  echo "${filler_string}"
 }
 
 padr() {

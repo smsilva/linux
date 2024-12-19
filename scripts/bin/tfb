@@ -1,10 +1,20 @@
 #!/bin/bash
 backend_file="backend.conf"
 
-state_file_name="$(uuidgen)"
+current_directory_name="${PWD##*/}"
+
+if [[ "${current_directory_name}" = "src" ]]; then
+  parent_directory_path="${PWD%/*}"
+  parent_directory_name="${parent_directory_path##*/}"
+  state_file_directory="${parent_directory_name}"
+else
+  state_file_directory="${current_directory_name}"
+fi
+
+state_file_name="${USER##*\\}/stacks/${state_file_directory}/default.json"
 
 cat <<EOF > "${backend_file}"
-key                  = "${USER##*\\}/${state_file_name}.json"
+key                  = "${state_file_name}"
 storage_account_name = "${ARM_STORAGE_ACCOUNT_NAME}"
 container_name       = "${ARM_STORAGE_ACCOUNT_CONTAINER_NAME}"
 sas_token            = "${ARM_SAS_TOKEN}"

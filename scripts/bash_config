@@ -1,12 +1,22 @@
-BIN_USER_DIRECTORY="bin-${USER##*\\}"
-KREW_BIN_DIRECTORY="${HOME}/.krew/bin"
-TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY="${HOME}/git/terraform-packager/scripts"
-APACHE_KAFKA_BIN_DIRECTORY="${HOME}/bin/apache-kafka/bin"
-APACHE_JMETER_BIN_DIRECTORY="${HOME}/bin/apache-jmeter/bin"
-GO_BIN_DIRECTORY="${HOME}/bin/go/bin:${HOME}/go/bin"
+user_binarires_directory="${HOME}/bin-${USER##*\\}"
+krew_bin_directory="${HOME}/.krew/bin"
+npm_packages_bin_directory="${HOME}/.npm-packages/bin"
 
-if ! grep --quiet ${BIN_USER_DIRECTORY} <<< "${PATH}"; then
-  export PATH=${HOME}/${BIN_USER_DIRECTORY}:${PATH}:${TERRAFORM_PACKAGE_SCRIPTS_DIRECTORY}:${GO_BIN_DIRECTORY}:${KREW_BIN_DIRECTORY}:${APACHE_KAFKA_BIN_DIRECTORY}:${APACHE_JMETER_BIN_DIRECTORY}:${HOME}/.npm-packages/bin
+# Terraform Packager configuration
+terraform_packager_directory="${TERRAFORM_PACKAGER_DIRECTORY:-${HOME}/git/terraform-packager}"
+terraform_packager_scripts_directory="${terraform_packager_directory}/scripts"
+export TERRAFORM_PACKAGER_DIRECTORY="${terraform_packager_directory}"
+export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
+export TF_PACKAGER_DOCKER_PROGRESS="auto" # Possible values: plain, auto, tty
+
+if ! grep --quiet ${terraform_packager_scripts_directory} <<< "${PATH}"; then
+  echo "First PATH configuration from bash_config"
+  echo "PATH=${PATH}"
+
+  PATH=${PATH}:${user_binarires_directory}
+  PATH=${PATH}:${terraform_packager_scripts_directory}
+  PATH=${PATH}:${krew_bin_directory}
+  PATH=${PATH}:${npm_packages_bin_directory}
 fi
 
 if which today-fortune &> /dev/null; then
@@ -38,10 +48,6 @@ if which kubectl &> /dev/null; then
   complete -F __start_kubectl k
 fi
 
-if which kubectl &> /dev/null; then
-  export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
-fi
-
 if which aws_completer &> /dev/null; then
   AWS_COMPLETER_BINARY=$(which aws_completer)
   complete -C "${AWS_COMPLETER_BINARY}" aws
@@ -52,22 +58,22 @@ export CHECKOV_VERSION=2.0.1190
 export CREDENTIALS_DIRECTORY="${HOME}/.credentials"
 export CREDENTIALS_DIRECTORY_AZURE="${CREDENTIALS_DIRECTORY}/azure"
 
-mkdir -p "${CREDENTIALS_DIRECTORY_AZURE}"
+mkdir --parents "${CREDENTIALS_DIRECTORY_AZURE}"
 
 if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}/current" ]] && [[ ! -e "${CREDENTIALS_DIRECTORY}/bash_azure" ]]; then
   ln -s "${CREDENTIALS_DIRECTORY_AZURE}/current" "${CREDENTIALS_DIRECTORY}/bash_azure"
 fi
 
 if [[ -e "${CREDENTIALS_DIRECTORY}" ]]; then
-  while read -r BASH_FILE; do
-    if [[ -n "${BASH_FILE}" ]]; then
-      source "${BASH_FILE}"
+  while read -r bash_file; do
+    if [[ -n "${bash_file}" ]]; then
+      source "${bash_file}"
     fi
   done <<< "$(find -L "${CREDENTIALS_DIRECTORY}" -maxdepth 1 -type f | sort)"
 fi
 
 if [[ -e "${CREDENTIALS_DIRECTORY_AZURE}" ]]; then
-  ARM_SAS_TOKEN_FILE=$(arm-sas-token-file-name)
+  export ARM_SAS_TOKEN_FILE=$(arm-sas-token-file-name)
 
   if [[ -f "${ARM_SAS_TOKEN_FILE}" ]]; then
     export ARM_SAS_TOKEN="$(arm-sas-token-get)"
@@ -86,7 +92,7 @@ if [[ -f ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/sprin
   source ${SDKMAN_DIR}/candidates/springboot/current/shell-completion/bash/spring
 fi
 
-export TOKEN_FILE="${HOME}/trash/token"
+export TOKEN_FILE="${TOKEN_FILE:-${HOME}/trash/token}"
 
 if [[ -f "${TOKEN_FILE}" ]]; then
   export TOKEN="$(cat ${TOKEN_FILE})"
@@ -95,8 +101,6 @@ fi
 export ISTIO_VERSION=1.21.2
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
-# Possible values: plain, auto, tty
-export TF_PACKAGER_DOCKER_PROGRESS="auto"
-
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort
+echo ${PATH} | tr ":" "\n"

@@ -1,6 +1,33 @@
 #!/bin/bash
 echo "Checking..."
-sudo apt-get update | grep --invert-match --extended-regexp "^Hit|Get|^Ign" && \
-sudo apt-get upgrade --yes && \
-sudo apt-get autoremove --yes && \
+
+sudo apt-get update \
+| grep \
+  --line-buffered \
+  --invert-match \
+  --extended-regexp "^Hit|Get|^Ign"
+
+if [ $? -ne 0 ]; then
+  echo "No updates available."
+  exit 0
+fi
+
+echo ""
+echo "Executing..."
+
+sudo apt-get upgrade --yes
+
+if [ $? -ne 0 ]; then
+  echo "Failed to upgrade packages."
+  exit 1
+fi
+
+echo ""
+echo "Remove unused packages..."
+
+sudo apt-get autoremove --yes
+
+echo ""
+echo "Clean up..."
+
 sudo apt-get autoclean

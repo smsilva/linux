@@ -10,9 +10,6 @@ export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
 export TF_PACKAGER_DOCKER_PROGRESS="auto" # Possible values: plain, auto, tty
 
 if ! grep --quiet ${terraform_packager_scripts_directory} <<< "${PATH}"; then
-  echo "First PATH configuration from bash_config"
-  echo "PATH=${PATH}"
-
   PATH=${PATH}:${user_binarires_directory}
   PATH=${PATH}:${terraform_packager_scripts_directory}
   PATH=${PATH}:${krew_bin_directory}
@@ -103,4 +100,3 @@ export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort
-echo ${PATH} | tr ":" "\n"

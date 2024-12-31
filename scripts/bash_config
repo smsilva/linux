@@ -6,7 +6,7 @@ npm_packages_bin_directory="${HOME}/.npm-packages/bin"
 terraform_packager_directory="${TERRAFORM_PACKAGER_DIRECTORY:-${HOME}/git/terraform-packager}"
 terraform_packager_scripts_directory="${terraform_packager_directory}/scripts"
 export TERRAFORM_PACKAGER_DIRECTORY="${terraform_packager_directory}"
-export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/sandbox"
+export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/terraform/input"
 export TF_PACKAGER_DOCKER_PROGRESS="auto" # Possible values: plain, auto, tty
 
 if ! grep --quiet ${terraform_packager_scripts_directory} <<< "${PATH}"; then

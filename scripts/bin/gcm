@@ -3,7 +3,7 @@ set -e
 
 message="${1}"
 
-if [ -z "${message?}" ]; then
+if [[ -z "${message?}" ]]; then
   message=$(git log --pretty=format:%s -1)
 
   echo "Commit message will be: ${message}"

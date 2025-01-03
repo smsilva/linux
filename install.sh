@@ -1,6 +1,6 @@
 #!/bin/bash
 scripts_location="${PWD}/scripts"
-bin_user_location="${HOME}/bin-${USER##*\\}"
+user_scripts_location="${HOME}/.scripts"
 current_username="${USER##*\\}"
 
 bash_aliases_file="${HOME}/.bash_aliases"
@@ -11,8 +11,8 @@ git_global_templates="${HOME}/.git-templates"
 
 chmod +x ${scripts_location}/*
 
-if [[ ! -e "${bin_user_location}" ]]; then
-  ln --symbolic "${scripts_location}/bin/" "${bin_user_location}" &> /dev/null
+if [[ ! -e "${user_scripts_location}" ]]; then
+  ln --symbolic "${scripts_location}/bin/" "${user_scripts_location}" &> /dev/null
 fi
 
 if [[ ! -e "${git_global_templates}" ]]; then

@@ -47,11 +47,11 @@ fi
 sudo chown --recursive ${container_user_id?}:${container_group_id?} "${work_directory?}"
 
 # Change directories permissions to ensure the group has read, write and execution permissions
-sudo chmod 775 "${work_directory?}"
-sudo chmod 775 "${azure_temporary_directory?}"
+sudo chmod g+rwx "${work_directory?}"
+sudo chmod g+rwx "${azure_temporary_directory?}"
 
 # Change files to give read and write permissions to the user group
-sudo chmod --recursive g+wr "${azure_temporary_directory?}"
+sudo chmod --recursive g+rw "${azure_temporary_directory?}"
 
 arguments=()
 arguments+=("--rm")

@@ -5,10 +5,17 @@ this_script_directory="${this_script_path%/*}"
 
 PATH="${this_script_directory}:${PATH}"
 
-# Update default permisions for new files and directories:
-#   - files:       rw-rw-r--
-#   - directories: rwxrwxr-x
-umask 0002
+# The umask value of 0002 will change the default values as below:
+#
+#   files:
+#     from: rw-r--r--
+#     to:   rw-rw-r--
+# 
+#   directories:
+#     from: rwxr-xr-x
+#     to:   rwxrwxr-x
+#
+umask ${UMASK_VALUE:-0002}
 
 show_usage() {
   cat <<EOF

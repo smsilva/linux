@@ -46,12 +46,11 @@ fi
 # Change the temporary work directory user and group
 sudo chown --recursive ${container_user_id?}:${container_group_id?} "${work_directory?}"
 
-# Upgrade directory permissions and ownership enabling the container to access the temporary Azure CLI configuration directory
-# The 777 permission is required because the container will run as a different user and group
+# Change directories permissions to ensure the group has read, write and execution permissions
 sudo chmod 775 "${work_directory?}"
 sudo chmod 775 "${azure_temporary_directory?}"
 
-# Gives write and read permissions to the group of the temporary Azure CLI configuration directory
+# Change files to give read and write permissions to the user group
 sudo chmod --recursive g+wr "${azure_temporary_directory?}"
 
 arguments=()

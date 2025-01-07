@@ -8,7 +8,7 @@ azure_cli_image="${AZURE_CLI_IMAGE:-mcr.microsoft.com/azure-cli:2.67.0-cbl-marin
 
 # Docker socket file
 docker_socket_file="/var/run/docker.sock"
-docker_socket_gid=$(stat -c %g ${docker_socket_file?})
+docker_socket_gid=$(stat --format "%g" ${docker_socket_file?})
 
 # Container user and group
 container_user_id=1001

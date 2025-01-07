@@ -11,7 +11,7 @@ docker_socket_file="/var/run/docker.sock"
 docker_socket_gid=$(stat --format "%g" ${docker_socket_file?})
 
 # Container user and group
-container_user_id=1001
+container_user_id=${CONTAINER_USER_ID:-1001}
 container_group_id=${docker_socket_gid?}
 
 # Define temporary work directory

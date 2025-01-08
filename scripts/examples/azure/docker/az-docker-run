@@ -69,7 +69,7 @@ arguments+=("--env CONTAINER_GROUP_ID=${container_group_id?}")
 arguments+=("--volume ${work_directory?}:${work_directory?}")
 arguments+=("--volume ${docker_socket_file?}:${docker_socket_file?}")
 
-if [ -t 1 ]; then
+if [[ -t 1 ]]; then
   arguments+=("--interactive")
   arguments+=("--tty")
 fi

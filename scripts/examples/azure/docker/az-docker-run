@@ -14,10 +14,10 @@ docker_socket_gid=$(stat --format "%g" ${docker_socket_file?})
 container_user_id=${CONTAINER_USER_ID:-1001}
 container_group_id=${docker_socket_gid?}
 
-# Define temporary work directory
+# Define work directory
 work_directory="${WORK_DIRECTORY:-/tmp/work}"
 
-# Create temporary work directory
+# Create work directory if it does not exist
 mkdir --parents "${work_directory?}"
 
 # Create a temporary Azure CLI configuration directory
@@ -43,8 +43,8 @@ EOF
   exit 1
 fi
 
-# Change the temporary work directory user and group
-sudo chown --recursive ${container_user_id?}:${container_group_id?} "${work_directory?}"
+# Change the work directory group
+sudo chown --recursive :${container_group_id?} "${work_directory?}"
 
 # Change directories permissions to ensure the group has read, write and execution permissions
 sudo chmod g+rwx "${work_directory?}"

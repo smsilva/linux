@@ -1,0 +1,140 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Retrieve container app info from json files
+
+    Options:
+
+      -h,  --help                 Show this help
+      -f,  --file                 File name
+      -fl, --file-list            File name list comma separated
+      -d,  --directory            Directory name
+      
+    Examples:
+
+      ${this_script_name} \\
+        --file /tmp/azure/containerapps/636a465c-d6b1-4533-b071-64cea37a2bf6.json
+
+      ${this_script_name} \\
+        --directory /tmp/azure/containerapps
+
+      ${this_script_name} \\
+        --file-list /tmp/azure/containerapps/636a465c-d6b1-4533-b071-64cea37a2bf6.json,/tmp/azure/containerapps/636a465c-d6b1-4533-b071-64cea37a2bf6.json
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -f | --file )
+      shift
+      if [[ -z "${file_list_comma_separated}" ]]; then
+        file_list_comma_separated="${1}"
+      else
+        file_list_comma_separated="${file_list_comma_separated},${1}"
+      fi
+      ;;
+
+    
+    -fl | --file-list )
+      shift
+      file_list_comma_separated="${1}"
+      ;;
+
+    -d | --directory )
+      shift
+      source_directory="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+    
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+source_directory="${source_directory:-/tmp/azure/containerapps}"
+
+if [[ ! -d "${source_directory}" ]]; then
+  echo "Directory doesn't exists: ${source_directory}" >&2
+  exit 1
+fi
+
+if [[ -z "${file_list_comma_separated}" ]]; then
+  file_list_comma_separated="$(find "${source_directory}" -type f -name "*.json" | tr '\n' ',')"
+fi
+
+file_list=$(tr ',' ' ' <<< "${file_list_comma_separated}")
+
+cat <<EOF >&2
+
+inputs:
+  directory: ${source_directory}
+  
+  files:
+EOF
+
+for file_name in ${file_list}; do
+  cat <<EOF >&2
+    - ${file_name}
+EOF
+done
+
+if [[ -n "${file_list}" ]]; then
+  echo "" >&2
+fi
+
+list_container_apps() {
+  jq -cr '.[] | {id: .id, name:.name, environment_id: .properties.environmentId, min_replicas: .properties.template.scale.minReplicas, max_replicas: .properties.template.scale.maxReplicas, containers: .properties.template.containers | @base64} | join("|")' "${file_name}"
+}
+
+list_container_app_cpu_and_memory() {
+  containers_data_base64_encoded="${1}"
+  
+  base64 --decode <<< "${containers_data_base64_encoded}" | \
+    jq -cr '.[] | {cpu: .resources.cpu, memory: .resources.memory} | join("|")'
+}
+
+echo "ResourceGroupName,AppName,CPU,Memory,MinReplicas,MaxReplicas,SubscriptionId,AppId,AppEnvironmentId,FileName"
+
+for file_name in ${file_list}; do
+  file_base_name="${file_name##*/}"
+  file_base_name_without_extension="${file_base_name%.json}"
+  subscription_id="${file_base_name_without_extension}"
+
+  while IFS="|" read -r app_id app_name app_environment_id min_replicas max_replicas containers_base64; do
+    if [[ -z "${min_replicas}" || "${min_replicas}" == "null" ]]; then
+      min_replicas=0
+    fi
+
+    if [[ -z "${max_replicas}" || "${max_replicas}" == "null" ]]; then
+      max_replicas=0
+    fi
+
+    app_resource_group_name=$(
+      grep --only-matching --perl-regexp '(?<=resourceGroups/)(.*)(?=/providers)' <<< "${app_environment_id}"
+    )
+    
+    while IFS="|" read -r cpu memory; do
+      echo "${app_resource_group_name},${app_name},${cpu},${memory},${min_replicas},${max_replicas},${subscription_id},${app_id},${app_environment_id},${file_name}"
+    done < <(list_container_app_cpu_and_memory "${containers_base64}")
+
+  done < <(list_container_apps "${file_name}")
+done

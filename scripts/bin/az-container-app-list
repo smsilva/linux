@@ -1,0 +1,150 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Retrieve container app list from Azure and print its contents
+
+    Options:
+
+      -h,  --help                 Show this help
+      -s,  --subscription         Name of something
+      -sl, --subscription-list    Comma separated list of subscriptions
+      -t,  --tenant               Tenant ID
+      -td, --target-directory     Directory to store the output files
+      
+    Examples:
+
+      ${this_script_name} \\
+        --subscription 636a465c-d6b1-4533-b071-64cea37a2bf6 \\
+        --target-directory /tmp/files
+
+      ${this_script_name} \\
+        --subscription-list 636a465c-d6b1-4533-b071-64cea37a2bf6,40c02d17-d30d-443d-ab13-17c0508a96be
+
+      ${this_script_name} \\
+        --tenant your-tenant-id
+
+      ${this_script_name} \\
+        --target-directory /tmp/files
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -t | --tenant )
+      shift
+      tenant="${1}"
+      ;;
+
+    -s | --subscription )
+      shift
+      if [[ -z "${subscription_comma_separated_list}" ]]; then
+        subscription_comma_separated_list="${1}"
+      else
+        subscription_comma_separated_list="${subscription_comma_separated_list},${1}"
+      fi
+      ;;
+
+    -sl | --subscription-list )
+      shift
+      subscription_comma_separated_list="${1}"
+      ;;
+
+    -td | --target-directory )
+      shift
+      target_directory="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+    
+  esac
+  shift
+done
+
+subscription_file_name() {
+  mkdir --parents "${target_directory}"
+
+  subscription="${1}"
+  subscription_base_file_name="${subscription?}.json"
+  subscription_file_name="${target_directory}/${subscription_base_file_name}"
+
+  echo "${subscription_file_name}"
+}
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+if [[ -z "${tenant}" ]]; then
+  tenant=$(az account show --output tsv --query 'tenantId')
+fi
+
+if [[ -z "${tenant}" ]]; then
+  echo "ERROR: Tenant ID not found. Please provide a valid tenant ID." >&2
+  exit 1
+fi
+
+if [[ -z "${subscription_comma_separated_list}" ]]; then
+  subscription_comma_separated_list=$(
+    az account list \
+      --query "[].id" \
+      --output tsv \
+      --all \
+    | tr '\n' ',' \
+    | sed 's|,$||'
+  )
+fi
+
+target_directory="${target_directory:-/tmp/azure/containerapps}"
+
+cat <<EOF >&2
+
+inputs:
+  target_directory:  ${target_directory}
+
+  tenant:            ${tenant}
+
+  subscriptions:
+EOF
+
+subscriptions_list=$(tr ',' ' ' <<< "${subscription_comma_separated_list}")
+
+for subscription_id in ${subscriptions_list}; do
+  cat <<EOF >&2
+    - ${subscription_id}
+EOF
+done
+
+if [[ -n "${subscriptions_list}" ]]; then
+  echo ""
+fi
+
+retrieve_container_app_list_as_json() {
+  subscription_id="${1}"
+
+  az containerapp list \
+    --subscription "${subscription_id}" \
+    --output json
+}
+
+for subscription_id in ${subscriptions_list}; do
+  file_name=$(subscription_file_name "${subscription_id}")
+
+  echo ${subscription_id} ${file_name} >&2
+
+  retrieve_container_app_list_as_json "${subscription_id}" >| "${file_name}"
+done

@@ -3,4 +3,4 @@ filter_expression="${@}"
 
 az account list \
   --output table \
-| grep --extended-regexp "Name|^----|${filter_expression}"
+| grep --ignore-case --extended-regexp "Name|^----|${filter_expression}"

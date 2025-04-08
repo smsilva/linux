@@ -40,7 +40,7 @@ if [ $? != 0 ]; then
     multipass list | grep -i "running" > .running
   fi
 
-  export NODES=$(cat .running | grep -E "^master|^worker" | awk '{ print $1 }')
+  export NODES=$(grep -E "^master|^worker" .running | awk '{ print $1 }' | sort)
 
   masters_window_id=1
   workers_window_id=2

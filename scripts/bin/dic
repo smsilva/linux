@@ -6,31 +6,30 @@ commitizen
 k3d
 k3s
 kafka
+minikube
 mongo
 mysql
 openjdk
 pgadmin
 postgres
 silviosilva
+sops
 ubuntu
 EOF
 )
 
-docker images \
+docker images --format '{{.Repository}}\t{{.Tag}}\t{{.ID}}' \
 | grep --extended-regexp --invert-match "${image_name_expression?}" \
-| sed 1d \
-| awk '{ print $3 }' \
-| while read -r docker_image_id; do
-  if [ -n "${docker_image_id}" ]; then
-    docker rmi -f "${docker_image_id?}" &> /dev/null
+| while read -r image_repository image_tag image_id; do
+  if [[ -n "${image_id}" ]]; then
+    docker rmi -f "${image_id?}" &> /dev/null
   fi
 done
 
 docker system prune -f &> /dev/null
 
-docker volume ls \
+docker volume ls --format '{{.Name}}' \
 | sed 1d \
-| awk '{ print $2 }' \
 | xargs -I {} docker volume rm {} &> /dev/null
 
 docker images

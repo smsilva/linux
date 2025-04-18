@@ -128,7 +128,9 @@ for file_name in ${file_list}; do
       max_replicas=0
     fi
 
-    app_resource_group_name=$(grep -oP '(?<=resourceGroups/)(.*)(?=/providers)' <<< "${app_environment_id}")
+    app_resource_group_name=$(
+      grep --only-matching --perl-regexp '(?<=resourceGroups/)(.*)(?=/providers)' <<< "${app_environment_id}"
+    )
     
     while IFS="|" read -r cpu memory; do
       echo "${app_resource_group_name},${app_name},${cpu},${memory},${min_replicas},${max_replicas},${subscription_id},${app_id},${app_environment_id},${file_name}"

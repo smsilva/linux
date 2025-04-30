@@ -36,7 +36,7 @@ fi
 if ! grep --quiet --extended-regexp ".bash_config" "${HOME}/.bashrc"; then
   cat <<EOF >> ~/.bashrc
 
-if [ -f ~/.bash_config ]]; then
+if [[ -f ~/.bash_config ]]; then
   . ~/.bash_config
 fi
 EOF

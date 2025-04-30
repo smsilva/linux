@@ -30,7 +30,7 @@ deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg]
 EOF
 
   sudo apt-get update -q
-  sudo apt-get install azure-cli
+  sudo apt-get install azure-cli --yes
 fi
 
 az version --output yaml

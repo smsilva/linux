@@ -1,4 +1,4 @@
-# Configuração Inicial com minhas preferências para o Ubuntu 20.04
+# Configuração Inicial com minhas preferências para o Ubuntu 24.04
 
 Estes scripts instalam e configuram:
 
@@ -16,7 +16,9 @@ Estes scripts instalam e configuram:
   - fd-find
   - fortune
   - gnupg
+  - htop
   - ipcalc
+  - iptraf
   - jq
   - libxml2-utils
   - nmap
@@ -36,10 +38,18 @@ Estes scripts instalam e configuram:
 
 ## Configurando SSH Key
 
-Para cria uma a chave SSH, execute o comando abaixo:
+Para cria uma a chave SSH, execute o comando abaixo de acordo com o tipo de chave que você deseja criar:
+
+### Chave Ed25519
 
 ```bash
-ssh-keygen -t ed25519 -C "address@example.com" -f ~/.ssh/id_ed25519_pessoal
+ssh-keygen -t ed25519 -C "address@example.com" -f ~/.ssh/id_ed25519
+```
+
+### Chave RSA
+
+```bash
+ssh-keygen -t rsa -C "address@example.com" -f ~/.ssh/id_rsa
 ```
 
 ## Iniciar o ssh-agent
@@ -51,7 +61,7 @@ eval "$(ssh-agent -s)"
 ## Adicionar as chaves SSH ao ssh-agent
 
 ```bash
-ssh-add ~/.ssh/id_ed25519_pessoal
+ssh-add ~/.ssh/id_ed25519
 ssh-add ~/.ssh/id_rsa
 ```
 
@@ -60,15 +70,23 @@ ssh-add ~/.ssh/id_rsa
 Para configurar qual chave usar, crie um arquivo `~/.ssh/config` com o conteúdo abaixo:
 
 ```bash
+Host *
+    User git
+    PubkeyAcceptedAlgorithms +ssh-rsa
+    HostkeyAlgorithms +ssh-rsa
+    StrictHostKeyChecking no
+
 Host github.com-pessoal
     HostName github.com
-    User git
-    IdentityFile ~/.ssh/id_ed25519_pessoal
+    IdentityFile ~/.ssh/id_ed25519
 
-Host github.com-enterprise
+Host github.com
     HostName github.com
-    User git
     IdentityFile ~/.ssh/id_rsa
+
+Host ssh.dev.azure.com
+    HostName ssh.dev.azure.com
+    IdentityFile ~/.ssh/id_ed25519
 ```
 
 ## Configurando o repositório para usar a chave correta

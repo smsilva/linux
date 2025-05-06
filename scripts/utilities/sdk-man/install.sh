@@ -7,6 +7,7 @@ checking() {
 
 checking "SDKMAN"
 if [[ ! -e "${HOME}/.sdkman/bin/sdkman-init.sh" ]]; then
+  sudo apt-get install zip unzip --yes
   curl -s "https://get.sdkman.io" | bash
   sed -i "s|sdkman_auto_answer=false|sdkman_auto_answer=true|" ~/.sdkman/etc/config > /dev/null
 fi

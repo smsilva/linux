@@ -47,6 +47,20 @@ if ! grep --quiet --extended-regexp "GTK_IM_MODULE=cedilla" /etc/environment; th
   echo "export GTK_IM_MODULE=cedilla" | sudo tee --append /etc/environment
 fi
 
+if ! grep --quiet --extended-regexp "QT_IM_MODULE=cedilla" /etc/environment; then
+  echo "export QT_IM_MODULE=cedilla" | sudo tee --append /etc/environment
+fi
+
+if [[ ! -f "${HOME}/.XCompose" ]]; then
+  cat <<EOF > "${HOME}/.XCompose"
+# UTF-8 (Unicode) compose sequences
+
+# Overrides C acute with Ccedilla:
+<dead_acute> <C> : "Ç" "Ccedilla"
+<dead_acute> <c> : "ç" "ccedilla"
+EOF
+fi
+
 mkdir --parents ${HOME}/bin
 
 source ${HOME}/.bashrc

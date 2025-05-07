@@ -18,7 +18,7 @@ sdk version
 
 checking "Java"
 if ! which java > /dev/null; then
-  sdk install java 22-zulu
+  sdk install java 23-zulu
 fi
 
 java --version

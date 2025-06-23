@@ -7,6 +7,7 @@ terraform_packager_directory="${TERRAFORM_PACKAGER_DIRECTORY:-${HOME}/git/terraf
 terraform_packager_scripts_directory="${terraform_packager_directory}/scripts"
 export TERRAFORM_PACKAGER_DIRECTORY="${terraform_packager_directory}"
 export LOCAL_TERRAFORM_VARIABLES_DIRECTORY_EXTRA="${HOME}/trash/terraform/input"
+export LOCAL_TERRAFORM_OUTPUT_DIRECTORY="${HOME}/trash/terraform/output"
 export TF_PACKAGER_DOCKER_PROGRESS="auto" # Possible values: plain, auto, tty
 
 add_to_path() {
@@ -113,3 +114,5 @@ export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort
+
+export STACK_INSTANCE_NAME="cloudsbx-flow-cloud-agent"

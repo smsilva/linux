@@ -1,0 +1,11 @@
+#!/bin/bash
+address_space="${1:-"10.0.0.0/16"}"
+
+# Check if the address space is valid
+if ! ipcalc -c "$address_space" >/dev/null 2>&1; then
+  echo "Invalid address space: $address_space"
+  exit 1
+fi
+
+# Using ipcalc to get the network address and broadcast address
+ipcalc -n "${address_space}"

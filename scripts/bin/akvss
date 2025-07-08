@@ -63,11 +63,8 @@ find_records_using_expression() {
   grep --extended-regexp "${filter_expression_secret}" "${secrets_list_file}" | sort
 }
 
-echo "${azure_key_vault_selected}" >&2
-
 if [ -n "${azure_key_vault_selected}" ]; then
   while read -r azure_key_vault_name rest_of_the_line; do
-    echo "${azure_key_vault_name}" >&2
     az keyvault secret list \
       --subscription "${subscription?}" \
       --vault-name "${azure_key_vault_name?}" \

@@ -78,7 +78,6 @@ EOF
 
 if [ -n "${azure_key_vault_selected}" ]; then
   while read -r azure_key_vault_name rest_of_the_line; do
-    echo "${azure_key_vault_name}" >&2
     az keyvault secret list \
       --subscription "${subscription?}" \
       --vault-name "${azure_key_vault_name?}" \

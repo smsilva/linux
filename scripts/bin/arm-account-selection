@@ -54,6 +54,7 @@ change_active_subscription() {
 azure_subscription_list_file="$(mktemp)"
 
 az account list \
+  --all \
   --query '[].{subscription:name}' \
   --output tsv > "${azure_subscription_list_file}"
 

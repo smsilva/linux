@@ -114,5 +114,3 @@ export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 # echo "SHLVL=${SHLVL}"
 # echo ${PATH} | tr ":" "\n" | sort
-
-export STACK_INSTANCE_NAME="cloudsbx-flow-cloud-agent"

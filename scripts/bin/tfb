@@ -21,3 +21,9 @@ sas_token            = "${ARM_SAS_TOKEN}"
 EOF
 
 cat "${backend_file}"
+
+if [[ -f "provider.tf" ]]; then
+  if grep --quiet "backend \"local\"" "provider.tf"; then
+    sed -i 's|backend "local" {}|backend "azurerm" {}|' "provider.tf"
+  fi
+fi

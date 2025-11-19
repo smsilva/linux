@@ -1,8 +1,12 @@
 #!/bin/bash
-image_id="$1"
+image_id="${1}"
+
+list_docker_images() {
+  docker image list --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}"
+}
 
 if [[ -z "${image_id}" ]]; then
-  image_id=$(docker image ls | sed 1d | fzf | awk '{ print $3 }')
+  image_id=$(list_docker_images | sed 1d | sort | fzf | awk '{ print $2 }')
 fi
 
 if [[ -z "${image_id}" ]]; then

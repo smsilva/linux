@@ -27,6 +27,7 @@ PATH=$(add_to_path "${krew_bin_directory}")
 PATH=$(add_to_path "${npm_packages_bin_directory}")
 PATH=$(add_to_path "${terraform_packager_scripts_directory}")
 PATH=$(add_to_path "${user_scripts_directory}")
+PATH=$(add_to_path "${HOME}/bin/go/bin")
 PATH=$(add_to_path "${HOME}/bin")
 PATH=$(add_to_path "${HOME}/.local/bin")
 

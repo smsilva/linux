@@ -6,7 +6,7 @@ if [ -z ${branch_name} ]; then
     git branch --remotes \
     | grep --invert 'HEAD' \
     | fzf \
-    | awk -F '/' '{ print $2 }'
+    | cut -d'/' -f2-
   )
 fi
 

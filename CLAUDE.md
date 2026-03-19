@@ -53,3 +53,7 @@ This is enforced by the git `commit-msg` hook.
 ## Bash configuration chain
 
 On shell start: `.bashrc` → `scripts/bash_config` (PATH, env vars) → `scripts/bash_functions` (padding helpers) → `scripts/bash_aliases` (Git, Docker, K8s, Azure shortcuts)
+
+### This file evolution
+
+Update this file as needed to provide guidance to Claude when working with this codebase. It should serve as a living document to help maintain consistency and best practices across all contributions.

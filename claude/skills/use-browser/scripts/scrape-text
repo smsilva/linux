@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+"""Extract visible text from a URL.
+
+Usage:
+  scrape-text <url>
+"""
+import asyncio, sys
+from pathlib import Path
+from playwright.async_api import async_playwright
+
+
+async def scrape_text(url: str):
+    slug = url.split("//")[-1].split("/")[0].replace(".", "-")
+    Path(f"/tmp/web/{slug}").mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(url, wait_until="networkidle")
+        text = await page.evaluate("() => document.body.innerText")
+        await browser.close()
+    print(text)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    asyncio.run(scrape_text(sys.argv[1]))

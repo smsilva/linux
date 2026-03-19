@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""Capture a full-page screenshot of a URL.
+
+Usage:
+  screenshot <url> [output_path]
+
+Output defaults to /tmp/web/<site>/screenshots/<timestamp>.png
+"""
+import asyncio, sys
+from datetime import datetime
+from pathlib import Path
+from playwright.async_api import async_playwright
+
+
+async def screenshot(url: str, output: str = None):
+    slug = url.split("//")[-1].split("/")[0].replace(".", "-")
+    out = Path(output) if output else Path(f"/tmp/web/{slug}/screenshots/{datetime.now():%Y%m%d-%H%M%S}.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        try:
+            page = await browser.new_page()
+            await page.goto(url, wait_until="networkidle")
+            await page.screenshot(path=str(out), full_page=True)
+            print(out)
+        finally:
+            await browser.close()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    try:
+        asyncio.run(screenshot(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None))
+    except Exception as e:
+        print(f"error: {e}", file=sys.stderr)
+        sys.exit(1)

@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Login to a site and save session, or reuse a saved session.
+
+Usage:
+  auth-session login  <url> <username> <password>
+  auth-session use    <url>
+
+Session is stored at /tmp/web/session/storage.json.
+
+Example:
+  auth-session login https://example.com/login admin secret
+  auth-session use   https://example.com/dashboard
+"""
+import asyncio, sys
+from pathlib import Path
+from playwright.async_api import async_playwright
+
+STORAGE = "/tmp/web/session/storage.json"
+
+
+async def login_and_save(url: str, user: str, password: str):
+    Path(STORAGE).parent.mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        ctx = await browser.new_context()
+        page = await ctx.new_page()
+        await page.goto(url)
+        await page.fill("#username", user)
+        await page.fill("#password", password)
+        await page.click("[type=submit]")
+        await page.wait_for_load_state("networkidle")
+        await ctx.storage_state(path=STORAGE)
+        await browser.close()
+    print(f"Session saved to {STORAGE}")
+
+
+async def use_saved_session(url: str):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        ctx = await browser.new_context(storage_state=STORAGE)
+        page = await ctx.new_page()
+        await page.goto(url, wait_until="networkidle")
+        print(await page.title())
+        await browser.close()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(__doc__)
+        sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == "login" and len(sys.argv) == 5:
+        asyncio.run(login_and_save(sys.argv[2], sys.argv[3], sys.argv[4]))
+    elif cmd == "use":
+        asyncio.run(use_saved_session(sys.argv[2]))
+    else:
+        print(__doc__)
+        sys.exit(1)

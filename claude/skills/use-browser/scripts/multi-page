@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Paginate through results by clicking a "next" button and collecting items.
+
+Usage:
+  multi-page <url> <item_selector> <next_selector> [max_pages]
+
+Example:
+  multi-page https://example.com/list ".item" ".pagination-next" 10
+"""
+import asyncio, sys
+from playwright.async_api import async_playwright
+
+
+async def paginate(url: str, item_selector: str, next_selector: str, max_pages: int = 5):
+    results = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(url, wait_until="networkidle")
+        for _ in range(max_pages):
+            items = await page.query_selector_all(item_selector)
+            for item in items:
+                results.append(await item.inner_text())
+            next_btn = await page.query_selector(next_selector)
+            if not next_btn:
+                break
+            await next_btn.click()
+            await page.wait_for_load_state("networkidle")
+        await browser.close()
+    for r in results:
+        print(r)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print(__doc__)
+        sys.exit(1)
+    max_pages = int(sys.argv[4]) if len(sys.argv) > 4 else 5
+    asyncio.run(paginate(sys.argv[1], sys.argv[2], sys.argv[3], max_pages))

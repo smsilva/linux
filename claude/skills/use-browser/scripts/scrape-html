@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+"""Extract full HTML content from a URL.
+
+Usage:
+  scrape-html <url>
+"""
+import asyncio, sys
+from playwright.async_api import async_playwright
+
+
+async def scrape_html(url: str):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(url, wait_until="networkidle")
+        html = await page.content()
+        await browser.close()
+    print(html)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    asyncio.run(scrape_html(sys.argv[1]))

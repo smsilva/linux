@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""List all links (href + text) found on a page.
+
+Usage:
+  scrape-links <url>
+
+Output: tab-separated href<TAB>text, one per line.
+"""
+import asyncio, sys
+from playwright.async_api import async_playwright
+
+
+async def scrape_links(url: str):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto(url, wait_until="networkidle")
+        links = await page.evaluate("""
+            () => [...document.querySelectorAll('a[href]')]
+                    .map(a => ({ text: a.innerText.trim(), href: a.href }))
+                    .filter(l => l.href.startsWith('http'))
+        """)
+        await browser.close()
+    for l in links:
+        print(f"{l['href']}\t{l['text']}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print(__doc__)
+        sys.exit(1)
+    asyncio.run(scrape_links(sys.argv[1]))

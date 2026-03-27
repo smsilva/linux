@@ -1,6 +1,6 @@
 ---
 name: bash-scripts
-description: Create bash scripts following the conventions of the existing scripts in `~/git/linux/scripts/bin/`.
+description: Create or update bash scripts following the conventions of the existing scripts in `~/git/linux/scripts/bin/`.
 license: MIT
 ---
 

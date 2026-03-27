@@ -1,0 +1,8 @@
+#!/bin/bash
+resource_name="${1}"
+
+kubectl get crd \
+| grep \
+    --extended-regexp \
+    --ignore-case \
+    "^NAME.*SHORTNAMES|${resource_name}"

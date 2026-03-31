@@ -8,6 +8,17 @@ license: MIT
 
 Create bash scripts following the conventions of the existing scripts in `~/git/linux/scripts/bin/`.
 
+## Using an existing script as reference
+
+When the user mentions a script by name as a reference (e.g. "based on my script foo", "following script bar", "like script baz"), **always locate and read that script first** before writing anything:
+
+1. Run `which <script>` to locate it via `${PATH}` — this is the primary lookup since scripts are installed as executables in `${PATH}`
+2. If not found via `which`, fall back to searching in `~/git/linux/scripts/bin/` (and subdirectories)
+3. Read its full content
+4. Follow its conventions, structure, and patterns — treating it as the authoritative template for that task
+
+Only fall back to the generic template below if the script is not found by either method.
+
 ## Core principles
 
 - **Unix philosophy**: each script does one thing and does it well
@@ -138,7 +149,7 @@ openssl s_client -connect ${url?}:443 ...
 
 ### Dry-run flag
 
-Boolean flags accept an optional `true`/`false` value, defaulting to `true` when the flag is present alone:
+Boolean flags, only in cases when the script will make changes, accept an optional `true`/`false` value, defaulting to `true` when the flag is present alone:
 
 ```bash
 -dr | --dry-run )

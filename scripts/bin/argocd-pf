@@ -1,0 +1,15 @@
+#!/bin/bash
+password=$(kubectl get secret argocd-initial-admin-secret \
+  --namespace argocd \
+  --output jsonpath="{.data.password}" | base64 -d)
+
+cat <<EOF
+user:     admin
+password: ${password}
+url:      http://localhost:8080
+
+EOF
+
+kubectl \
+  --namespace argocd \
+  port-forward svc/argocd-server 8080:443

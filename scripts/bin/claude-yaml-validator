@@ -1,0 +1,55 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Validates a YAML file and returns its formatted content as a Claude systemMessage.
+  When called without --name, reads the file path from a Claude hook JSON payload via stdin.
+
+    Options:
+
+      -h, --help   Show this help
+      -n, --name   Path to the YAML file to validate
+
+    Examples:
+
+      ${this_script_name} --name config.yaml
+
+      echo '{"tool_input": {"file_path": "config.yaml"}}' | ${this_script_name}
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    -n | --name )
+      shift
+      file_path="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ -z "${file_path}" ]]; then
+  file_path=$(jq -r '.tool_input.file_path')
+fi
+
+echo "${file_path}" | grep -qE '\.ya?ml$' || exit 0
+
+yq . "${file_path}" &>/dev/null || exit 0
+
+jq -n --arg msg "${file_path} is valid" '{"systemMessage": $msg}'

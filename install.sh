@@ -8,6 +8,7 @@ bash_config_file="${HOME}/.bash_config"
 bash_functions_file="${HOME}/.bash_functions"
 
 git_global_templates="${HOME}/.git-templates"
+claude_settings_file="${HOME}/.claude/settings.json"
 
 chmod +x ${scripts_location}/*
 
@@ -19,6 +20,10 @@ if [[ ! -e "${git_global_templates}" ]]; then
   ln --symbolic "${scripts_location}/git" "${git_global_templates}"
 
   git config --global init.templatedir "${git_global_templates}"
+fi
+
+if [[ ! -e "${claude_settings_file}" ]]; then
+  ln --symbolic "${PWD}/claude/settings.json" "${claude_settings_file}" &> /dev/null
 fi
 
 if [[ ! -e "${bash_aliases_file}" ]]; then

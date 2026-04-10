@@ -1,4 +1,7 @@
 #!/bin/bash
 regex="${1}"
 
-printenv | grep --extended-regexp "${regex}"
+printenv \
+| grep \
+    --ignore-case \
+    --extended-regexp "${regex}"

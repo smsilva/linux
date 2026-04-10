@@ -21,6 +21,7 @@ sudo apt-get install --yes -q \
   tmux \
   translate-shell \
   tree \
+  scrot \
   vim-gtk3 \
   wget \
   xclip

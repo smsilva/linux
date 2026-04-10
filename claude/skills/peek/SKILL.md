@@ -61,15 +61,17 @@ sudo apt install --yes scrot
 
 ## scrot commands
 
+`--geometry` is not supported on all versions of scrot. Use `-a X,Y,W,H` instead, extracting values from xrandr output (`WxH+X+Y` → `-a X,Y,W,H`):
+
 ```bash
 # Single monitor — full screen
 scrot "${peek_path}"
 
-# Specific monitor by geometry (from xrandr output)
-scrot --geometry 2560x1440+1920+0 "${peek_path}"
+# Specific monitor by position (from xrandr WxH+X+Y → -a X,Y,W,H)
+scrot -a 1920,0,2560,1440 "${peek_path}"
 
 # With a short delay so the user can switch focus
-scrot --delay 3 --geometry 2560x1440+1920+0 "${peek_path}"
+scrot --delay 3 -a 1920,0,2560,1440 "${peek_path}"
 ```
 
 ## Step-by-step for Claude
@@ -85,16 +87,19 @@ scrot --delay 3 --geometry 2560x1440+1920+0 "${peek_path}"
 5. Run: xrandr --query | grep ' connected'  to list monitors and geometries.
 6. If ONE monitor:
    - Run: scrot "${peek_path}"
+   - IMMEDIATELY run: code "${peek_path}"
 7. If MULTIPLE monitors:
    - Capture each monitor with its geometry into separate files:
-       scrot --geometry <WxH+X+Y> "${peek_dir}/${peek_seq}_<description>_screen1.png"
-       scrot --geometry <WxH+X+Y> "${peek_dir}/${peek_seq}_<description>_screen2.png"
+       scrot -a <X,Y,W,H> "${peek_dir}/${peek_seq}_<description>_screen1.png"
+       scrot -a <X,Y,W,H> "${peek_dir}/${peek_seq}_<description>_screen2.png"
+   - IMMEDIATELY open all captured files in VS Code:
+       code "${peek_dir}/${peek_seq}_<description>_screen1.png"
+       code "${peek_dir}/${peek_seq}_<description>_screen2.png"
    - Read all captured images with the Read tool.
    - Tell the user which screens were captured (e.g. "Screen 1: eDP-1 1920x1080, Screen 2: HDMI-1 2560x1440").
    - Ask: "Which screen has what you want to show me?"
    - Continue with the chosen image as peek_path.
-8. MANDATORY: Run: code "${peek_path}" to open it in VS Code for the user.
-   ⚠️ Do NOT skip this step — the user needs to see the screenshot in VS Code, not just the path in the terminal.
+8. Read the chosen image with the Read tool to analyze it.
 9. Describe what you see and continue the task.
 ```
 
@@ -103,5 +108,5 @@ scrot --delay 3 --geometry 2560x1440+1920+0 "${peek_path}"
 > Please **[action to perform]**.  
 > When the screen looks right, come back here and tell me you're ready.  
 > I found 2 monitors — I'll capture both and ask which one to use:  
-> - Screen 1 (eDP-1): `/tmp/peek/e2e/001_login_page_screen1.png`  
-> - Screen 2 (HDMI-1): `/tmp/peek/e2e/001_login_page_screen2.png`
+> - Screen 1 (eDP-1): `/tmp/peek/subject/001_login_page_screen1.png`  
+> - Screen 2 (HDMI-1): `/tmp/peek/subject/001_login_page_screen2.png`

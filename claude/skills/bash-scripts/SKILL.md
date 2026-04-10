@@ -190,6 +190,10 @@ Never print full secret values. Show only a prefix for confirmation:
 echo "ARM_CLIENT_SECRET: ${ARM_CLIENT_SECRET:0:3}"
 ```
 
+## CLI option names
+
+Always use long-form option names when available — `--yes` instead of `-y`, `--verbose` instead of `-v`, `--output` instead of `-o`. This applies to both scripts written here and CLI commands used as examples or references. Short forms (`-y`, `-v`) are only acceptable inside `show_usage` to document the short alias.
+
 ## Style
 
 - Indent with 2 spaces

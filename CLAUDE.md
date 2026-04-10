@@ -34,6 +34,7 @@ Use `/bash-scripts` skill when creating new scripts. Key rules:
 - Add script's own directory to `$PATH` to reference sibling scripts
 - Show only a short prefix when printing secrets: `"${SECRET:0:3}"`
 - Use `set -e` only for scripts with sequential steps that must all succeed
+- Use long-form CLI options: `--yes` not `-y`, `--verbose` not `-v`, `--output` not `-o`
 
 ## Commit message conventions
 

@@ -14,10 +14,10 @@ section_model_background_color=238   # #444444
 ctx_threshold_critical=85
 ctx_threshold_warning=60
 
-# Session time thresholds — currently in seconds
-time_threshold_critical=$(( 60 * 60 )) # 60 minutes
-time_threshold_warning=$(( 30 * 60 ))  # 30 minutes
-time_threshold_caution=$(( 15 * 60 ))  # 15 minutes
+# Session time thresholds (seconds)
+section_sessiontime_seconds_threshold_critical=$(( 60 * 60 ))
+section_sessiontime_seconds_threshold_warning=$(( 45 * 60 ))
+section_sessiontime_seconds_threshold_caution=$(( 30 * 60 ))
 
 # --- Git: repo name, folder, branch, status indicators ---
 current_dir=$(echo "$input" | jq --raw-output '.workspace.current_dir // ""')
@@ -69,9 +69,9 @@ ctx_display=$(printf "${section_ctx_foreground_color} ≡ %d%% " "$used_int")
 time_str=$(process-uptime --name claude --format human)
 elapsed_sec=$(process-uptime --name claude --format seconds)
 
-if   [ "$elapsed_sec" -ge "${time_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color='\033[38;5;15m'  # white on bordeaux
-elif [ "$elapsed_sec" -ge "${time_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color='\033[30m'        # black on orange
-elif [ "$elapsed_sec" -ge "${time_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color='\033[30m'        # black on amber
+if   [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color='\033[38;5;15m'  # white on bordeaux
+elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color='\033[30m'        # black on orange
+elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color='\033[30m'        # black on amber
 else                                                           section_time_background_color=114; section_time_foreground_color='\033[30m'        # black on green
 fi
 

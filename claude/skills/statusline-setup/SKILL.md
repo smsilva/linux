@@ -88,16 +88,16 @@ Rendered as `≡ 33%` — percentage with the `≡` symbol (U+2261).
 Thresholds defined as constants at the top of the script (in seconds using `$(( ... ))`):
 
 ```bash
-time_threshold_critical=$(( 60 * 60 )) # 60 minutes
-time_threshold_warning=$(( 30 * 60 ))  # 30 minutes
-time_threshold_caution=$(( 15 * 60 ))  # 15 minutes
+section_sessiontime_seconds_threshold_critical=$(( 60 * 60 ))
+section_sessiontime_seconds_threshold_warning=$(( 45 * 60 ))
+section_sessiontime_seconds_threshold_caution=$(( 20 * 60 ))
 ```
 
 ```bash
-if   [ "$elapsed_sec" -ge "${time_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color='\033[38;5;15m'  # white on bordeaux
-elif [ "$elapsed_sec" -ge "${time_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color='\033[30m'        # black on orange
-elif [ "$elapsed_sec" -ge "${time_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color='\033[30m'        # black on amber
-else                                                           section_time_background_color=114; section_time_foreground_color='\033[30m'        # black on green
+if   [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color='\033[38;5;15m'  # white on bordeaux
+elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color='\033[30m'        # black on orange
+elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color='\033[30m'        # black on amber
+else                                                                                   section_time_background_color=114; section_time_foreground_color='\033[30m'        # black on green
 fi
 ```
 

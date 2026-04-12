@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Layout: [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
-input=$(cat)
+json_input=$(cat)
 
 # --- Configuration ---
 
@@ -21,42 +21,51 @@ session_duration_seconds_threshold_warning=$(( 20 * 60 ))
 session_duration_seconds_threshold_caution=$(( 10 * 60 ))
 
 # --- Git: repo name, folder, branch, status indicators ---
-current_dir=$(echo "${input}" | jq --raw-output '.workspace.current_dir // ""')
-project_dir=$(echo "${input}" | jq --raw-output '.workspace.project_dir // ""')
+current_directory=$(echo "${json_input}" | jq --raw-output '.workspace.current_dir // ""')
+project_directory=$(echo "${json_input}" | jq --raw-output '.workspace.project_dir // ""')
 
-if [ -n "$project_dir" ]; then
-  repo_name=$(basename "$project_dir")
+if [ -n "${project_directory}" ]; then
+  project_name=$(basename "${project_directory}")
 else
-  repo_name=$(basename "$current_dir")
+  project_name=$(basename "${current_directory}")
 fi
 
-if [ -n "$project_dir" ] && [ "$current_dir" != "$project_dir" ]; then
-  rel_folder="${current_dir#"$project_dir"/}"
-  location="${repo_name}/${rel_folder}"
+if [ -n "${project_directory}" ] && [ "${current_directory}" != "${project_directory}" ]; then
+  relative_subdirectory="${current_directory#"${project_directory}"/}"
+  location="${project_name}/${relative_subdirectory}"
 else
-  location="${repo_name}"
+  location="${project_name}"
 fi
 
-git_root="${project_dir:-$current_dir}"
-git_branch=$(git --no-optional-locks --git-dir="${git_root}/.git" \
-  rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-if [ -z "$git_branch" ] && [ -n "$current_dir" ]; then
-  git_branch=$(git --no-optional-locks -C "$current_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+git_root="${project_directory:-${current_directory}}"
+
+git_branch=$(
+  git \
+    --no-optional-locks \
+    --git-dir="${git_root}/.git" \
+    rev-parse \
+    --abbrev-ref HEAD 2>/dev/null || true
+)
+
+if [ -z "${git_branch}" ] && [ -n "${current_directory}" ]; then
+  git_branch=$(git --no-optional-locks -C "${current_directory}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 fi
 
-if [ -n "$git_branch" ]; then
+if [ -n "${git_branch}" ]; then
   # --bg restores segment bg after each color reset inside the indicators string
-  git_indicators=$(git-status-indicators --dir "$git_root" --color --bg "${section_branch_background_color}")
-  if [ -n "$git_indicators" ]; then
+  git_indicators=$(git-status-indicators --dir "${git_root}" --color --bg "${section_branch_background_color}")
+
+  if [ -n "${git_indicators}" ]; then
     section_branch_foreground_color='\033[38;5;247m'  # gray  — dirty
   else
     section_branch_foreground_color='\033[38;5;2m'    # green — clean
   fi
+  
   branch_str=$(printf "${section_branch_foreground_color} \ue0a0 ${git_branch}\033[0m\033[48;5;${section_branch_background_color}m")
 fi
 
 # --- Context window ---
-used_pct=$(echo "${input}" | jq --raw-output '.context_window.used_percentage // 0')
+used_pct=$(echo "${json_input}" | jq --raw-output '.context_window.used_percentage // 0')
 used_int=$(printf '%.0f' "$used_pct")
 
 if   [ "$used_int" -ge "${context_threshold_critical}" ]; then
@@ -71,7 +80,7 @@ else
 fi
 
 # --- Session time ---
-time_str=$(process-uptime --name claude --format human-short)
+session_duration=$(process-uptime --name claude --format human-short)
 elapsed_seconds=$(process-uptime --name claude --format seconds)
 
 if   [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_critical}" ]; then
@@ -89,11 +98,11 @@ else
 fi
 
 # --- Model ---
-model=$(echo "${input}" | jq --raw-output '.model.display_name // "N/A"')
+model=$(echo "${json_input}" | jq --raw-output '.model.display_name // "N/A"')
 
 # --- Total tokens ---
-total_input=$(echo "${input}" | jq --raw-output '.context_window.total_input_tokens // 0')
-total_output=$(echo "${input}" | jq --raw-output '.context_window.total_output_tokens // 0')
+total_input=$(echo "${json_input}" | jq --raw-output '.context_window.total_input_tokens // 0')
+total_output=$(echo "${json_input}" | jq --raw-output '.context_window.total_output_tokens // 0')
 total_tokens=$(( total_input + total_output ))
 
 if [ "${total_tokens}" -ge 1000 ]; then
@@ -140,9 +149,9 @@ if [ -n "${git_branch}" ]; then
   add_segment --text "${git_indicators} " --background "${section_branch_background_color}"
 fi
 
-add_segment --text " ≡ ${used_int}% "      --background "${section_context_background_color}"    --foreground "${section_context_foreground_color}"
-add_segment --text " ◔ ${time_str} "       --background "${section_time_background_color}"   --foreground "${section_time_foreground_color}"
-add_segment --text " ✦ ${model} "          --background "${section_model_background_color}"  --foreground 247
-add_segment --text " ◈ ${tokens_display} " --background "${section_tokens_background_color}" --foreground 0
+add_segment --text " ≡ ${used_int}% "        --background "${section_context_background_color}" --foreground "${section_context_foreground_color}"
+add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
+add_segment --text " ✦ ${model} "            --background "${section_model_background_color}"   --foreground 247
+add_segment --text " ◈ ${tokens_display} "   --background "${section_tokens_background_color}"  --foreground 0
 
 end_segments

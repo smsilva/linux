@@ -43,10 +43,9 @@ if [ -z "$git_branch" ] && [ -n "$current_dir" ]; then
   git_branch=$(git --no-optional-locks -C "$current_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 fi
 
-# --bg restores segment bg after each color reset inside the indicators string
-git_indicators=$(git-status-indicators --dir "$git_root" --color --bg "${section_branch_background_color}")
-
 if [ -n "$git_branch" ]; then
+  # --bg restores segment bg after each color reset inside the indicators string
+  git_indicators=$(git-status-indicators --dir "$git_root" --color --bg "${section_branch_background_color}")
   if [ -n "$git_indicators" ]; then
     section_branch_foreground_color='\033[38;5;247m'  # gray  — dirty
   else
@@ -83,10 +82,14 @@ model=$(echo "$input" | jq --raw-output '.model.display_name // "N/A"')
 sep=$'\ue0b0'
 
 printf "\033[48;5;${section_location_background_color}m\033[38;5;0m\033[1m %s \033[22m"                                    "$location"        # seg 1: location
-printf "\033[38;5;${section_location_background_color}m\033[48;5;${section_branch_background_color}m%s"                    "$sep"             # ▶ location → branch
-[ -n "$branch_str" ]     && printf "\033[48;5;${section_branch_background_color}m%s "                                      "$branch_str"      # seg 2: branch
-[ -n "$git_indicators" ] && printf "\033[48;5;${section_branch_background_color}m%s "                                      "$git_indicators"  # seg 2: git status
-printf "\033[38;5;${section_branch_background_color}m\033[48;5;${section_ctx_background_color}m%s"                         "$sep"             # ▶ branch → ctx
+if [ -n "$git_branch" ]; then
+  printf "\033[38;5;${section_location_background_color}m\033[48;5;${section_branch_background_color}m%s"                  "$sep"             # ▶ location → branch
+  printf "\033[48;5;${section_branch_background_color}m%s "                                                                "$branch_str"      # seg 2: branch
+  [ -n "$git_indicators" ] && printf "\033[48;5;${section_branch_background_color}m%s "                                    "$git_indicators"  # seg 2: git status
+  printf "\033[38;5;${section_branch_background_color}m\033[48;5;${section_ctx_background_color}m%s"                       "$sep"             # ▶ branch → ctx
+else
+  printf "\033[38;5;${section_location_background_color}m\033[48;5;${section_ctx_background_color}m%s"                     "$sep"             # ▶ location → ctx (no git repo)
+fi
 printf "\033[48;5;${section_ctx_background_color}m%s"                                                                      "$ctx_display"     # seg 3: ctx %
 printf "\033[38;5;${section_ctx_background_color}m\033[48;5;${section_time_background_color}m%s"                           "$sep"             # ▶ ctx → time
 printf "\033[48;5;${section_time_background_color}m${section_time_foreground_color} ◔ %s "                                 "$time_str"        # seg 4: time

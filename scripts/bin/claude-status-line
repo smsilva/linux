@@ -74,7 +74,7 @@ elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_caution}" ]; 
 else                                                                                   section_time_background_color=114; section_time_foreground_color=0   # black on green
 fi
 
-# --- Model ---
+# Model
 model=$(echo "${input}" | jq --raw-output '.model.display_name // "N/A"')
 
 # --- Total tokens ---
@@ -87,9 +87,8 @@ else
   tokens_display="${total_tokens}"
 fi
 
-# --- Assemble segments with powerline separators ---
-# Each separator: fg=<current bg> bg=<next bg> → filled-triangle transition
-sep=$'\ue0b0'
+# Assemble segments with powerline separators
+segment_separator=$'\ue0b0'
 
 # seg 1: location
 ansi-text \
@@ -101,7 +100,7 @@ ansi-text \
 if [ -n "${git_branch}" ]; then
   # ▶ location → branch
   ansi-text \
-    --text "${sep}" \
+    --text "${segment_separator}" \
     --background "${section_branch_background_color}" \
     --foreground "${section_location_background_color}"
 
@@ -116,7 +115,7 @@ if [ -n "${git_branch}" ]; then
 
   # ▶ branch → ctx
   ansi-text \
-    --text "${sep}" \
+    --text "${segment_separator}" \
     --background "${section_ctx_background_color}" \
     --foreground "${section_branch_background_color}"
 else
@@ -126,14 +125,16 @@ else
     --background "${section_ctx_background_color}" \
     --foreground "${section_location_background_color}"
 fi
+
 # seg 3: ctx %
 ansi-text \
   --text " ≡ ${used_int}% " \
   --background "${section_ctx_background_color}" \
   --foreground "${section_ctx_foreground_color}"
+
 # ▶ ctx → time
 ansi-text \
-  --text "${sep}" \
+  --text "${segment_separator}" \
   --background "${section_time_background_color}" \
   --foreground "${section_ctx_background_color}"
 
@@ -142,21 +143,22 @@ ansi-text \
   --text " ◔ ${time_str} " \
   --background "${section_time_background_color}" \
   --foreground "${section_time_foreground_color}"
+
 # ▶ time → model
 ansi-text \
-  --text "${sep}" \
+  --text "${segment_separator}" \
   --background "${section_model_background_color}" \
   --foreground "${section_time_background_color}"
 
 # seg 5: model
 ansi-text \
-  --text " ${model} " \
+  --text " ✦ ${model} " \
   --background "${section_model_background_color}" \
   --foreground 247
 
 # ▶ model → tokens
 ansi-text \
-  --text "${sep}" \
+  --text "${segment_separator}" \
   --background "${section_tokens_background_color}" \
   --foreground "${section_model_background_color}"
 
@@ -167,4 +169,4 @@ ansi-text \
   --foreground 0
 
 # trailing ▶
-printf "\033[0m\033[38;5;${section_tokens_background_color}m%s\033[0m" "${sep}"
+printf "\033[0m\033[38;5;${section_tokens_background_color}m%s\033[0m" "${segment_separator}"

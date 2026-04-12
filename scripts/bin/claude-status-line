@@ -5,13 +5,11 @@
 input=$(cat)
 
 # --- Colors ---
-CYAN='\033[36m'
 GREEN='\033[32m'
 YELLOW='\033[33m'
 RED='\033[31m'
 BRIGHT_GREEN='\033[92m'
 CYAN_BRIGHT='\033[96m'
-RESET='\033[0m'
 
 # --- Git repo name + current folder + branch ---
 current_dir=$(echo "$input" | jq --raw-output '.workspace.current_dir // ""')
@@ -40,20 +38,16 @@ if [ -z "$git_branch" ] && [ -n "$current_dir" ]; then
   git_branch=$(git --no-optional-locks -C "$current_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 fi
 
-# Git status indicators (--bg 0 restores segment bg after each color reset)
-git_indicators=$(git-status-indicators --dir "$git_root" --color --bg 0)
+# Git status indicators (--bg 236 restores segment bg after each color reset)
+git_indicators=$(git-status-indicators --dir "$git_root" --color --bg 236)
 
 if [ -n "$git_branch" ]; then
   if [ -n "$git_indicators" ]; then
-    branch_color='\033[38;5;247m'  # gray8  — gitstatus_branch_dirty
+    branch_color='\033[38;5;247m'  # gray8  — dirty
   else
-    branch_color='\033[38;5;2m'    # green  — gitstatus_branch_clean
+    branch_color='\033[38;5;2m'    # green  — clean
   fi
-  # Reset restores seg1 background (0 = black) instead of clearing it entirely
-  branch_str=$(printf "${branch_color}\ue0a0 ${git_branch}\033[0m\033[48;5;0m")
-  location_str="${location} ${branch_str}${git_indicators:+ ${git_indicators}}"
-else
-  location_str="${location}"
+  branch_str=$(printf "${branch_color} \ue0a0 ${git_branch}\033[0m\033[48;5;236m")
 fi
 
 # --- Context window progress bar ---
@@ -91,18 +85,18 @@ fi
 model=$(echo "$input" | jq --raw-output '.model.display_name // "N/A"')
 
 # --- Assemble with powerline separators ---
-# Backgrounds: location=0 (black), bar=238, time=236, model=234
-# Separator  uses fg=current_bg → bg=next_bg to create the powerline transition.
+# Backgrounds: location=31 (darkblue), branch=236, bar=238, time=236, model=234
+# Separator uses fg=current_bg → bg=next_bg to create the powerline transition.
 sep=$'\ue0b0'
 
-printf "\033[48;5;31m\033[38;5;0m\033[1m %s \033[22m"    "$location"         # seg 1: folder name (bg=darkblue, fg=black, bold)
-printf "\033[38;5;31m\033[48;5;0m%s"                    "$sep"              # 31 → 0
-[ -n "$branch_str" ] && printf "\033[48;5;0m%s "        "$branch_str"       # seg 2: branch (own colors, bg=black)
-[ -n "$git_indicators" ] && printf "\033[48;5;0m%s "    "$git_indicators"   # seg 2: git indicators (own colors, bg=black)
-printf "\033[38;5;0m\033[48;5;238m%s"                   "$sep"              # 0 → 238
-printf "\033[48;5;238m ${bar_color}%s %d%% "        "$bar" "$used_int"  # seg 2: ctx bar (bg=238)
+printf "\033[48;5;31m\033[38;5;0m\033[1m %s \033[22m"    "$location"         # seg 1: location (bg=31)
+printf "\033[38;5;31m\033[48;5;236m%s"                    "$sep"             # 31 → 236
+[ -n "$branch_str" ] && printf "\033[48;5;236m%s "       "$branch_str"      # seg 2: branch (bg=236)
+[ -n "$git_indicators" ] && printf "\033[48;5;236m%s "   "$git_indicators"  # seg 2: git indicators (bg=236)
+printf "\033[38;5;236m\033[48;5;238m%s"                  "$sep"             # 236 → 238
+printf "\033[48;5;238m ${bar_color}%s %d%% "        "$bar" "$used_int"  # seg 3: ctx bar (bg=238)
 printf "\033[38;5;238m\033[48;5;236m%s"             "$sep"              # 238 → 236
-printf "\033[48;5;236m ${time_color}%s "            "$time_str"         # seg 3: time (bg=236)
+printf "\033[48;5;236m ${time_color}%s "            "$time_str"         # seg 4: time (bg=236)
 printf "\033[38;5;236m\033[48;5;234m%s"             "$sep"              # 236 → 234
-printf "\033[48;5;234m\033[38;5;247m %s "           "$model"            # seg 4: model (bg=234)
+printf "\033[48;5;234m\033[38;5;247m %s "           "$model"            # seg 5: model (bg=234)
 printf "\033[38;5;234m\033[0m%s\033[0m"             "$sep"              # trailing sep

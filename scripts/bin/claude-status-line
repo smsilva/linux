@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
-# Layout: repo/folder [branch] | ctx bar | model
+# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ]
 
 input=$(cat)
 
-# --- Git repo name + current folder + branch ---
+# --- Configuration ---
+
+# Fixed segment backgrounds (256-color)
+section_location_background_color=31 # dark blue
+section_branch_background_color=236  # #303030
+section_model_background_color=238   # #444444
+
+# Context window thresholds (percentage)
+ctx_threshold_critical=85
+ctx_threshold_warning=60
+
+# Session time thresholds — currently in seconds
+time_threshold_critical=$(( 60 * 60 )) # 60 minutes
+time_threshold_warning=$(( 30 * 60 ))  # 30 minutes
+time_threshold_caution=$(( 15 * 60 ))  # 15 minutes
+
+# --- Git: repo name, folder, branch, status indicators ---
 current_dir=$(echo "$input" | jq --raw-output '.workspace.current_dir // ""')
 project_dir=$(echo "$input" | jq --raw-output '.workspace.project_dir // ""')
 
-# Repo name: basename of the project/git root
 if [ -n "$project_dir" ]; then
   repo_name=$(basename "$project_dir")
 else
   repo_name=$(basename "$current_dir")
 fi
 
-# Current folder relative to repo root (or just basename when at root)
 if [ -n "$project_dir" ] && [ "$current_dir" != "$project_dir" ]; then
   rel_folder="${current_dir#"$project_dir"/}"
   location="${repo_name}/${rel_folder}"
@@ -22,7 +36,6 @@ else
   location="${repo_name}"
 fi
 
-# Git branch
 git_root="${project_dir:-$current_dir}"
 git_branch=$(git --no-optional-locks --git-dir="${git_root}/.git" \
   rev-parse --abbrev-ref HEAD 2>/dev/null || true)
@@ -30,56 +43,53 @@ if [ -z "$git_branch" ] && [ -n "$current_dir" ]; then
   git_branch=$(git --no-optional-locks -C "$current_dir" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 fi
 
-# Git status indicators (--bg 236 restores segment bg after each color reset)
-git_indicators=$(git-status-indicators --dir "$git_root" --color --bg 236)
+# --bg restores segment bg after each color reset inside the indicators string
+git_indicators=$(git-status-indicators --dir "$git_root" --color --bg "${section_branch_background_color}")
 
 if [ -n "$git_branch" ]; then
   if [ -n "$git_indicators" ]; then
-    branch_color='\033[38;5;247m'  # gray8  — dirty
+    section_branch_foreground_color='\033[38;5;247m'  # gray  — dirty
   else
-    branch_color='\033[38;5;2m'    # green  — clean
+    section_branch_foreground_color='\033[38;5;2m'    # green — clean
   fi
-  branch_str=$(printf "${branch_color} \ue0a0 ${git_branch}\033[0m\033[48;5;236m")
+  branch_str=$(printf "${section_branch_foreground_color} \ue0a0 ${git_branch}\033[0m\033[48;5;${section_branch_background_color}m")
 fi
 
-# --- Context window progress bar ---
+# --- Context window ---
 used_pct=$(echo "$input" | jq --raw-output '.context_window.used_percentage // 0')
 used_int=$(printf '%.0f' "$used_pct")
 
-if   [ "$used_int" -ge 90 ]; then bar_bg_num=1;   bar_fg='\033[30m'   # black on red
-elif [ "$used_int" -ge 70 ]; then bar_bg_num=3;   bar_fg='\033[30m'   # black on yellow
-else                               bar_bg_num=2;   bar_fg='\033[30m'   # black on green
+if   [ "$used_int" -ge "${ctx_threshold_critical}" ]; then section_ctx_background_color=1; section_ctx_foreground_color='\033[30m'
+elif [ "$used_int" -ge "${ctx_threshold_warning}" ];  then section_ctx_background_color=3; section_ctx_foreground_color='\033[30m'
+else                                                       section_ctx_background_color=2; section_ctx_foreground_color='\033[30m'
 fi
-ctx_display=$(printf "${bar_fg} ≡ %d%% " "$used_int")
+ctx_display=$(printf "${section_ctx_foreground_color} ≡ %d%% " "$used_int")
 
-# --- Elapsed session time ---
+# --- Session time ---
 time_str=$(process-uptime --name claude --format human)
 elapsed_sec=$(process-uptime --name claude --format seconds)
 
-elapsed_min=$(( elapsed_sec / 60 ))
-# Thresholds for testing (10 sec steps); production values: 30 / 60 / 90 min
-if   [ "$elapsed_sec" -ge 30 ]; then time_bg_num=88;  time_fg='\033[38;5;15m'  # white on bordeaux  (prod: ≥ 90 min)
-elif [ "$elapsed_sec" -ge 20 ]; then time_bg_num=215; time_fg='\033[30m'  # black on Orange 300  (prod: ≥ 60 min)
-elif [ "$elapsed_sec" -ge 10 ]; then time_bg_num=221; time_fg='\033[30m'  # black on Amber 300   (prod: ≥ 30 min)
-else                                  time_bg_num=114; time_fg='\033[30m'  # black on Green 300   (prod:  < 30 min)
+if   [ "$elapsed_sec" -ge "${time_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color='\033[38;5;15m'  # white on bordeaux
+elif [ "$elapsed_sec" -ge "${time_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color='\033[30m'        # black on orange
+elif [ "$elapsed_sec" -ge "${time_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color='\033[30m'        # black on amber
+else                                                           section_time_background_color=114; section_time_foreground_color='\033[30m'        # black on green
 fi
 
 # --- Model ---
 model=$(echo "$input" | jq --raw-output '.model.display_name // "N/A"')
 
-# --- Assemble with powerline separators ---
-# Backgrounds: location=31 (darkblue), branch=236, ctx=dynamic (1/3/2), time=dynamic (151/152/186/181), model=238
-# Separator uses fg=current_bg → bg=next_bg to create the powerline transition.
+# --- Assemble segments with powerline separators ---
+# Each separator: fg=<current bg> bg=<next bg> → filled-triangle transition
 sep=$'\ue0b0'
 
-printf "\033[48;5;31m\033[38;5;0m\033[1m %s \033[22m"    "$location"         # seg 1: location (bg=31)
-printf "\033[38;5;31m\033[48;5;236m%s"                    "$sep"             # 31 → 236
-[ -n "$branch_str" ] && printf "\033[48;5;236m%s "       "$branch_str"      # seg 2: branch (bg=236)
-[ -n "$git_indicators" ] && printf "\033[48;5;236m%s "   "$git_indicators"  # seg 2: git indicators (bg=236)
-printf "\033[38;5;236m\033[48;5;${bar_bg_num}m%s"              "$sep"             # 236 → bar
-printf "\033[48;5;${bar_bg_num}m%s"                                              "$ctx_display" # seg 3: ctx %
-printf "\033[38;5;${bar_bg_num}m\033[48;5;${time_bg_num}m%s"                    "$sep"         # bar → time
-printf "\033[48;5;${time_bg_num}m${time_fg} ◔ %s "                               "$time_str"    # seg 4: time
-printf "\033[38;5;${time_bg_num}m\033[48;5;238m%s"            "$sep"             # time → 238
-printf "\033[48;5;238m\033[38;5;247m %s "           "$model"            # seg 5: model (bg=238)
-printf "\033[0m\033[38;5;238m%s\033[0m"             "$sep"              # trailing sep (fg=238 on default bg)
+printf "\033[48;5;${section_location_background_color}m\033[38;5;0m\033[1m %s \033[22m"                                    "$location"        # seg 1: location
+printf "\033[38;5;${section_location_background_color}m\033[48;5;${section_branch_background_color}m%s"                    "$sep"             # ▶ location → branch
+[ -n "$branch_str" ]     && printf "\033[48;5;${section_branch_background_color}m%s "                                      "$branch_str"      # seg 2: branch
+[ -n "$git_indicators" ] && printf "\033[48;5;${section_branch_background_color}m%s "                                      "$git_indicators"  # seg 2: git status
+printf "\033[38;5;${section_branch_background_color}m\033[48;5;${section_ctx_background_color}m%s"                         "$sep"             # ▶ branch → ctx
+printf "\033[48;5;${section_ctx_background_color}m%s"                                                                      "$ctx_display"     # seg 3: ctx %
+printf "\033[38;5;${section_ctx_background_color}m\033[48;5;${section_time_background_color}m%s"                           "$sep"             # ▶ ctx → time
+printf "\033[48;5;${section_time_background_color}m${section_time_foreground_color} ◔ %s "                                 "$time_str"        # seg 4: time
+printf "\033[38;5;${section_time_background_color}m\033[48;5;${section_model_background_color}m%s"                         "$sep"             # ▶ time → model
+printf "\033[48;5;${section_model_background_color}m\033[38;5;247m %s "                                                    "$model"           # seg 5: model
+printf "\033[0m\033[38;5;${section_model_background_color}m%s\033[0m"                                                      "$sep"             # trailing ▶

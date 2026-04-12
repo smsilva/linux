@@ -9,6 +9,7 @@ bash_functions_file="${HOME}/.bash_functions"
 
 git_global_templates="${HOME}/.git-templates"
 claude_settings_file="${HOME}/.claude/settings.json"
+claude_statusline_file="${HOME}/.claude/statusline.sh"
 
 chmod +x ${scripts_location}/*
 
@@ -24,6 +25,10 @@ fi
 
 if [[ ! -e "${claude_settings_file}" ]]; then
   ln --symbolic "${PWD}/claude/settings.json" "${claude_settings_file}" &> /dev/null
+fi
+
+if [[ ! -e "${claude_statusline_file}" ]]; then
+  ln --symbolic "${PWD}/scripts/bin/claude-status-line" "${claude_statusline_file}" &> /dev/null
 fi
 
 if [[ ! -e "${bash_aliases_file}" ]]; then

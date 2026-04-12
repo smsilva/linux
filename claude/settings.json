@@ -1,4 +1,9 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "bash /home/silvios/.claude/statusline.sh",
+    "refreshInterval": 15
+  },
   "hooks": {
     "PostToolUse": [
       {

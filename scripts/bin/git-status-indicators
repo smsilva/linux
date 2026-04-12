@@ -1,0 +1,100 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Prints git status indicators in powerline style: ● staged ✚ changed … untracked ↑ ahead.
+  Only non-zero counts are shown. Prints nothing if the directory is not a git repo.
+
+    Options:
+
+      -h,  --help    Show this help
+      -d,  --dir     Git repository directory (default: current directory)
+      -c,  --color   Colorize output with ANSI codes (default: false)
+      -b,  --bg      xterm-256 background color index to restore after each reset.
+                     Use when rendering inside a colored segment so resets don't
+                     clear the segment background (default: none)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --dir /path/to/repo
+
+      ${this_script_name} --color
+
+      ${this_script_name} --color --bg 240
+
+      echo "[\$(git-status-indicators --dir ~/project --color --bg 240)]"
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    -d | --dir )
+      shift
+      repo_dir="${1}"
+      ;;
+
+    -c | --color )
+      color=true
+      ;;
+
+    -b | --bg )
+      shift
+      bg="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+repo_dir="${repo_dir:-${PWD}}"
+color="${color:-false}"
+
+porcelain=$(git --no-optional-locks -C "${repo_dir}" status --porcelain 2>/dev/null) || exit 0
+
+staged=$(echo "${porcelain}"    | grep -c '^[MADRC].'  || true)
+unstaged=$(echo "${porcelain}"  | grep -c '^.[MD]'     || true)
+untracked=$(echo "${porcelain}" | grep -c '^??'        || true)
+ahead=$(git --no-optional-locks -C "${repo_dir}" \
+  rev-list --count "@{upstream}..HEAD" 2>/dev/null || echo 0)
+
+if [[ "${color}" == true ]]; then
+  C_STAGED='\033[38;5;2m'      # green           (gitstatus_staged)
+  C_UNSTAGED='\033[38;5;166m'  # mediumorange    (gitstatus_changed)
+  C_UNTRACKED='\033[38;5;214m' # brightestorange (gitstatus_untracked)
+  C_AHEAD='\033[38;5;252m'     # gray10          (gitstatus_ahead)
+  if [[ -n "${bg}" ]]; then
+    RESET="\033[0m\033[48;5;${bg}m"  # reset then restore segment background
+  else
+    RESET='\033[0m'
+  fi
+fi
+
+result=""
+[[ "${staged}"    -gt 0 ]] && result="${result} ${C_STAGED}● ${staged}${RESET}"
+[[ "${unstaged}"  -gt 0 ]] && result="${result} ${C_UNSTAGED}✚ ${unstaged}${RESET}"
+[[ "${untracked}" -gt 0 ]] && result="${result} ${C_UNTRACKED}… ${untracked}${RESET}"
+[[ "${ahead}"     -gt 0 ]] && result="${result} ${C_AHEAD}↑ ${ahead}${RESET}"
+
+printf "%b" "${result# }"

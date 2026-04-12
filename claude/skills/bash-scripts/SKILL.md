@@ -43,6 +43,8 @@ arg2="${2}"
 # logic here
 ```
 
+> **Shebang**: use `#!/bin/bash` for portability. `#!/usr/bin/env bash` is also acceptable when bash portability across non-standard PATH environments is needed (e.g. macOS, cross-platform scripts).
+
 ### Script with options (use `foo` as the canonical template)
 
 ```bash

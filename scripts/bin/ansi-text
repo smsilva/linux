@@ -1,0 +1,90 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Prints text wrapped in ANSI 256-color escape codes.
+
+    Options:
+
+      -h,   --help        Show this help
+      -t,   --text        Text to print
+      -bg,  --background  Background color index (0-255)
+      -fg,  --foreground      Foreground color index (0-255, default: none)
+      -fgr, --foreground-raw  Foreground as a raw ANSI escape sequence (default: none)
+      -b,   --bold            Bold text (default: false)
+
+    Examples:
+
+      ${this_script_name} --text " hello " --background 31 --foreground 0
+
+      ${this_script_name} --text " hello " --background 31 --foreground 0 --bold
+
+      ${this_script_name} --text " hello " --background 236
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case $1 in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    -t | --text )
+      shift
+      text="${1}"
+      ;;
+
+    -bg | --background )
+      shift
+      bg="${1}"
+      ;;
+
+    -fg | --foreground )
+      shift
+      fg="${1}"
+      ;;
+
+    -fgr | --foreground-raw )
+      shift
+      fg_raw="${1}"
+      ;;
+
+    -b | --bold )
+      bold=true
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+if [[ -z "${text}" || -z "${bg}" ]]; then
+  show_usage
+  exit 1
+fi
+
+bold="${bold:-false}"
+
+out="\033[48;5;${bg}m"
+[ -n "${fg}" ]     && out="${out}\033[38;5;${fg}m"
+[ -n "${fg_raw}" ] && out="${out}${fg_raw}"
+[ "${bold}" = true ] && out="${out}\033[1m"
+out="${out}${text}"
+[ "${bold}" = true ] && out="${out}\033[22m"
+
+printf "%b" "${out}"

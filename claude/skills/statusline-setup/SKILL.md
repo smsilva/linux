@@ -48,7 +48,7 @@ If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `b
 ## Segment layout
 
 ```
-[ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ∑ tokens ] ▶
+[ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ] ▶
     bg=31           bg=236                    bg=dynamic    bg=dynamic    bg=238      bg=244
 ```
 
@@ -69,29 +69,33 @@ Each separator uses `fg=left_bg, bg=right_bg` to create the filled-triangle tran
 
 ```bash
 sep=$'\ue0b0'  # powerline right-pointing filled triangle (requires Nerd Font)
-printf "\033[38;5;<LEFT>m\033[48;5;<RIGHT>m%s" "$sep"
+ansi-text --text "${sep}" --background <RIGHT> --foreground <LEFT>
 ```
 
-The trailing separator after the model segment resets to no background: `\033[0m\033[38;5;<model_bg>m%s\033[0m`.
+The trailing separator after the last segment resets to no background and is left as an inline `printf`:
+
+```bash
+printf "\033[0m\033[38;5;<last_bg>m%s\033[0m" "${sep}"
+```
 
 ## Dynamic segments
 
 ### Context window % (seg 3)
 
-Three states based on `ctx_threshold_critical` and `ctx_threshold_warning` (see script top). Colors: `2`=green, `3`=yellow, `1`=red. All use black foreground `\033[30m`.
+Three states based on `ctx_threshold_critical` and `ctx_threshold_warning` (see script top). Colors: `2`=green, `3`=yellow, `1`=red. All use foreground index `0` (black).
 
 ### Session time (seg 4)
 
 Four states based on three thresholds (see script top). Colors and foregrounds:
 
-| State | bg | fg | Visual |
+| State | bg | fg index | Visual |
 |-------|----|----|--------|
-| normal | 114 | black | green |
-| caution | 221 | black | amber |
-| warning | 215 | black | orange |
-| critical | 88 | `\033[38;5;15m` (white) | bordeaux |
+| normal | 114 | 0 (black) | green |
+| caution | 221 | 0 (black) | amber |
+| warning | 215 | 0 (black) | orange |
+| critical | 88 | 15 (white) | bordeaux |
 
-White foreground on bordeaux (88) is intentional — black fails contrast on a dark background. See VS Code contrast rule below.
+White foreground (15) on bordeaux (88) is intentional — black fails contrast on a dark background. See VS Code contrast rule below.
 
 ## Branch segment logic
 
@@ -106,9 +110,9 @@ Both are followed by `\033[0m\033[48;5;${section_branch_background_color}m` to r
 
 VS Code enforces a minimum contrast ratio of 4.5 (`terminal.integrated.minimumContrastRatio`). When the foreground/background contrast is too low, VS Code silently overrides the color.
 
-**Rule when picking a foreground color:**
-- Black `\033[30m` on any bright/pastel background → always passes ✓
-- White `\033[38;5;15m` requires background luminance < 0.18 — only very dark colors qualify
+**Rule when picking a foreground color (use 256-color index):**
+- Black (index `0`) on any bright/pastel background → always passes ✓
+- White (index `15`) requires background luminance < 0.18 — only very dark colors qualify
   - bordeaux 88 (RGB 135/0/0) → ~8.7:1 ✓
   - salmon 203 (RGB 255/95/95) → ~2.4:1 ✗ (VS Code will override silently)
 
@@ -118,18 +122,19 @@ Always verify new color choices before committing.
 
 | Tool | Invocation | Output |
 |------|-----------|--------|
+| `ansi-text` | `--text <str> --background <N> [--foreground <N>] [--bold]` | Text wrapped in ANSI 256-color escape codes. `--foreground-raw` accepts a full escape sequence instead of an index. |
 | `git-status-indicators` | `--dir <git_root> --color --bg <branch_bg>` | Colored dirty/clean git symbols; `--bg` restores segment bg after each ANSI reset inside the string. Empty string if repo is clean. |
 | `process-uptime` | `--name claude --format human` | Human-readable string, e.g. `"5m"`, `"1h 2m"` |
 | `process-uptime` | `--name claude --format seconds` | Integer string, e.g. `"300"`. Used for threshold comparisons. |
 
-Both tools must be on `$PATH`. If missing, the script will error and the statusline will be blank.
+All tools must be on `$PATH`. If missing, the script will error and the statusline will be blank.
 
 ## Adding a new segment
 
 1. Pick a background color number (256-color palette)
-2. **Check VS Code contrast** — use black `\033[30m` for text on light/bright backgrounds; white `\033[38;5;15m` only on dark colors (luminance < 0.18)
+2. **Check VS Code contrast** — use index `0` (black) for text on light/bright backgrounds; index `15` (white) only on dark colors (luminance < 0.18)
 3. Add a named variable: `section_<name>_background_color=<N>`
-4. Add content printf: `printf "\033[48;5;${section_<name>_background_color}m\033[38;5;0m %s " "$value"`
-5. Add separator before: `printf "\033[38;5;<PREV_BG>m\033[48;5;${section_<name>_background_color}m%s" "$sep"`
-6. Add separator after: `printf "\033[38;5;${section_<name>_background_color}m\033[48;5;<NEXT_BG>m%s" "$sep"`
+4. Add content: `ansi-text --text " ${value} " --background "${section_<name>_background_color}" --foreground 0`
+5. Add separator before: `ansi-text --text "${sep}" --background "${section_<name>_background_color}" --foreground "${section_<prev>_background_color}"`
+6. Add separator after: `ansi-text --text "${sep}" --background "${section_<next>_background_color}" --foreground "${section_<name>_background_color}"`
 7. Sync both files (see File locations & sync)

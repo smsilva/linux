@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ]
+# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ∑ tokens ]
 
 input=$(cat)
 
@@ -9,6 +9,7 @@ input=$(cat)
 section_location_background_color=31 # dark blue
 section_branch_background_color=236  # #303030
 section_model_background_color=238   # #444444
+section_tokens_background_color=244  # #808080, lighter than model
 
 # Context window thresholds (percentage)
 ctx_threshold_critical=85
@@ -77,6 +78,16 @@ fi
 # --- Model ---
 model=$(echo "$input" | jq --raw-output '.model.display_name // "N/A"')
 
+# --- Total tokens ---
+total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
+total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
+total_tokens=$(( total_input + total_output ))
+if [ "$total_tokens" -ge 1000 ]; then
+  tokens_display="$(( total_tokens / 1000 ))k"
+else
+  tokens_display="${total_tokens}"
+fi
+
 # --- Assemble segments with powerline separators ---
 # Each separator: fg=<current bg> bg=<next bg> → filled-triangle transition
 sep=$'\ue0b0'
@@ -95,4 +106,6 @@ printf "\033[38;5;${section_ctx_background_color}m\033[48;5;${section_time_backg
 printf "\033[48;5;${section_time_background_color}m${section_time_foreground_color} ◔ %s "                                 "$time_str"        # seg 4: time
 printf "\033[38;5;${section_time_background_color}m\033[48;5;${section_model_background_color}m%s"                         "$sep"             # ▶ time → model
 printf "\033[48;5;${section_model_background_color}m\033[38;5;247m %s "                                                    "$model"           # seg 5: model
-printf "\033[0m\033[38;5;${section_model_background_color}m%s\033[0m"                                                      "$sep"             # trailing ▶
+printf "\033[38;5;${section_model_background_color}m\033[48;5;${section_tokens_background_color}m%s"                       "$sep"             # ▶ model → tokens
+printf "\033[48;5;${section_tokens_background_color}m\033[30m ∑ %s "                                                       "$tokens_display"  # seg 6: total tokens
+printf "\033[0m\033[38;5;${section_tokens_background_color}m%s\033[0m"                                                     "$sep"             # trailing ▶

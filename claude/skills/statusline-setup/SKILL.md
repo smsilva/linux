@@ -39,6 +39,8 @@ The script reads a JSON payload from stdin. Fields used, with their fallback def
 | `.workspace.current_dir` | `""` | location display, fallback git root |
 | `.workspace.project_dir` | `""` | git root, repo name |
 | `.context_window.used_percentage` | `0` | ctx % display and thresholds |
+| `.context_window.total_input_tokens` | `0` | total tokens segment (input side) |
+| `.context_window.total_output_tokens` | `0` | total tokens segment (output side) |
 | `.model.display_name` | `"N/A"` | model segment |
 
 If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `basename current_dir` and the branch segment is suppressed.
@@ -46,8 +48,8 @@ If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `b
 ## Segment layout
 
 ```
-[ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶
-    bg=31           bg=236                    bg=dynamic    bg=dynamic    bg=238
+[ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ∑ tokens ] ▶
+    bg=31           bg=236                    bg=dynamic    bg=dynamic    bg=238      bg=244
 ```
 
 | Seg | Content | Background | Notes |
@@ -57,6 +59,7 @@ If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `b
 | 3 | `≡ 33%` | dynamic (green/yellow/red) | context window % |
 | 4 | `◔ 5m` | dynamic (green/amber/orange/bordeaux) | session uptime |
 | 5 | `model name` | 238 (#444444) | gray text |
+| 6 | `∑ 15k` | 244 (#808080) | total tokens (input+output), lighter than model |
 
 All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
 

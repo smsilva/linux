@@ -71,7 +71,7 @@ else
 fi
 
 # --- Session time ---
-time_str=$(process-uptime --name claude --format human)
+time_str=$(process-uptime --name claude --format human-short)
 elapsed_seconds=$(process-uptime --name claude --format seconds)
 
 if   [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_critical}" ]; then

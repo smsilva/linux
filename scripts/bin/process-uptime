@@ -19,7 +19,7 @@ show_usage() {
 
       -h,  --help    Show this help
       -n,  --name    Process name to look for in the process tree (required)
-      -f,  --format  Output format: human (default), seconds, hms
+      -f,  --format  Output format: human (default), human-short, seconds, hms
 
     Examples:
 
@@ -113,6 +113,14 @@ case "${format}" in
       printf "%dh%02dm%02ds\n" "${hours}" "${mins}" "${secs}"
     else
       printf "%02dm%02ds\n" "${mins}" "${secs}"
+    fi
+    ;;
+
+  human-short )
+    if [[ "${hours}" -gt 0 ]]; then
+      printf "%dh%02dm\n" "${hours}" "${mins}"
+    else
+      printf "%02dm\n" "${mins}"
     fi
     ;;
 

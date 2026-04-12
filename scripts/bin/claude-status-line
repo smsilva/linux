@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
 input=$(cat)
 
@@ -16,9 +16,9 @@ context_threshold_critical=85
 context_threshold_warning=60
 
 # Session time thresholds (seconds)
-section_sessiontime_seconds_threshold_critical=$(( 30 * 60 ))
-section_sessiontime_seconds_threshold_warning=$(( 20 * 60 ))
-section_sessiontime_seconds_threshold_caution=$(( 10 * 60 ))
+session_duration_seconds_threshold_critical=$(( 30 * 60 ))
+session_duration_seconds_threshold_warning=$(( 20 * 60 ))
+session_duration_seconds_threshold_caution=$(( 10 * 60 ))
 
 # --- Git: repo name, folder, branch, status indicators ---
 current_dir=$(echo "${input}" | jq --raw-output '.workspace.current_dir // ""')
@@ -59,28 +59,43 @@ fi
 used_pct=$(echo "${input}" | jq --raw-output '.context_window.used_percentage // 0')
 used_int=$(printf '%.0f' "$used_pct")
 
-if   [ "$used_int" -ge "${context_threshold_critical}" ]; then section_ctx_background_color=1; section_ctx_foreground_color=0
-elif [ "$used_int" -ge "${context_threshold_warning}" ];  then section_ctx_background_color=3; section_ctx_foreground_color=0
-else                                                       section_ctx_background_color=2; section_ctx_foreground_color=0
+if   [ "$used_int" -ge "${context_threshold_critical}" ]; then
+  section_context_background_color=1
+  section_context_foreground_color=0
+elif [ "$used_int" -ge "${context_threshold_warning}" ]; then
+  section_context_background_color=3
+  section_context_foreground_color=0
+else
+  section_context_background_color=2
+  section_context_foreground_color=0
 fi
 
 # --- Session time ---
 time_str=$(process-uptime --name claude --format human)
-elapsed_sec=$(process-uptime --name claude --format seconds)
+elapsed_seconds=$(process-uptime --name claude --format seconds)
 
-if   [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_critical}" ]; then section_time_background_color=88;  section_time_foreground_color=15  # white on bordeaux
-elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_warning}" ];  then section_time_background_color=215; section_time_foreground_color=0   # black on orange
-elif [ "$elapsed_sec" -ge "${section_sessiontime_seconds_threshold_caution}" ];  then section_time_background_color=221; section_time_foreground_color=0   # black on amber
-else                                                                                   section_time_background_color=114; section_time_foreground_color=0   # black on green
+if   [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_critical}" ]; then
+  section_time_background_color=88
+  section_time_foreground_color=15  # white on bordeaux
+elif [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_warning}"  ]; then
+  section_time_background_color=215
+  section_time_foreground_color=0   # black on orange
+elif [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_caution}"  ]; then
+  section_time_background_color=221
+  section_time_foreground_color=0   # black on amber
+else
+  section_time_background_color=114
+  section_time_foreground_color=0   # black on green
 fi
 
-# Model
+# --- Model ---
 model=$(echo "${input}" | jq --raw-output '.model.display_name // "N/A"')
 
 # --- Total tokens ---
 total_input=$(echo "${input}" | jq --raw-output '.context_window.total_input_tokens // 0')
 total_output=$(echo "${input}" | jq --raw-output '.context_window.total_output_tokens // 0')
 total_tokens=$(( total_input + total_output ))
+
 if [ "${total_tokens}" -ge 1000 ]; then
   tokens_display="$(( total_tokens / 1000 ))k"
 else
@@ -89,84 +104,45 @@ fi
 
 # Assemble segments with powerline separators
 segment_separator=$'\ue0b0'
+_last_segment_background=""
 
-# seg 1: location
-ansi-text \
-  --text " ${location} " \
-  --background "${section_location_background_color}" \
-  --foreground 0 \
-  --bold
+add_segment() {
+  local background_color="" args=()
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --background ) background_color="${2}"; args+=("${1}" "${2}"); shift 2 ;;
+      *            ) args+=("${1}");                                 shift   ;;
+    esac
+  done
+
+  if [ -n "${_last_segment_background}" ] && [ "${_last_segment_background}" != "${background_color}" ]; then
+    ansi-text \
+      --text "${segment_separator}" \
+      --background "${background_color}" \
+      --foreground "${_last_segment_background}"
+  fi
+
+  ansi-text "${args[@]}"
+  _last_segment_background="${background_color}"
+}
+
+end_segments() {
+  printf "\033[0m\033[38;5;${_last_segment_background}m%s\033[0m" "${segment_separator}"
+}
+
+add_segment --text " ${location} " --background "${section_location_background_color}" --foreground 0 --bold
 
 if [ -n "${git_branch}" ]; then
-  # ▶ location → branch
-  ansi-text \
-    --text "${segment_separator}" \
-    --background "${section_branch_background_color}" \
-    --foreground "${section_location_background_color}"
+  add_segment --text "${branch_str} "     --background "${section_branch_background_color}"
 
-  # seg 2: branch
-  ansi-text \
-    --text "${branch_str} " \
-    --background "${section_branch_background_color}"
-
-  [ -n "${git_indicators}" ] && ansi-text \
-    --text "${git_indicators} " \
-    --background "${section_branch_background_color}"
-
-  # ▶ branch → ctx
-  ansi-text \
-    --text "${segment_separator}" \
-    --background "${section_ctx_background_color}" \
-    --foreground "${section_branch_background_color}"
-else
-  # ▶ location → ctx (no git repo)
-  ansi-text \
-    --text $'\ue0b0' \
-    --background "${section_ctx_background_color}" \
-    --foreground "${section_location_background_color}"
+  [ -n "${git_indicators}" ] && \
+  add_segment --text "${git_indicators} " --background "${section_branch_background_color}"
 fi
 
-# seg 3: ctx %
-ansi-text \
-  --text " ≡ ${used_int}% " \
-  --background "${section_ctx_background_color}" \
-  --foreground "${section_ctx_foreground_color}"
+add_segment --text " ≡ ${used_int}% "      --background "${section_context_background_color}"    --foreground "${section_context_foreground_color}"
+add_segment --text " ◔ ${time_str} "       --background "${section_time_background_color}"   --foreground "${section_time_foreground_color}"
+add_segment --text " ✦ ${model} "          --background "${section_model_background_color}"  --foreground 247
+add_segment --text " ◈ ${tokens_display} " --background "${section_tokens_background_color}" --foreground 0
 
-# ▶ ctx → time
-ansi-text \
-  --text "${segment_separator}" \
-  --background "${section_time_background_color}" \
-  --foreground "${section_ctx_background_color}"
-
-# seg 4: time
-ansi-text \
-  --text " ◔ ${time_str} " \
-  --background "${section_time_background_color}" \
-  --foreground "${section_time_foreground_color}"
-
-# ▶ time → model
-ansi-text \
-  --text "${segment_separator}" \
-  --background "${section_model_background_color}" \
-  --foreground "${section_time_background_color}"
-
-# seg 5: model
-ansi-text \
-  --text " ✦ ${model} " \
-  --background "${section_model_background_color}" \
-  --foreground 247
-
-# ▶ model → tokens
-ansi-text \
-  --text "${segment_separator}" \
-  --background "${section_tokens_background_color}" \
-  --foreground "${section_model_background_color}"
-
-# seg 6: total tokens
-ansi-text \
-  --text " ◈ ${tokens_display} " \
-  --background "${section_tokens_background_color}" \
-  --foreground 0
-
-# trailing ▶
-printf "\033[0m\033[38;5;${section_tokens_background_color}m%s\033[0m" "${segment_separator}"
+end_segments

@@ -59,7 +59,7 @@ If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `b
 | 3 | `≡ 33%` | dynamic (green/yellow/red) | context window % |
 | 4 | `◔ 5m` | dynamic (green/amber/orange/bordeaux) | session uptime |
 | 5 | `model name` | 238 (#444444) | gray text |
-| 6 | `∑ 15k` | 244 (#808080) | total tokens (input+output), lighter than model |
+| 6 | `◈ 15k` | 244 (#808080) | total tokens (input+output), lighter than model |
 
 All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
 

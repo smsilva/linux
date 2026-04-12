@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ∑ tokens ]
+# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
 input=$(cat)
 
@@ -107,5 +107,5 @@ printf "\033[48;5;${section_time_background_color}m${section_time_foreground_col
 printf "\033[38;5;${section_time_background_color}m\033[48;5;${section_model_background_color}m%s"                         "$sep"             # ▶ time → model
 printf "\033[48;5;${section_model_background_color}m\033[38;5;247m %s "                                                    "$model"           # seg 5: model
 printf "\033[38;5;${section_model_background_color}m\033[48;5;${section_tokens_background_color}m%s"                       "$sep"             # ▶ model → tokens
-printf "\033[48;5;${section_tokens_background_color}m\033[30m ∑ %s "                                                       "$tokens_display"  # seg 6: total tokens
+printf "\033[48;5;${section_tokens_background_color}m\033[30m ◈ %s "                                                       "$tokens_display"  # seg 6: total tokens
 printf "\033[0m\033[38;5;${section_tokens_background_color}m%s\033[0m"                                                     "$sep"             # trailing ▶

@@ -13,13 +13,18 @@ show_usage() {
   name is found.
 
   Session timestamps are stored in ~/.local/share/process-uptime/.
+  
   Files older than 24h are cleaned up automatically.
 
     Options:
 
       -h,  --help    Show this help
       -n,  --name    Process name to look for in the process tree (required)
-      -f,  --format  Output format: human (default), human-short, seconds, hms
+      -f,  --format  Output format:
+                       - human (default)
+                       - human-short
+                       - seconds
+                       - hms
 
     Examples:
 
@@ -118,9 +123,9 @@ case "${format}" in
 
   human-short )
     if [[ "${hours}" -gt 0 ]]; then
-      printf "%dh%02dm\n" "${hours}" "${mins}"
+      printf "%dh%dm\n" "${hours}" "${mins}"
     else
-      printf "%02dm\n" "${mins}"
+      printf "%dm\n" "${mins}"
     fi
     ;;
 

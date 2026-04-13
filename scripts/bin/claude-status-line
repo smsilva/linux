@@ -12,13 +12,13 @@ section_model_background_color=238   # #444444
 section_tokens_background_color=244  # #808080, lighter than model
 
 # Context window thresholds (percentage)
-context_threshold_critical=85
-context_threshold_warning=60
+context_threshold_critical=${CLAUDE_CONTEXT_THRESHOLD_CRITICAL:-70}
+context_threshold_warning=${CLAUDE_CONTEXT_THRESHOLD_WARNING:-50}
 
 # Session time thresholds (seconds)
-session_duration_seconds_threshold_critical=$(( 30 * 60 ))
-session_duration_seconds_threshold_warning=$(( 20 * 60 ))
-session_duration_seconds_threshold_caution=$(( 10 * 60 ))
+session_duration_seconds_threshold_critical=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CRITICAL:-35} * 60 ))
+session_duration_seconds_threshold_warning=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_WARNING:-25} * 60 ))
+session_duration_seconds_threshold_caution=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CAUTION:-15} * 60 ))
 
 # --- Git: repo name, folder, branch, status indicators ---
 current_directory=$(echo "${json_input}" | jq --raw-output '.workspace.current_dir // ""')

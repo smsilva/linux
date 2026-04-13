@@ -2,6 +2,13 @@ user_scripts_directory="${HOME}/.scripts"
 krew_bin_directory="${HOME}/.krew/bin"
 npm_packages_bin_directory="${HOME}/.npm-packages/bin"
 
+export CLAUDE_CONTEXT_THRESHOLD_CRITICAL=70
+export CLAUDE_CONTEXT_THRESHOLD_WARNING=50
+
+export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CRITICAL=35
+export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_WARNING=25
+export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CAUTION=15
+
 # Terraform Packager configuration
 terraform_packager_directory="${TERRAFORM_PACKAGER_DIRECTORY:-${HOME}/git/terraform-packager}"
 terraform_packager_scripts_directory="${terraform_packager_directory}/scripts"

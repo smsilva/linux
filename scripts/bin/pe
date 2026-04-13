@@ -4,4 +4,5 @@ regex="${1}"
 printenv \
 | grep \
     --ignore-case \
-    --extended-regexp "${regex}"
+    --extended-regexp "${regex}" \
+| sort

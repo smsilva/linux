@@ -1,0 +1,82 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+aws_config_file="${HOME}/.aws/config"
+
+profile_name_input="${1}"
+
+list_profiles() {
+  awk '
+    /^\[profile / {
+      if (profile_name != "" && account_id != "") {
+        printf "%-20s %s\n", profile_name, account_id
+      }
+      match($0, /\[profile ([^\]]+)\]/, arr)
+      profile_name = arr[1]
+      account_id = ""
+    }
+    /^sso_account_id = / {
+      split($0, parts, " = ")
+      account_id = parts[2]
+    }
+    END {
+      if (profile_name != "" && account_id != "") {
+        printf "%-20s %s\n", profile_name, account_id
+      }
+    }
+  ' "${aws_config_file}"
+}
+
+update_default_profile() {
+  local profile_name="${1}"
+  local profile_content_file
+  local tmp_file
+  profile_content_file="$(mktemp)"
+  tmp_file="$(mktemp)"
+
+  awk -v target="[profile ${profile_name}]" '
+    $0 == target { in_section=1; next }
+    /^\[/ { if (in_section) exit; next }
+    in_section { print }
+  ' "${aws_config_file}" > "${profile_content_file}"
+
+  awk -v content_file="${profile_content_file}" '
+    /^\[default\]/ {
+      print
+      while ((getline line < content_file) > 0) print line
+      in_default=1
+      next
+    }
+    /^\[/ { in_default=0 }
+    !in_default { print }
+  ' "${aws_config_file}" > "${tmp_file}"
+
+  mv "${tmp_file}" "${aws_config_file}"
+  rm "${profile_content_file}"
+}
+
+profiles_list_file="$(mktemp)"
+list_profiles > "${profiles_list_file}"
+
+if [[ -z "${profile_name_input}" ]]; then
+  selected_line="$(cat "${profiles_list_file}" | fzf)"
+else
+  record_count=$(grep --extended-regexp "${profile_name_input}" "${profiles_list_file}" | wc -l)
+
+  if [[ ${record_count} -eq 1 ]]; then
+    selected_line="$(grep --extended-regexp "${profile_name_input}" "${profiles_list_file}")"
+  else
+    selected_line="$(grep --extended-regexp "${profile_name_input}" "${profiles_list_file}" | fzf)"
+  fi
+fi
+
+rm "${profiles_list_file}"
+
+if [[ -n "${selected_line}" ]]; then
+  selected_profile="$(awk '{print $1}' <<< "${selected_line}")"
+  update_default_profile "${selected_profile}"
+  aws-profile
+fi

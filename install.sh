@@ -8,6 +8,7 @@ bash_config_file="${HOME}/.bash_config"
 bash_functions_file="${HOME}/.bash_functions"
 
 git_global_templates="${HOME}/.git-templates"
+claude_global_md_file="${HOME}/.claude/CLAUDE.md"
 claude_settings_file="${HOME}/.claude/settings.json"
 claude_statusline_file="${HOME}/.claude/statusline.sh"
 
@@ -21,6 +22,10 @@ if [[ ! -e "${git_global_templates}" ]]; then
   ln --symbolic "${scripts_location}/git" "${git_global_templates}"
 
   git config --global init.templatedir "${git_global_templates}"
+fi
+
+if [[ ! -e "${claude_global_md_file}" ]]; then
+  ln --symbolic "${PWD}/claude/CLAUDE.md" "${claude_global_md_file}" &> /dev/null
 fi
 
 if [[ ! -e "${claude_settings_file}" ]]; then

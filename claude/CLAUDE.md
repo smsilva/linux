@@ -18,9 +18,7 @@ Conventions:
 
 ## Commit messages
 
-Follow Conventional Commits: `<type>(<scope>): <description>`
-
-Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, `revert`
+Use the `conventional-commits` skill for commit message format.
 
 ## Documentation
 

@@ -1,13 +1,10 @@
-Commit changes following Conventional Commits. Accepts an optional mode:
-
-- **all** (default): commits all pending changes in the working tree
-- **session**: commits only files modified in the last interaction of this session
+Commits all pending changes in the working tree.
 
 ## Steps
 
 1. **Identify files to commit**
-   - `all`: run `git status` and `git diff --stat` to see all modified files
-   - `session`: review conversation history to identify files created or edited in the most recent exchange; run `git diff --stat <those files>` to confirm changes
+
+- run `git status` and `git diff --stat` to see all modified files
 
 2. Group files by logical concern. Each group becomes one commit.
 
@@ -18,8 +15,9 @@ Commit changes following Conventional Commits. Accepts an optional mode:
 
 4. Run `git status` at the end to confirm.
 
+5. If not in the `main` branch, push commits to the remote repository if needed: `git push origin <branch-name>` 
+
 ## Constraints
 
 - Do not use `git add -A` or `git add .` — always add files explicitly by name
 - Do not amend existing commits
-- `session` mode: do not include files modified in earlier interactions

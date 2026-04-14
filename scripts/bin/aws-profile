@@ -25,7 +25,28 @@ EOF
 
 echo ""
 
-if identity=$(aws sts get-caller-identity --output text --query '[UserId,Account,Arn]' 2>&1); then
+identity=$(aws sts get-caller-identity --output text --query '[UserId,Account,Arn]' 2>/dev/null)
+
+result_code=${?}
+
+if [[ ${result_code} -ne 0 ]]; then
+  cat <<EOF
+
+failed with exit code ${result_code}:
+
+  aws sts get-caller-identity:
+  
+
+try:
+
+  aws sso login
+
+EOF
+
+  exit ${result_code}
+fi
+
+if [[ -n "${identity}" ]]; then
   read -r user_id account arn <<< "${identity}"
   cat <<EOF
 UserId..: ${user_id}

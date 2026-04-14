@@ -38,18 +38,7 @@ Use `/bash-scripts` skill when creating new scripts. Key rules:
 
 ## Commit message conventions
 
-Use `/conventional-commits` skill when writing commits. All commits must follow Conventional Commits:
-
-```
-<type>(<scope>): <description>
-```
-
-- Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, `revert`
-- Scope: most specific relevant path or identifier (`scripts/bin/arm`, `scripts/bash_config`)
-- Description: imperative mood, lowercase, no period, under 72 chars total
-- Breaking changes: append `!` — `feat(api)!: remove endpoint`
-
-This is enforced by the git `commit-msg` hook.
+Use the `conventional-commits` skill. Format is enforced by the git `commit-msg` hook.
 
 ## Bash configuration chain
 

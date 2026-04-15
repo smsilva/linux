@@ -1,13 +1,43 @@
 #!/bin/bash
-if ! which helm > /dev/null; then
-  curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
-  
-  sudo apt-get install apt-transport-https --yes
 
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-  
-  sudo apt-get update
-  sudo apt-get install helm
+if ! which helm > /dev/null; then
+  target_dir="${HOME}/bin"
+
+  mkdir --parents "${target_dir}"
+
+  latest_version=$(
+    curl \
+      --silent \
+      --fail \
+      "https://api.github.com/repos/helm/helm/releases/latest" \
+    | grep '"tag_name"' \
+    | sed --regexp-extended 's|.*"([^"]+)".*|\1|'
+  )
+
+  if [[ -z "${latest_version}" ]]; then
+    echo "Failed to retrieve the latest version of helm" >&2
+    exit 1
+  fi
+
+  remote_file="helm-${latest_version}-linux-amd64.tar.gz"
+
+  file_url="https://get.helm.sh/${remote_file?}"
+
+  curl \
+    --fail \
+    --silent \
+    --show-error \
+    --location \
+    "${file_url?}" \
+  | tar \
+      --extract \
+      --gzip \
+      --file - \
+      --directory "${target_dir}" \
+      --strip-components 1 \
+      linux-amd64/helm
+
+  chmod +x "${target_dir}/helm"
 fi
 
 helm version

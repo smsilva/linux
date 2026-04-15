@@ -23,11 +23,11 @@ if ! which istioctl > /dev/null; then
     --location \
     "https://github.com/istio/istio/releases/download/${latest_version?}/istioctl-${latest_version}-linux-amd64.tar.gz" \
   | tar \
-    --extract \
-    --gzip \
-    --file - \
-    --directory "${target_dir}" \
-    istioctl
+      --extract \
+      --gzip \
+      --file - \
+      --directory "${target_dir}" \
+      istioctl
 
   chmod +x "${target_dir}/istioctl"
 fi

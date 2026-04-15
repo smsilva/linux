@@ -25,17 +25,25 @@ if [[ ! -e "${git_global_templates}" ]]; then
   git config --global init.templatedir "${git_global_templates}"
 fi
 
+[[ -f "${claude_global_md_file}" ]] && rm "${claude_global_md_file}"
+
 if [[ ! -e "${claude_global_md_file}" ]]; then
   ln --symbolic "${PWD}/claude/CLAUDE.md" "${claude_global_md_file}" &> /dev/null
 fi
+
+[[ -f "${claude_settings_file}" ]] && rm "${claude_settings_file}"
 
 if [[ ! -e "${claude_settings_file}" ]]; then
   ln --symbolic "${PWD}/claude/settings.json" "${claude_settings_file}" &> /dev/null
 fi
 
+[[ -f "${claude_statusline_file}" ]] && rm "${claude_statusline_file}"
+
 if [[ ! -e "${claude_statusline_file}" ]]; then
   ln --symbolic "${PWD}/scripts/bin/claude-status-line" "${claude_statusline_file}" &> /dev/null
 fi
+
+[[ -d "${claude_commands_dir}" ]] && rm --recursive --force "${claude_commands_dir}"
 
 if [[ ! -e "${claude_commands_dir}" ]]; then
   ln --symbolic "${PWD}/claude/commands" "${claude_commands_dir}" &> /dev/null

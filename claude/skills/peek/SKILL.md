@@ -34,11 +34,11 @@ Tell the user:
 - The exact path(s) where screenshots will be saved
 - To return to the terminal and confirm when ready
 
-Wait for the user's confirmation before proceeding.
+Wait for the user's confirmation before proceeding. But don't wait if the user mentions "other screen" or "second monitor".
 
 ### 2. Detect monitors
 
-After the user confirms, discover connected displays:
+After the user confirms or mention that there are more than one monitor, discover connected displays:
 
 ```bash
 xrandr --query | grep ' connected'
@@ -59,7 +59,7 @@ Each geometry is `WxH+X+Y`. Convert to scrot's `-a X,Y,W,H` format when targetin
 scrot "${peek_path}"
 ```
 
-**Multiple monitors** — capture each one into a separate file:
+**Multiple monitors** — if the source monitor has not be defined yet, always capture one screenshot per monitor with explicit geometry to avoid confusion:
 ```bash
 # Screen 1 (eDP-1): 1920x1080 at offset 0,0
 scrot -a 0,0,1920,1080 "${peek_dir}/${peek_seq}_<description>_screen1.png"
@@ -85,13 +85,13 @@ code "${peek_dir}/${peek_seq}_<description>_screen2.png"
 
 Then use the `Read` tool to load each image and inspect it visually.
 
-**If multiple monitors were captured:** tell the user which screens were found (e.g. "Screen 1: eDP-1 1920×1080, Screen 2: HDMI-1 2560×1440") and ask which one has what they want to show. Continue with the chosen image only.
+**If multiple monitors were captured:** tell the user which screens were found and try to guess which one they are likely looking at based on the content.
 
 ### 5. Continue
 
 Describe what you see and proceed with the task.
 
-For subsequent captures in the same session, skip monitor detection — reuse the same monitor geometry already identified and increment the sequence counter.
+For subsequent captures in the same session, skip monitor detection — reuse the same monitor already identified and increment the sequence counter.
 
 ## Installing scrot
 

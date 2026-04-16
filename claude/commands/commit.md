@@ -1,7 +1,7 @@
-Commits all pending changes in the working tree.
-
-- Use the `conventional-commits` skill to determine the commit message
-
-- If not in the `main` branch, push commits to the remote repository: `git push origin <branch-name>` 
+Commits all pending changes in the working tree
 
 - Do not amend existing commits
+
+- If not in the `main` branch, push
+
+- Different commits for different changes context

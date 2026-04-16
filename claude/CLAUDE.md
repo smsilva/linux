@@ -39,3 +39,8 @@ Use `conventional-commits` skill.
 ## Git & outputs
 - Git: show command and commit message; omit command output
 - Outputs: max 5 lines; save long output to `/tmp/<topic>/YYYY-MM-DD_HHMMSS-<name>.txt`; share path
+
+## Tests
+- Track runs in `.tests.md` (timestamp + commit hash); add to `.gitignore`
+- Before a new commit, check for changes since last run
+- Never commit if tests were failing, unless explicitly instructed

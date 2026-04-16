@@ -18,10 +18,12 @@ sudo apt-get install --yes -q \
   nmap \
   powerline \
   powerline-gitstatus \
+  python3-pip \
+  python3.12-venv \
+  scrot \
   tmux \
   translate-shell \
   tree \
-  scrot \
   vim-gtk3 \
   wget \
   xclip

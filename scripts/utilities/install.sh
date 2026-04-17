@@ -6,9 +6,11 @@ sudo apt-get upgrade --yes -qq
 sudo apt-get install --yes -q \
   apt-transport-https \
   bat \
+  byzanz \
   cowsay \
   curl \
   fd-find \
+  ffmpeg \
   flameshot \
   fortune \
   gnupg \

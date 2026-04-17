@@ -12,7 +12,6 @@ mysql
 openjdk
 pgadmin
 postgres
-silviosilva
 sops
 ubuntu
 EOF

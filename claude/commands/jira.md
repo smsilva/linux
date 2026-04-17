@@ -2,6 +2,10 @@ Use a `jira-workflow` skill para todas as operações com o Jira (MCP, JIRA.md, 
 
 $ARGUMENTS — JIRA_ID (épico, história ou task)
 
+Se `.claude/JIRA-PROJECT.md` existir, leia-o antes de qualquer ação para obter as configurações
+do projeto: URL do site, campos obrigatórios ao criar issues, labels, nome do responsável.
+Se não existir, sugira rodar `/jira-init` para configurar o projeto.
+
 ## Navegação
 
 - Se `$ARGUMENTS` estiver vazio e existir JIRA.md, leia o conteúdo para obter o JIRA_ID e contexto, e continue de onde paramos
@@ -15,11 +19,11 @@ $ARGUMENTS — JIRA_ID (épico, história ou task)
 
 ## Arquivo JIRA.md
 
-**Task:** [JIRA_TASK_ID — título da task](https://organization.atlassian.net/browse/JIRA_TASK_ID)
-**História:** [JIRA_STORY_ID — título da história](https://organization.atlassian.net/browse/JIRA_STORY_ID)
-**Épico:** [JIRA_EPIC_ID — título do épico](https://organization.atlassian.net/browse/JIRA_EPIC_ID)
+**Task:** [JIRA_TASK_ID — título da task](<JIRA_SITE_URL>/browse/JIRA_TASK_ID)
+**História:** [JIRA_STORY_ID — título da história](<JIRA_SITE_URL>/browse/JIRA_STORY_ID)
+**Épico:** [JIRA_EPIC_ID — título do épico](<JIRA_SITE_URL>/browse/JIRA_EPIC_ID)
 **Status:** In Development
-**Responsável:** Silvio Manoel da Silva
+**Responsável:** <nome do usuário atual>
 **Branch:** feature/JIRA_TASK_ID
 **Objetivo**: O que estamos tentando realizar com esta tarefa
 **Progresso Atual**: O que foi feito até agora

@@ -113,3 +113,13 @@ Use `mcp__atlassian__editJiraIssue` com:
   }
 }
 ```
+
+## 8. Criar issues (histórias ou tasks)
+
+Use `mcp__atlassian__createJiraIssue` com `issueTypeName`, `summary` e `projectKey`.
+
+Se `.claude/JIRA-PROJECT.md` existir no projeto atual, aplique os `additional_fields` definidos
+na seção "Criação de issues — campos obrigatórios" desse arquivo antes de criar qualquer issue.
+
+Após criar, vincule ao épico via `mcp__atlassian__editJiraIssue` com `customfield_10014: "<EPIC_KEY>"`
+caso o `parent` não tenha funcionado na criação.

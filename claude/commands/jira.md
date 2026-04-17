@@ -10,6 +10,20 @@ $ARGUMENTS — JIRA_ID (épico, história ou task)
 - Se for história com tasks: liste as tasks pendentes e peça para escolher uma
 - A issue final de trabalho deve ser uma task ou história sem subtarefas
 
+## Arquivo JIRA.md
+
+**História:** [JIRA_ID — Criar compositions para os tenants/spoke](https://organization.atlassian.net/browse/JIRA_ID)  
+**Épico:** [JIRA_EPIC_ID — Construção da base de Network](https://organization.atlassian.net/browse/JIRA_EPIC_ID)  
+**Link:** https://organization.atlassian.net/browse/JIRA_ID  
+**Status:** In Development  
+**Responsável:** Silvio Manoel da Silva  
+**Branch:** feature/JIRA_ID
+**Objetivo**: O que estamos tentando realizar com esta tarefa
+**Progresso Atual**: O que foi feito até agora
+**O que Funcionou**: Abordagens que tiveram sucesso e devem ser repetidas ou expandidas
+**O que Não Funcionou**: Abordagens que falharam (para que não sejam repetidas)
+**Próximos Passos**: Itens de ação claros para continuar
+
 ## Iniciar tarefa
 
 1. Se não estiver atribuída, confirme e atribua ao usuário atual

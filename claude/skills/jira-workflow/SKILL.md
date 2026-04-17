@@ -1,13 +1,13 @@
 ---
 name: jira-workflow
-description: Primitivas para interagir com o Jira via MCP Atlassian — setup MCP, criar/atualizar JIRA.md, comentar, transicionar status e atribuir issues.
+description: Primitivas para interagir com o Jira via MCP Atlassian — configurar MCP, criar/atualizar JIRA.md, comentar, transicionar status e atribuir issues.
 ---
 
-# jira-workflow skill
+# jira-workflow
 
-## 1. Verificar/configurar MCP Atlassian
+## 1. Verificar e configurar o MCP Atlassian
 
-Cheque se o MCP atlassian está ativo listando os servidores MCP disponíveis na conversa atual.
+Verifique se o MCP Atlassian está ativo listando os servidores MCP disponíveis na conversa atual.
 Se não estiver ativo, execute:
 
 ```
@@ -22,7 +22,7 @@ Guarde como `current_user_account_id` para uso nas demais operações.
 ## 3. Criar ou atualizar JIRA.md
 
 O arquivo `JIRA.md` deve existir na raiz do repositório **somente na branch de trabalho**.
-Ele nunca deve ser commitado na main — garanta que está no `.gitignore` ou que será removido antes do merge.
+Nunca deve ser commitado na main — garanta que está no `.gitignore` ou que será removido antes do merge.
 
 Conteúdo mínimo:
 
@@ -45,7 +45,7 @@ Use `mcp__atlassian__addCommentToJiraIssue` com `contentFormat: "markdown"`.
 
 ## 5. Transicionar status
 
-1. Use `mcp__atlassian__getTransitionsForJiraIssue` para listar transições disponíveis.
+1. Use `mcp__atlassian__getTransitionsForJiraIssue` para listar as transições disponíveis.
 2. Identifique o ID da transição desejada pelo nome (ex: "Em Progresso").
 3. Use `mcp__atlassian__transitionJiraIssue` com o `transition.id` encontrado.
 

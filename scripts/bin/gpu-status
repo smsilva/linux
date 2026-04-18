@@ -1,0 +1,18 @@
+#!/bin/bash
+data="$(nvidia-smi \
+  --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu,temperature.gpu \
+  --format=csv,noheader,nounits)"
+
+gpu="$(echo "${data}"    | awk -F', ' '{print $1}')"
+total="$(echo "${data}"  | awk -F', ' '{print $2}')"
+used="$(echo "${data}"   | awk -F', ' '{print $3}')"
+free="$(echo "${data}"   | awk -F', ' '{print $4}')"
+util="$(echo "${data}"   | awk -F', ' '{print $5}')"
+temp="$(echo "${data}"   | awk -F', ' '{print $6}')"
+
+printf "%-20s %s\n"      "GPU:"         "${gpu}"
+printf "%-20s %s MB\n"  "VRAM Total:"  "${total}"
+printf "%-20s %s MB\n"  "VRAM Usada:"  "${used}"
+printf "%-20s %s MB\n"  "VRAM Livre:"  "${free}"
+printf "%-20s %s %%\n"  "Utilizacao:"  "${util}"
+printf "%-20s %s C\n"   "Temperatura:" "${temp}"

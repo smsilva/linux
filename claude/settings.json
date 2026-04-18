@@ -18,5 +18,10 @@
     "command": "bash /home/silvios/.claude/statusline.sh",
     "refreshInterval": 5
   },
-  "awaySummaryEnabled": false
+  "awaySummaryEnabled": false,
+  "voiceEnabled": true,
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  }
 }

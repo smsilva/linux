@@ -1,0 +1,6 @@
+#!/bin/bash
+credentials_file="${HOME}/.aws/config"
+
+if [[ -e "${credentials_file}" ]]; then
+  code "${credentials_file}"
+fi

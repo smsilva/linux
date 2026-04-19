@@ -13,9 +13,11 @@ sudo apt-get install --yes -q \
   ffmpeg \
   flameshot \
   fortune \
+  gdm-settings \
   gnupg \
   ipcalc \
   jq \
+  libglib2.0-dev \
   libxml2-utils \
   nmap \
   powerline \

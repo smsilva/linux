@@ -13,7 +13,6 @@ sudo apt-get install --yes -q \
   ffmpeg \
   flameshot \
   fortune \
-  gdm-settings \
   gnupg \
   ipcalc \
   jq \

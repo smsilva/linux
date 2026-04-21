@@ -1,0 +1,136 @@
+#!/bin/bash
+
+show_usage() {
+  cat <<EOF
+
+  Select which MCP servers to enable in the current Claude Code project.
+
+  Reads all available servers from .mcp.catalog.json and writes only the
+  selected ones to .mcp.json. Claude Code does not support a "disabled"
+  field — servers must be absent from .mcp.json to be inactive.
+
+    Usage: mcp-select [project-dir]
+
+    Arguments:
+      project-dir   Directory containing .mcp.catalog.json and .mcp.json
+                    (default: current directory)
+
+    Options:
+      -h, --help   Show this help
+
+    Examples:
+      mcp-select
+      mcp-select ~/git/aws-saas-platform
+EOF
+}
+
+case "${1}" in
+  -h | --help) show_usage; exit 0 ;;
+esac
+
+project_dir="${1:-.}"
+catalog_file="${project_dir}/.mcp.catalog.json"
+mcp_file="${project_dir}/.mcp.json"
+
+check_deps() {
+  local missing=()
+  for cmd in jq fzf; do
+    command -v "${cmd}" &>/dev/null || missing+=("${cmd}")
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    printf 'error: missing required tools: %s\n' "${missing[*]}" >&2
+    exit 1
+  fi
+}
+
+main() {
+  check_deps
+
+  if [[ ! -f "${catalog_file}" ]]; then
+    printf 'error: %s not found\n' "${catalog_file}" >&2
+    printf 'hint: create .mcp.catalog.json with all available servers\n' >&2
+    exit 1
+  fi
+
+  mapfile -t all_servers < <(
+    jq -r '.mcpServers | keys[]' "${catalog_file}" | sort
+  )
+
+  mapfile -t enabled_now < <(
+    jq -r '.mcpServers | keys[]' "${mcp_file}" 2>/dev/null | sort
+  )
+
+  local header
+  if [[ ${#enabled_now[@]} -gt 0 ]]; then
+    header="Now enabled: ${enabled_now[*]}"$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
+  else
+    header="No servers currently enabled  |  TAB=toggle  ENTER=confirm  ESC=cancel"
+  fi
+
+  local start_actions="first"
+  for server in "${enabled_now[@]}"; do
+    start_actions="change-query(^${server}\$)+select-all+change-query()+${start_actions}"
+  done
+
+  local fzf_opts=()
+  if [[ -n "${TMUX}" ]]; then
+    fzf_opts=(fzf --tmux "center,80%,80%")
+  else
+    fzf_opts=(fzf --height "100%")
+  fi
+
+  local selected
+  selected=$(
+    printf '%s\n' "${all_servers[@]}" \
+    | "${fzf_opts[@]}" --multi \
+          --bind "start:${start_actions}" \
+          --bind "space:toggle" \
+          --header "${header}" \
+          --prompt "Enable MCPs > " \
+          --preview "jq --arg s {} '.mcpServers[\$s]' \"${catalog_file}\" 2>/dev/null" \
+          --preview-window "right:50%:wrap"
+  ) || {
+    printf 'Cancelled — %s unchanged.\n' "${mcp_file}"
+    exit 0
+  }
+
+  local -A selected_map=()
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] && selected_map["${name}"]=1
+  done <<< "${selected}"
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+
+  # Build .mcp.json with only the selected servers from the catalog
+  local keys_filter="["
+  local first=1
+  for server in "${all_servers[@]}"; do
+    if [[ -n "${selected_map[${server}]+_}" ]]; then
+      [[ "${first}" -eq 0 ]] && keys_filter+=","
+      keys_filter+="\"${server}\""
+      first=0
+    fi
+  done
+  keys_filter+="]"
+
+  jq --argjson keys "${keys_filter}" \
+    '{mcpServers: (.mcpServers | to_entries | map(select(.key as $k | $keys | index($k))) | from_entries)}' \
+    "${catalog_file}" > "${tmp_file}"
+
+  mv "${tmp_file}" "${mcp_file}"
+
+  local new_enabled=() new_disabled=()
+  for server in "${all_servers[@]}"; do
+    if [[ -n "${selected_map[${server}]+_}" ]]; then
+      new_enabled+=("${server}")
+    else
+      new_disabled+=("${server}")
+    fi
+  done
+
+  printf '\nEnabled  (%d): %s\n' "${#new_enabled[@]}" "${new_enabled[*]:-none}"
+  printf 'Disabled (%d): %s\n' "${#new_disabled[@]}" "${new_disabled[*]:-none}"
+}
+
+main

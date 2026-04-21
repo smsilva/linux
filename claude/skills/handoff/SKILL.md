@@ -9,7 +9,9 @@ Steps:
 
 2. If it exists, read it first to understand prior context before updating
 
-3. Create or update the document with:
+3. Read the latest commits until main branch to gather any new information or progress that has been made since the last handoff document was created or updated.
+
+4. Create or update the document with all information below based on the current:
    - **Goal**: What we're trying to accomplish
    - **Current Progress**: What's been done so far
    - **What Worked**: Approaches that succeeded

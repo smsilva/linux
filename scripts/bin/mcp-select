@@ -29,7 +29,8 @@ case "${1}" in
 esac
 
 project_dir="${1:-.}"
-catalog_file="${project_dir}/.mcp.catalog.json"
+catalog_file="${HOME}/.claude/mcp.catalog.json"
+[[ ! -f "${catalog_file}" ]] && catalog_file="${project_dir}/.mcp.catalog.json"
 mcp_file="${project_dir}/.mcp.json"
 
 check_deps() {
@@ -47,9 +48,9 @@ main() {
   check_deps
 
   if [[ ! -f "${catalog_file}" ]]; then
-    printf 'error: %s not found\n' "${catalog_file}" >&2
-    printf 'hint: create .mcp.catalog.json with all available servers\n' >&2
-    exit 1
+    catalog_file="${HOME}/.claude/mcp.catalog.json"
+    printf '{"mcpServers": {}}\n' > "${catalog_file}"
+    printf 'Created empty catalog at %s\n' "${catalog_file}" >&2
   fi
 
   mapfile -t all_servers < <(

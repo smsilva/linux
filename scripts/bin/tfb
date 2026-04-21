@@ -11,19 +11,50 @@ else
   state_file_directory="${current_directory_name}"
 fi
 
-state_file_name="${USER##*\\}/stacks/${state_file_directory}/default.json"
+detect_backend_type() {
+  local tf_files
+  tf_files="$(grep --recursive --include="*.tf" --files-with-matches 'backend "' .)"
+  if [[ -z "${tf_files}" ]]; then
+    echo ""
+    return
+  fi
+  local match
+  match="$(grep --no-filename 'backend "' ${tf_files} | grep -oP 'backend "\K[^"]+'  | head -1)"
+  echo "${match}"
+}
 
-cat <<EOF > "${backend_file}"
+backend_type="$(detect_backend_type)"
+
+case "${backend_type}" in
+  s3)
+    state_file_key="${USER##*\\}/stacks/${state_file_directory}/terraform.tfstate"
+    cat <<EOF > "${backend_file}"
+bucket = "${AWS_BUCKET_NAME:-silvios-wasp-foundation}"
+key    = "${state_file_key}"
+region = "${AWS_BUCKET_REGION:-us-west-2}"
+EOF
+    ;;
+
+  azurerm | "")
+    state_file_name="${USER##*\\}/stacks/${state_file_directory}/default.json"
+    cat <<EOF > "${backend_file}"
 key                  = "${state_file_name}"
 storage_account_name = "${ARM_STORAGE_ACCOUNT_NAME}"
 container_name       = "${ARM_STORAGE_ACCOUNT_CONTAINER_NAME}"
 sas_token            = "${ARM_SAS_TOKEN}"
 EOF
+    if [[ -f "provider.tf" ]]; then
+      if grep --quiet 'backend "local"' "provider.tf"; then
+        sed -i 's|backend "local" {}|backend "azurerm" {}|' "provider.tf"
+      fi
+    fi
+    ;;
 
+  *)
+    echo "Unsupported backend type: ${backend_type}"
+    exit 1
+    ;;
+esac
+
+echo "${backend_type:-azurerm} backend:"
 cat "${backend_file}"
-
-if [[ -f "provider.tf" ]]; then
-  if grep --quiet "backend \"local\"" "provider.tf"; then
-    sed -i 's|backend "local" {}|backend "azurerm" {}|' "provider.tf"
-  fi
-fi

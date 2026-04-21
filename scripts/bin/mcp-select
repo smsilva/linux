@@ -30,7 +30,12 @@ esac
 
 project_dir="${1:-.}"
 catalog_file="${HOME}/.claude/mcp.catalog.json"
-[[ ! -f "${catalog_file}" ]] && catalog_file="${project_dir}/.mcp.catalog.json"
+
+if [[ ! -f "${catalog_file}" ]]; then
+  printf 'error: catalog file not found at %s\n' "${catalog_file}" >&2
+  exit 1
+fi
+
 mcp_file="${project_dir}/.mcp.json"
 
 check_deps() {

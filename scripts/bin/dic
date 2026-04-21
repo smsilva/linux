@@ -3,6 +3,7 @@ image_name_expression=$(
   tr "\n" "|" <<EOF | sed 's/|$//'
 artifacts
 commitizen
+hashicorp/terraform-mcp-server
 k3d
 k3s
 kafka

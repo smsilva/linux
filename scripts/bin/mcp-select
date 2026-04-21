@@ -62,15 +62,27 @@ main() {
 
   local header
   if [[ ${#enabled_now[@]} -gt 0 ]]; then
-    header="Now enabled: ${enabled_now[*]}"$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
+    header="Now enabled:"
+    for server in "${enabled_now[@]}"; do
+      header+=$'\n'"  ${server}"
+    done
+    header+=$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
   else
-    header="No servers currently enabled  |  TAB=toggle  ENTER=confirm  ESC=cancel"
+    header="No servers currently enabled"$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
   fi
 
-  local start_actions="first"
-  for server in "${enabled_now[@]}"; do
-    start_actions="change-query(^${server}\$)+select-all+change-query()+${start_actions}"
-  done
+  local load_actions="first"
+  if [[ ${#enabled_now[@]} -gt 0 ]]; then
+    local pos
+    for server in "${enabled_now[@]}"; do
+      pos=1
+      for s in "${all_servers[@]}"; do
+        [[ "${s}" == "${server}" ]] && break
+        ((pos++))
+      done
+      load_actions="pos(${pos})+toggle+${load_actions}"
+    done
+  fi
 
   local fzf_opts=()
   if [[ -n "${TMUX}" ]]; then
@@ -83,8 +95,9 @@ main() {
   selected=$(
     printf '%s\n' "${all_servers[@]}" \
     | "${fzf_opts[@]}" --multi \
-          --bind "start:${start_actions}" \
+          --bind "load:${load_actions}" \
           --bind "space:toggle" \
+          --bind "enter:transform:[[ \$FZF_SELECT_COUNT -eq 0 ]] && echo 'become(true)' || echo 'accept'" \
           --header "${header}" \
           --prompt "Enable MCPs > " \
           --preview "jq --arg s {} '.mcpServers[\$s]' \"${catalog_file}\" 2>/dev/null" \

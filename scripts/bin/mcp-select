@@ -5,28 +5,71 @@ show_usage() {
 
   Select which MCP servers to enable in the current Claude Code project.
 
-  Reads all available servers from .mcp.catalog.json and writes only the
-  selected ones to .mcp.json. Claude Code does not support a "disabled"
+  Reads all available servers from ~/.claude/mcp.catalog.json and writes only
+  the selected ones to .mcp.json. Claude Code does not support a "disabled"
   field — servers must be absent from .mcp.json to be inactive.
 
-    Usage: mcp-select [project-dir]
+    Usage: mcp-select [--mcp <server>]... [project-dir]
+           mcp-select --list
+           mcp-select --list-active [project-dir]
 
     Arguments:
-      project-dir   Directory containing .mcp.catalog.json and .mcp.json
+      project-dir   Directory where .mcp.json will be written
                     (default: current directory)
 
     Options:
-      -h, --help   Show this help
+      --mcp <name>    Enable this server; skips interactive UI (repeatable)
+      --list          Print available server names from the catalog and exit
+      --list-active   Print servers currently enabled in project .mcp.json and exit
+      --clear         Disable all servers in project .mcp.json and exit
+      -h, --help      Show this help
 
     Examples:
       mcp-select
       mcp-select ~/git/aws-saas-platform
+      mcp-select --list
+      mcp-select --list-active
+      mcp-select --list-active ~/git/aws-saas-platform
+      mcp-select --clear
+      mcp-select --clear ~/git/aws-saas-platform
+      mcp-select --mcp atlassian --mcp github
+      mcp-select --mcp atlassian ~/git/aws-saas-platform
 EOF
 }
 
-case "${1}" in
-  -h | --help) show_usage; exit 0 ;;
-esac
+cli_mcps=()
+list_only=false
+list_active=false
+clear_active=false
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help)
+      show_usage
+      exit 0
+      ;;
+    --list)
+      list_only=true
+      ;;
+    --list-active)
+      list_active=true
+      ;;
+    --clear)
+      clear_active=true
+      ;;
+    --mcp)
+      shift
+      cli_mcps+=("${1}")
+      ;;
+    *)
+      printf 'error: unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+[[ "${1}" == "--" ]] && shift
 
 project_dir="${1:-.}"
 catalog_file="${HOME}/.claude/mcp.catalog.json"
@@ -36,11 +79,31 @@ if [[ ! -f "${catalog_file}" ]]; then
   exit 1
 fi
 
+if [[ "${list_only}" == true ]]; then
+  jq -r '.mcpServers | keys[]' "${catalog_file}" | sort
+  exit 0
+fi
+
 mcp_file="${project_dir}/.mcp.json"
+
+if [[ "${list_active}" == true ]]; then
+  if [[ ! -f "${mcp_file}" ]]; then
+    printf 'error: %s not found\n' "${mcp_file}" >&2
+    exit 1
+  fi
+  jq -r '.mcpServers | keys[]' "${mcp_file}" | sort
+  exit 0
+fi
+
+if [[ "${clear_active}" == true ]]; then
+  printf '{"mcpServers": {}}\n' > "${mcp_file}"
+  printf 'Cleared — %s\n' "${mcp_file}"
+  exit 0
+fi
 
 check_deps() {
   local missing=()
-  for cmd in jq fzf; do
+  for cmd in "$@"; do
     command -v "${cmd}" &>/dev/null || missing+=("${cmd}")
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -50,13 +113,7 @@ check_deps() {
 }
 
 main() {
-  check_deps
-
-  if [[ ! -f "${catalog_file}" ]]; then
-    catalog_file="${HOME}/.claude/mcp.catalog.json"
-    printf '{"mcpServers": {}}\n' > "${catalog_file}"
-    printf 'Created empty catalog at %s\n' "${catalog_file}" >&2
-  fi
+  check_deps jq
 
   mapfile -t all_servers < <(
     jq -r '.mcpServers | keys[]' "${catalog_file}" | sort
@@ -66,64 +123,81 @@ main() {
     jq -r '.mcpServers | keys[]' "${mcp_file}" 2>/dev/null | sort
   )
 
-  local header
-  if [[ ${#enabled_now[@]} -gt 0 ]]; then
-    header="Now enabled:"
-    for server in "${enabled_now[@]}"; do
-      header+=$'\n'"  ${server}"
-    done
-    header+=$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
-  else
-    header="No servers currently enabled"$'\n'"TAB=toggle  ENTER=confirm  ESC=cancel"
-  fi
-
-  local load_actions="first"
-  if [[ ${#enabled_now[@]} -gt 0 ]]; then
-    local pos
-    for server in "${enabled_now[@]}"; do
-      pos=1
-      for s in "${all_servers[@]}"; do
-        [[ "${s}" == "${server}" ]] && break
-        ((pos++))
-      done
-      load_actions="pos(${pos})+toggle+${load_actions}"
-    done
-  fi
-
-  local fzf_opts=()
-  if [[ -n "${TMUX}" ]]; then
-    fzf_opts=(fzf --tmux "center,80%,80%")
-  else
-    fzf_opts=(fzf --height "100%")
-  fi
-
-  local selected
-  selected=$(
-    printf '%s\n' "${all_servers[@]}" \
-    | "${fzf_opts[@]}" --multi \
-          --bind "load:${load_actions}" \
-          --bind "space:toggle" \
-          --bind "enter:transform:[[ \$FZF_SELECT_COUNT -eq 0 ]] && echo 'become(true)' || echo 'accept'" \
-          --header "${header}" \
-          --prompt "Enable MCPs > " \
-          --preview "jq --arg s {} '.mcpServers[\$s]' \"${catalog_file}\" 2>/dev/null" \
-          --preview-window "right:50%:wrap"
-  ) || {
-    printf 'Cancelled — %s unchanged.\n' "${mcp_file}"
-    exit 0
-  }
-
   local -A selected_map=()
-  while IFS= read -r name; do
-    [[ -n "${name}" ]] && selected_map["${name}"]=1
-  done <<< "${selected}"
+
+  if [[ ${#cli_mcps[@]} -gt 0 ]]; then
+    local unknown=()
+    local name found s
+    for name in "${cli_mcps[@]}"; do
+      found=0
+      for s in "${all_servers[@]}"; do
+        [[ "${s}" == "${name}" ]] && found=1 && break
+      done
+      if [[ "${found}" -eq 1 ]]; then
+        selected_map["${name}"]=1
+      else
+        unknown+=("${name}")
+      fi
+    done
+
+    if [[ ${#unknown[@]} -gt 0 ]]; then
+      printf 'warning: unknown servers (skipped): %s\n' "${unknown[*]}" >&2
+    fi
+
+    if [[ ${#selected_map[@]} -eq 0 ]]; then
+      printf 'error: no valid servers specified\n' >&2
+      exit 1
+    fi
+  else
+    check_deps fzf
+
+    local load_actions="first"
+    if [[ ${#enabled_now[@]} -gt 0 ]]; then
+      local pos server
+      for server in "${enabled_now[@]}"; do
+        pos=1
+        for s in "${all_servers[@]}"; do
+          [[ "${s}" == "${server}" ]] && break
+          ((pos++))
+        done
+        load_actions="pos(${pos})+toggle+${load_actions}"
+      done
+    fi
+
+    local fzf_opts=()
+    if [[ -n "${TMUX}" ]]; then
+      fzf_opts=(fzf --tmux "center,80%,80%")
+    else
+      fzf_opts=(fzf --height "100%")
+    fi
+
+    local selected
+    selected=$(
+      printf '%s\n' "${all_servers[@]}" \
+      | "${fzf_opts[@]}" --multi \
+            --bind "load:${load_actions}" \
+            --bind "space:toggle" \
+            --bind "enter:transform:[[ \$FZF_SELECT_COUNT -eq 0 ]] && echo 'become(true)' || echo 'accept'" \
+            --prompt "Select MCPs" \
+            --preview "jq --arg s {} '.mcpServers[\$s]' \"${catalog_file}\" 2>/dev/null" \
+            --preview-window "right:50%:wrap"
+    ) || {
+      printf 'Cancelled — %s unchanged.\n' "${mcp_file}"
+      exit 0
+    }
+
+    local name
+    while IFS= read -r name; do
+      [[ -n "${name}" ]] && selected_map["${name}"]=1
+    done <<< "${selected}"
+  fi
 
   local tmp_file
   tmp_file="$(mktemp)"
 
-  # Build .mcp.json with only the selected servers from the catalog
   local keys_filter="["
   local first=1
+  local server
   for server in "${all_servers[@]}"; do
     if [[ -n "${selected_map[${server}]+_}" ]]; then
       [[ "${first}" -eq 0 ]] && keys_filter+=","

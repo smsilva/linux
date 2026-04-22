@@ -5,7 +5,7 @@ if [[ -z ${remote_branch_name} ]]; then
   remote_branch_name=$(git branch --remotes | fzf)
 fi
 
-remote_name=$(awk -F '/' '{ print $1 }' <<< ${remote_branch_name?})
-branch_name=$(awk -F '/' '{ print $2 }' <<< ${remote_branch_name?})
+remote_name=$(cut -d'/' -f1 <<< "${remote_branch_name?}")
+branch_name=$(cut -d'/' -f2- <<< "${remote_branch_name?}")
 
 git push ${remote_name?} --delete ${branch_name?}

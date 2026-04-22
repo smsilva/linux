@@ -9,7 +9,7 @@ show_usage() {
   the selected ones to .mcp.json. Claude Code does not support a "disabled"
   field — servers must be absent from .mcp.json to be inactive.
 
-    Usage: mcp [--mcp <server>]... [project-dir]
+    Usage: mcp [--add <server>]... [project-dir]
            mcp --list
            mcp --list-active [project-dir]
 
@@ -18,7 +18,7 @@ show_usage() {
                     (default: current directory)
 
     Options:
-      --mcp <name>    Enable this server; skips interactive UI (repeatable)
+      --add <name>    Enable this server; skips interactive UI (repeatable)
       --list          Print available server names from the catalog and exit
       --list-active   Print servers currently enabled in project .mcp.json and exit
       --clear         Disable all servers in project .mcp.json and exit
@@ -32,8 +32,8 @@ show_usage() {
       mcp --list-active ~/git/aws-saas-platform
       mcp --clear
       mcp --clear ~/git/aws-saas-platform
-      mcp --mcp atlassian --mcp github
-      mcp --mcp atlassian ~/git/aws-saas-platform
+      mcp --add atlassian --add github
+      mcp --add atlassian ~/git/aws-saas-platform
 EOF
 }
 
@@ -57,7 +57,7 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
     --clear)
       clear_active=true
       ;;
-    --mcp)
+    --add)
       shift
       cli_mcps+=("${1}")
       ;;

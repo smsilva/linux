@@ -13,6 +13,7 @@ claude_settings_file="${HOME}/.claude/settings.json"
 claude_statusline_file="${HOME}/.claude/statusline.sh"
 claude_commands_dir="${HOME}/.claude/commands"
 claude_skills_dir="${HOME}/.claude/skills"
+claude_agents_dir="${HOME}/.claude/agents"
 
 chmod +x ${scripts_location}/*
 
@@ -54,6 +55,12 @@ fi
 
 if [[ ! -e "${claude_skills_dir}" ]]; then
   ln --symbolic "${PWD}/claude/skills" "${claude_skills_dir}" &> /dev/null
+fi
+
+[[ -d "${claude_agents_dir}" ]] && rm --recursive --force "${claude_agents_dir}"
+
+if [[ ! -e "${claude_agents_dir}" ]]; then
+  ln --symbolic "${PWD}/claude/agents" "${claude_agents_dir}" &> /dev/null
 fi
 
 if [[ ! -e "${bash_aliases_file}" ]]; then

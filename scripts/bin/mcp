@@ -9,9 +9,9 @@ show_usage() {
   the selected ones to .mcp.json. Claude Code does not support a "disabled"
   field — servers must be absent from .mcp.json to be inactive.
 
-    Usage: mcp-select [--mcp <server>]... [project-dir]
-           mcp-select --list
-           mcp-select --list-active [project-dir]
+    Usage: mcp [--mcp <server>]... [project-dir]
+           mcp --list
+           mcp --list-active [project-dir]
 
     Arguments:
       project-dir   Directory where .mcp.json will be written
@@ -25,15 +25,15 @@ show_usage() {
       -h, --help      Show this help
 
     Examples:
-      mcp-select
-      mcp-select ~/git/aws-saas-platform
-      mcp-select --list
-      mcp-select --list-active
-      mcp-select --list-active ~/git/aws-saas-platform
-      mcp-select --clear
-      mcp-select --clear ~/git/aws-saas-platform
-      mcp-select --mcp atlassian --mcp github
-      mcp-select --mcp atlassian ~/git/aws-saas-platform
+      mcp
+      mcp ~/git/aws-saas-platform
+      mcp --list
+      mcp --list-active
+      mcp --list-active ~/git/aws-saas-platform
+      mcp --clear
+      mcp --clear ~/git/aws-saas-platform
+      mcp --mcp atlassian --mcp github
+      mcp --mcp atlassian ~/git/aws-saas-platform
 EOF
 }
 

@@ -1,6 +1,7 @@
 # Instructions
 
 ## General
+- Never translate technical terms (e.g., "API", "endpoint", "database", "redeploy", "rollback")
 - Concise responses, actionable
 - No preamble ("Sure!", "Great question!")
 - No narration before tool calls

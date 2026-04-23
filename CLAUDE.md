@@ -36,3 +36,9 @@ On shell start: `.bashrc` → `scripts/bash_config` (PATH, env vars) → `script
 ### This file evolution
 
 Update this file as needed to provide guidance to Claude when working with this codebase. It should serve as a living document to help maintain consistency and best practices across all contributions.
+
+## Changes only on settings.local.json
+
+- enableAllProjectMcpServers
+- enabledMcpjsonServers
+- enabledPlugins

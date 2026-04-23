@@ -23,18 +23,7 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
 
 ## Bash script conventions
 
-Use `/bash-scripts` skill when creating new scripts. Key rules:
-
-- No file extension on executables
-- 2-space indent; opening `do`/`then` on same line as `while`/`if`
-- Lowercase local variables (`input_file`, `dry_run`); UPPERCASE env vars (`ARM_SUBSCRIPTION_ID`)
-- Always quote variable expansions: `"${variable}"` not `$variable`
-- Support stdin/file fallback: `input_file="${1:-/dev/stdin}"`
-- Use `${var?}` for required argument validation (fails fast with clear error)
-- Add script's own directory to `$PATH` to reference sibling scripts
-- Show only a short prefix when printing secrets: `"${SECRET:0:3}"`
-- Use `set -e` only for scripts with sequential steps that must all succeed
-- Use long-form CLI options: `--yes` not `-y`, `--verbose` not `-v`, `--output` not `-o`
+Use `/bash-scripts` skill when creating new scripts.
 
 ## Commit message conventions
 

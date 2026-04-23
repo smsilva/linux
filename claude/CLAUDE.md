@@ -1,11 +1,10 @@
-# Claude Instructions
+# Instructions
 
 ## General
 - Concise responses, actionable
-- No preamble ("Sure!", "Great question!") or closing summaries
+- No preamble ("Sure!", "Great question!")
 - No narration before tool calls
 - Don't restate the question
-- One solution unless alternatives are requested
 - Skip hedging phrases ("Note that...", "Keep in mind...")
 - Explain only non-obvious logic
 
@@ -17,30 +16,13 @@
 - Always quote: `"${variable}"`
 - stdin fallback: `input_file="${1:-/dev/stdin}"`
 - Required args: `${var?}`
-
-## Commits
-Use `conventional-commits` skill.
-
-## Documentation
-- `docs/` for markdown; descriptive names (`setup.md`, `networking.md`)
-- `technical-decisions.md` for ADRs; `next-steps.md` for follow-ups; `lessons-learned.md` for retros
-- Related docs → subfolder (`networking/`, `security/`)
-- mkdocs: link all docs in nav; add GH Actions for Pages if on GitHub
-- File change output: summary only (e.g. "Added 4 lines, removed 2")
-
-## Code — language priorities
-- Python → microservices
-- Bash → scripts/automation
-- Terraform → IaC
-- Go → CLI/performance
-- Crossplane → multi-cloud infra
-- Helm → Kubernetes deployments
-
-## Git & outputs
-- Git: show command and commit message; omit command output
-- Outputs: max 5 lines; save long output to `/tmp/<topic>/YYYY-MM-DD_HHMMSS-<name>.txt`; share path
-
-## Tests
-- Track runs in `.tests.md` (timestamp + commit hash); add to `.gitignore`
-- Before a new commit, check for changes since last run
-- Never commit if tests were failing, unless explicitly instructed
+- Add script's own directory to `$PATH` to reference sibling scripts
+- Show only a short prefix when printing secrets: `"${SECRET:0:3}"`
+- Use `set -e` only for scripts with sequential steps that must all succeed
+- When call a script, split each argument onto its own line for readability:
+```bash
+./command-or-script \
+  --option1 value1 \
+  --option2 value2 \
+  --option3 value3
+```

@@ -1,3 +1,5 @@
-Leia o HANDOFF.md e vamos continuar de onde paramos.
+Leia o `HANDOFF.md` e continue de onde paramos.
 
-Quando souber o que temos que fazer, lembre o usuário de selecionar os mcp servers adequados à tarefa usando `mcp` antes de abrir o claude.
+Identifique a próxima tarefa e sugira o comando `mcp` com os servers adequados, um `--add` por linha.
+
+Ao concluir, remova o item concluído do `HANDOFF.md`.

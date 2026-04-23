@@ -1,29 +1,23 @@
 ---
 name: jira-workflow
-description: Primitivas para interagir com o Jira via MCP Atlassian — configurar MCP, criar/atualizar JIRA.md, comentar, transicionar status e atribuir issues.
+description: Primitives for interacting with Jira via MCP Atlassian — configure MCP, create/update JIRA.md, comment, transition status, and assign issues.
 ---
 
 # jira-workflow
 
-## 1. Verificar e configurar o MCP Atlassian
+## 1. Check and configure the Atlassian MCP
 
-Verifique se o MCP Atlassian está ativo listando os servidores MCP disponíveis na conversa atual.
-
-Se não estiver ativo, execute:
+If the Atlassian MCP server is not active, run:
 
 ```
 claude mcp add --transport http atlassian https://mcp.atlassian.com/v1/mcp
 ```
 
-Configure o projeto local para que o Claude não precise perguntar sobre qualquer ação de consulta ou lista usando o MCP Atlassian.
-
-Exemplo:
-
-`.claude/settings.local.json`:
+Add read-only permissions to `.claude/settings.local.json` so Claude doesn't prompt for every lookup:
 
 ```json
 {
-"permissions": {
+  "permissions": {
     "allow": [
       "mcp__atlassian__atlassianUserInfo",
       "mcp__atlassian__getJiraIssue",
@@ -51,60 +45,53 @@ Exemplo:
 }
 ```
 
-## 2. Obter recursos acessíveis e usuário atual
+## 2. Get accessible resources and current user
 
-Use `mcp__atlassian__getAccessibleAtlassianResources` para obter o `cloudId` do site Atlassian.
-Guarde como `cloud_id` para uso em todas as chamadas MCP seguintes.
+Use `mcp__atlassian__getAccessibleAtlassianResources` to get the `cloudId` of the Atlassian site.
 
-Use `mcp__atlassian__atlassianUserInfo` para obter o `accountId` do usuário logado.
-Guarde como `current_user_account_id` para uso nas demais operações.
+Use `mcp__atlassian__atlassianUserInfo` to get the `accountId` of the logged-in user.
 
-## 3. Buscar a issue
+## 3. Fetch the issue
 
-Use `mcp__atlassian__getJiraIssue` com `responseContentFormat: "markdown"` para obter os dados da issue.
+Use `mcp__atlassian__getJiraIssue` with `responseContentFormat: "markdown"`.
 
-Extraia os campos necessários para popular o JIRA.md:
-- `key`, `summary`, `status`, `description`, `assignee`, `sprint`, `epic`
+Fields needed for JIRA.md: `key`, `summary`, `status`, `description`, `assignee`, `sprint`, `epic`.
 
-## 4. Criar ou atualizar JIRA.md
+## 4. Create or update JIRA.md
 
-O arquivo `JIRA.md` deve existir na raiz do repositório **somente na branch de trabalho**.
+`JIRA.md` lives at the repo root **on the working branch only**.
 
-Verifique se `JIRA.md` está no `.gitignore` do repositório. Se não estiver, adicione.
+Verify `JIRA.md` is in `.gitignore`; add it if missing.
 
 ```markdown
 # <ISSUE_KEY>: <summary>
 
 **Status:** <status>
-**Link:** <URL da issue no Jira>
-**Assignee:** <nome do responsável>
-**Sprint:** <sprint atual> *(opcional)*
-**Epic:** <épico> *(opcional)*
+**Link:** <Jira issue URL>
+**Assignee:** <assignee name>
+**Sprint:** <current sprint> *(optional)*
+**Epic:** <epic> *(optional)*
 
-## Descrição
+## Description
 
 <description>
 ```
 
-Sincronize o conteúdo do JIRA.md como comentário na issue nos seguintes momentos:
-- Ao criar o JIRA.md pela primeira vez
-- Ao transicionar o status da issue
-- Ao encerrar o trabalho (handoff ou conclusão)
+Sync JIRA.md content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
+- When creating JIRA.md for the first time
+- When transitioning the issue status
+- When closing out the work (handoff or completion)
 
-## 5. Adicionar comentário
+## 5. Transition status
 
-Use `mcp__atlassian__addCommentToJiraIssue` com `contentFormat: "markdown"`.
+1. Use `mcp__atlassian__getTransitionsForJiraIssue` to list available transitions.
+2. Identify the target transition ID by name (e.g. "In Progress").
+3. Use `mcp__atlassian__transitionJiraIssue` with the `transition.id` found.
+4. Update the `Status` field in JIRA.md.
 
-## 6. Transicionar status
+## 6. Assign issue to current user
 
-1. Use `mcp__atlassian__getTransitionsForJiraIssue` para listar as transições disponíveis.
-2. Identifique o ID da transição desejada pelo nome (ex: "Em Progresso").
-3. Use `mcp__atlassian__transitionJiraIssue` com o `transition.id` encontrado.
-4. Atualize o campo `Status` no JIRA.md e sincronize como comentário na issue.
-
-## 7. Atribuir issue ao usuário atual
-
-Use `mcp__atlassian__editJiraIssue` com:
+Use `mcp__atlassian__editJiraIssue` with:
 
 ```json
 {
@@ -114,12 +101,10 @@ Use `mcp__atlassian__editJiraIssue` com:
 }
 ```
 
-## 8. Criar issues (histórias ou tasks)
+## 7. Create issues (stories or tasks)
 
-Use `mcp__atlassian__createJiraIssue` com `issueTypeName`, `summary` e `projectKey`.
+Use `mcp__atlassian__createJiraIssue` with `issueTypeName`, `summary`, and `projectKey`.
 
-Se `.claude/JIRA-PROJECT.md` existir no projeto atual, aplique os `additional_fields` definidos
-na seção "Criação de issues — campos obrigatórios" desse arquivo antes de criar qualquer issue.
+If `.claude/JIRA-PROJECT.md` exists in the current project, apply the `additional_fields` defined in its "Issue creation — required fields" section before creating any issue.
 
-Após criar, vincule ao épico via `mcp__atlassian__editJiraIssue` com `customfield_10014: "<EPIC_KEY>"`
-caso o `parent` não tenha funcionado na criação.
+After creation, link to the epic via `mcp__atlassian__editJiraIssue` with `customfield_10014: "<EPIC_KEY>"` if the `parent` field is not accepted by the project's issue type.

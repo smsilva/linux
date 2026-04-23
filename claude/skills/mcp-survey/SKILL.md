@@ -1,7 +1,7 @@
-Survey available MCP servers from a given repository URL and recommend which ones to add to the catalog.
-
-Usage: /mcp-survey <url>
-Example: /mcp-survey https://github.com/awslabs/mcp/tree/main
+---
+name: mcp-survey
+description: Survey available MCP servers from a given repository URL and recommend which ones to add to the catalog
+---
 
 $ARGUMENTS is the URL of the MCP server registry to survey. Required — no default fallback.
 

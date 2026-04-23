@@ -11,7 +11,6 @@ git_global_templates="${HOME}/.git-templates"
 claude_global_md_file="${HOME}/.claude/CLAUDE.md"
 claude_settings_file="${HOME}/.claude/settings.json"
 claude_statusline_file="${HOME}/.claude/statusline.sh"
-claude_commands_dir="${HOME}/.claude/commands"
 claude_skills_dir="${HOME}/.claude/skills"
 claude_agents_dir="${HOME}/.claude/agents"
 
@@ -43,12 +42,6 @@ fi
 
 if [[ ! -e "${claude_statusline_file}" ]]; then
   ln --symbolic "${PWD}/scripts/bin/claude-status-line" "${claude_statusline_file}" &> /dev/null
-fi
-
-[[ -d "${claude_commands_dir}" ]] && rm --recursive --force "${claude_commands_dir}"
-
-if [[ ! -e "${claude_commands_dir}" ]]; then
-  ln --symbolic "${PWD}/claude/commands" "${claude_commands_dir}" &> /dev/null
 fi
 
 [[ -d "${claude_skills_dir}" ]] && rm --recursive --force "${claude_skills_dir}"

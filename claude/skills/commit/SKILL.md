@@ -1,4 +1,7 @@
-Commits all pending changes in the working tree
+---
+name: commit
+description: Commits all pending changes in the working tree
+---
 
 - Do not amend existing commits
 

@@ -1,4 +1,7 @@
-List Claude Code sessions for a given date with their first prompt.
+---
+name: sessions
+description: List Claude Code sessions for a given date with their first prompt
+---
 
 $ARGUMENTS may contain `--date YYYY-MM-DD` and/or `--project /path`. If no date is given, default to today (compute the actual date).
 

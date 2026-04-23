@@ -17,10 +17,10 @@
 - Always quote: `"${variable}"`
 - stdin fallback: `input_file="${1:-/dev/stdin}"`
 - Required args: `${var?}`
-- Add script's own directory to `$PATH` to reference sibling scripts
+- Add script's own directory to `${PATH}` to reference sibling scripts
 - Show only a short prefix when printing secrets: `"${SECRET:0:3}"`
 - Use `set -e` only for scripts with sequential steps that must all succeed
-- When call a script, split each argument onto its own line for readability:
+- When calling a script, split each argument onto its own line for readability:
 ```bash
 ./command-or-script \
   --option1 value1 \

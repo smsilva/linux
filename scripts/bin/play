@@ -1,0 +1,61 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+sounds_dir="/usr/share/sounds/freedesktop/stereo"
+
+show_usage() {
+  cat <<EOF
+
+  Play a notification sound.
+
+  Default sounds directory: ${sounds_dir}
+
+    Options:
+
+      -h, --help    Show this help
+      --list        List available sound names
+
+    Examples:
+
+      ${this_script_name}
+      ${this_script_name} bell
+      ${this_script_name} bell.oga
+      ${this_script_name} /path/to/sound.oga
+EOF
+}
+
+play_sound() {
+  pw-play "${1}" 2>/dev/null \
+    || aplay "${1}" 2>/dev/null \
+    || ffplay -nodisp -autoexit "${1}" 2>/dev/null
+}
+
+case "${1}" in
+  -h | --help)
+    show_usage
+    exit 0
+    ;;
+
+  --list)
+    ls "${sounds_dir}"/*.oga | xargs -I{} basename {} .oga
+    exit 0
+    ;;
+
+  "")
+    selected="$(ls "${sounds_dir}"/*.oga | xargs -I{} basename {} .oga | fzf)"
+    [[ -z "${selected}" ]] && exit 0
+    play_sound "${sounds_dir}/${selected}.oga"
+    ;;
+
+  *)
+    if [[ "${1}" == /* || "${1}" == */* ]]; then
+      sound="${1}"
+    elif [[ "${1}" == *.oga ]]; then
+      sound="${sounds_dir}/${1}"
+    else
+      sound="${sounds_dir}/${1}.oga"
+    fi
+    play_sound "${sound}"
+    ;;
+
+esac

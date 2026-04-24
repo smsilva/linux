@@ -40,10 +40,14 @@
     "command": "bash /home/silvios/.claude/statusline.sh",
     "refreshInterval": 5
   },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "chrome-devtools-mcp@claude-plugins-official": true
+  },
   "awaySummaryEnabled": false,
-  "voiceEnabled": true,
   "voice": {
     "enabled": true,
     "mode": "hold"
-  }
+  },
+  "voiceEnabled": true
 }

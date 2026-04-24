@@ -49,9 +49,17 @@ This prints `KEY | Name | projectTypeKey` per project. Show the list and ask the
 Ask: "Do you have an existing Jira issue key from this project to use as a reference for field values? (e.g. `PROJ-123` or full URL like `https://account.atlassian.net/browse/PROJ-123`)"
 
 If provided:
-- Call `getJiraIssue` with `fields: ["labels", "customfield_*", "priority", "issuetype", "parent"]`
-- Extract all set `customfield_*` values and `labels` → use as **ground truth** for `additional_fields`
-- Skip step 5 (field metadata) and step 6 (labels prompt) — values are already known; just confirm with the user
+1. Call `getJiraIssueTypeMetaWithFields` for the Story issue type to discover all custom field IDs.
+   If the response is saved to a file, run:
+   ```bash
+   python3 ~/.claude/skills/jira-init/scripts/parse_fields.py <path-to-tool-output-file>
+   ```
+   Collect all `customfield_XXXXX` IDs from the output.
+2. Call `getJiraIssue` with `fields` set to the discovered custom field IDs plus `["labels", "priority", "issuetype", "parent"]`.
+3. Extract all non-null/non-empty `customfield_*` values and `labels` → use as **ground truth** for `additional_fields`.
+4. Skip step 5 (field metadata) and step 6 (labels prompt) — values are already known; just confirm with the user.
+
+> **Why discover fields first:** `customfield_*` is not a valid wildcard in the Jira API — only fields explicitly listed in `fields` are returned. Custom fields can have IDs above 11000 (e.g. `customfield_11550`) and are invisible if you hardcode a low range like 10000–10036.
 
 If not provided, continue to step 5.
 

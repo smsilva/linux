@@ -49,5 +49,7 @@
     "enabled": true,
     "mode": "hold"
   },
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "fileCheckpointingEnabled": false,
+  "agentPushNotifEnabled": true
 }

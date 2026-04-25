@@ -1,0 +1,79 @@
+#!/bin/bash
+# Pulls the git repository backing a symlink-installed Claude skill.
+# Resolves: skill name → symlink path → real path → git repo root → git pull.
+
+this_script_path="$(realpath "${0}")"
+this_script_directory="${this_script_path%/*}"
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Update a Claude skill installed as a symlink by pulling its source git repository.
+
+    Options:
+
+      -h, --help  Show this help
+
+    Arguments:
+
+      <skill-name>  Name of the skill to update (required)
+
+    Examples:
+
+      update-skill security-review
+
+      list-symlink-skills | xargs -I{} update-skill {}
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+skill_name="${1?skill-name is required — run update-skill --help}"
+
+global_dir="${HOME}/.claude/skills"
+local_dir="${PWD}/.claude/skills"
+
+if [ -L "${local_dir}/${skill_name}" ]; then
+  install_path="${local_dir}/${skill_name}"
+elif [ -L "${global_dir}/${skill_name}" ]; then
+  install_path="${global_dir}/${skill_name}"
+else
+  echo "Skill \"${skill_name}\" não encontrada como symlink em:"
+  echo "  ${local_dir}"
+  echo "  ${global_dir}"
+  exit 1
+fi
+
+target=$(readlink -f "${install_path}")
+local_repo=$(echo "${target}" | grep -oP "^${HOME}/\.git/[^/]+/[^/]+")
+
+if [ -z "${local_repo}" ]; then
+  echo "Não foi possível extrair o repositório git do symlink:"
+  echo "  ${target}"
+  echo "Esperado: ${HOME}/.git/<owner>/<repo>/..."
+  exit 1
+fi
+
+if [ ! -d "${local_repo}/.git" ]; then
+  echo "Repositório git não encontrado em ${local_repo}"
+  exit 1
+fi
+
+git -C "${local_repo}" pull --ff-only
+echo "✓ ${skill_name}  →  ${local_repo}"

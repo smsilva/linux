@@ -1,0 +1,54 @@
+#!/bin/bash
+# Outputs skill names installed as symlinks, one per line, sorted alphabetically.
+# Checks both the global (~/.claude/skills) and local project (.claude/skills) directories.
+
+show_usage() {
+  cat <<EOF
+
+  List Claude skills installed as symlinks (updatable via skill-update).
+
+    Options:
+
+      -h, --help  Show this help
+
+    Output:
+
+      One skill name per line, alphabetically sorted, deduplicated.
+
+    Examples:
+
+      list-symlink-skills
+
+      list-symlink-skills | fzf
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+global_dir="${HOME}/.claude/skills"
+local_dir="${PWD}/.claude/skills"
+
+{
+  for d in "${global_dir}"/*/; do
+    skill="${d%/}"
+    [ -L "${skill}" ] && basename "${skill}"
+  done
+
+  for d in "${local_dir}"/*/; do
+    skill="${d%/}"
+    [ -L "${skill}" ] && basename "${skill}"
+  done
+} | sort -u

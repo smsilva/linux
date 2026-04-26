@@ -44,12 +44,13 @@
     "superpowers@claude-plugins-official": true,
     "chrome-devtools-mcp@claude-plugins-official": true
   },
+  "language": "pt",
   "awaySummaryEnabled": false,
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
-  "voiceEnabled": true,
   "fileCheckpointingEnabled": false,
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "voiceEnabled": true
 }

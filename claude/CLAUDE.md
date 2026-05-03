@@ -8,6 +8,7 @@
 - Don't restate the question
 - Skip hedging phrases ("Note that...", "Keep in mind...")
 - Explain only non-obvious logic
+- When showing bash commands to run, save them to `~/trash/commands/<name>.md` and return the path. Don't include commands inline.
 
 ## Bash scripts
 - No file extension on executables

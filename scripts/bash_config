@@ -11,6 +11,8 @@ export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CAUTION=45
 export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_WARNING=60
 export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CRITICAL=75
 
+export PYENV_ROOT="${HOME}/.pyenv"
+
 # Terraform Packager configuration
 terraform_packager_directory="${TERRAFORM_PACKAGER_DIRECTORY:-${HOME}/git/terraform-packager}"
 terraform_packager_scripts_directory="${terraform_packager_directory}/scripts"
@@ -41,6 +43,11 @@ PATH=$(add_to_path "${HOME}/bin")
 PATH=$(add_to_path "${HOME}/.local/bin")
 PATH=$(add_to_path "${android_studio_bin_directory}")
 PATH=$(add_to_path "${android_platform_tools_directory}")
+PATH=$(add_to_path "${PYENV_ROOT}/bin")
+
+if which pyenv &> /dev/null; then
+  eval "$(pyenv init -)"
+fi
 
 if which today-fortune &> /dev/null; then
   today-fortune

@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+import argparse, hashlib, os, sys
+
+try:
+  from PIL import Image, PngImagePlugin
+except ImportError:
+  print("Error: Pillow not installed — run: sudo apt install python3-pil")
+  sys.exit(1)
+
+default_fail_dir = os.path.expanduser("~/.cache/thumbnails/fail/gnome-thumbnail-factory")
+default_cache_dir = os.path.expanduser("~/.cache/thumbnails/large")
+
+parser = argparse.ArgumentParser(
+  description="Fix missing thumbnails in Nautilus for a given directory.",
+  formatter_class=argparse.RawDescriptionHelpFormatter,
+  epilog="Example:\n  thumbnail-fix --directory ~/Downloads/reacoes"
+)
+parser.add_argument("--directory", required=True, help="Directory containing images")
+parser.add_argument("--fail-directory", default=default_fail_dir, help=f"Thumbnail fail cache directory (default: {default_fail_dir})")
+parser.add_argument("--cache-directory", default=default_cache_dir, help=f"Thumbnail cache directory (default: {default_cache_dir})")
+args = parser.parse_args()
+
+folder = os.path.realpath(args.directory)
+if not os.path.isdir(folder):
+  print(f"Error: not a directory: {folder}")
+  sys.exit(1)
+
+os.makedirs(args.cache_directory, exist_ok=True)
+
+extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.tif')
+files = [f for f in os.listdir(folder) if f.lower().endswith(extensions)]
+
+removed = 0
+generated = 0
+errors = []
+
+for fname in files:
+  fpath = os.path.join(folder, fname)
+  uri = f"file://{fpath}"
+  md5 = hashlib.md5(uri.encode()).hexdigest()
+
+  fail_path = os.path.join(args.fail_directory, md5 + ".png")
+  if os.path.exists(fail_path):
+    os.remove(fail_path)
+    removed += 1
+
+  thumb_path = os.path.join(args.cache_directory, md5 + ".png")
+  if os.path.exists(thumb_path):
+    continue
+
+  try:
+    img = Image.open(fpath)
+    img.thumbnail((256, 256), Image.LANCZOS)
+    img = img.convert("RGBA" if img.mode in ("RGBA", "LA", "P") else "RGB")
+
+    mtime = int(os.stat(fpath).st_mtime)
+    meta = PngImagePlugin.PngInfo()
+    meta.add_text("Thumb::URI", uri)
+    meta.add_text("Thumb::MTime", str(mtime))
+
+    img.save(thumb_path, "PNG", pnginfo=meta)
+    os.chmod(thumb_path, 0o600)
+    generated += 1
+  except Exception as e:
+    errors.append(f"{fname}: {e}")
+
+print(f"Fail cache entries removed : {removed}")
+print(f"Thumbnails generated       : {generated}")
+if errors:
+  print(f"Errors ({len(errors)}):")
+  for err in errors:
+    print(f"  {err}")

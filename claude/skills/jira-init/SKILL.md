@@ -12,7 +12,16 @@ with required fields discovered via MCP. Should be run once per project.
 
 ## Steps
 
-### Step 1 — Reuse config from another project
+### Step 1 — Check existing file
+
+Check whether `.claude/jira/config.md` already exists.
+
+- **If it exists:** show its contents and ask whether to overwrite.
+  - **No:** exit without changes.
+  - **Yes:** continue to step 3 (MCP setup).
+- **If it does not exist:** continue to step 2 (reuse from another project).
+
+### Step 2 — Reuse config from another project
 
 Ask: "Do you have a `config.md` from another project you want to reuse as a starting point?"
 
@@ -26,7 +35,7 @@ If found, show its contents and ask: "Is this the right project? Reuse as-is or 
 
 If the user declines or provides nothing, continue normally.
 
-### Step 2 — MCP setup and permissions
+### Step 3 — MCP setup and permissions
 
 If the Atlassian MCP server is not active, run:
 
@@ -68,10 +77,6 @@ Then read `.claude/settings.local.json` and check whether the read-only Atlassia
 
 > These are read-only operations. Write permissions (`createJiraIssue`, `editJiraIssue`, `transitionJiraIssue`, `addCommentToJiraIssue`) are intentionally excluded so that Claude prompts for confirmation before any mutating action.
 
-### Step 3 — Check existing file
-
-If `.claude/jira/config.md` already exists, show its contents and ask whether to overwrite.
-
 ### Step 4 — Fetch site info
 
 In parallel:
@@ -107,6 +112,7 @@ If provided:
    - the create screen metadata (step 6.1) with `ops` containing `set`, AND
    - the reference issue GET response (step 6.2) with a non-null value.
    Fields returned by GET that are **absent from the create screen** are auto-populated by Jira and cannot be sent in creation payloads — do not include them.
+   **Labels rule:** `labels` is a standard Jira field — if the reference issue has a non-empty labels array, include it in `additional_fields` with its exact value. Do NOT treat it as optional or context-dependent.
 4. For fields that pass the cross-reference, determine the correct write format:
    - Fields with `allowedValues`: use `{"id": "<id>"}` from the matching allowed value.
    - Fields with `autoCompleteUrl` but no `allowedValues` (e.g. Team, user pickers): they ARE user-settable — derive the write format from the GET value. For object types, use `{"id": "<id>"}` (drop name/avatar/other metadata). Do NOT treat these as auto-populated just because they have no fixed list.
@@ -156,8 +162,8 @@ Ask whether the user wants to version-control Jira files in this repository.
 **No (local):**
 - Suggest `.claude/jira/` as the Jira folder but allow the user to specify another path — use whatever they confirm.
 - Then check `.gitignore`:
-  1. If `.claude/` or `.claude/**` is already listed → skip.
-  2. If `.claude/jira/` is already listed → skip.
+  1. Run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if either matches exactly → skip.
+  2. Run `grep -xF '.claude/jira/' .gitignore` — if it matches exactly → skip.
   3. Otherwise: suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
 **After the decision:** record the resolved Jira folder path in `config.md` under `## Paths` (see format below). `config.md` itself always lives at `.claude/jira/config.md` regardless of where task files are stored.

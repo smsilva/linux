@@ -29,7 +29,7 @@ Resolve the Jira folder path before writing any file:
 
 Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
-If the resolved Jira folder is `.claude/jira/` and `.claude/` is not in `.gitignore`, suggest adding it and ask before making any change.
+If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
 Use **exactly** this template — do not rename fields, reorder sections, or omit optional fields:
 

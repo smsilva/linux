@@ -9,59 +9,19 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 - Project config: `.claude/jira/config.md` (always here)
 - Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
 
-## 1. Check and configure the Atlassian MCP
-
-If the Atlassian MCP server is not active, run:
-
-```
-claude mcp add --transport http atlassian https://mcp.atlassian.com/v1/mcp
-```
-
-Add read-only permissions to `.claude/settings.local.json` so Claude doesn't prompt for every lookup:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "mcp__atlassian__atlassianUserInfo",
-      "mcp__atlassian__getJiraIssue",
-      "mcp__atlassian__getAccessibleAtlassianResources",
-      "mcp__atlassian__searchJiraIssuesUsingJql",
-      "mcp__atlassian__search",
-      "mcp__atlassian__getTransitionsForJiraIssue",
-      "mcp__atlassian__getConfluencePage",
-      "mcp__atlassian__getConfluenceSpaces",
-      "mcp__atlassian__getPagesInConfluenceSpace",
-      "mcp__atlassian__getConfluencePageDescendants",
-      "mcp__atlassian__getConfluencePageFooterComments",
-      "mcp__atlassian__getConfluencePageInlineComments",
-      "mcp__atlassian__getConfluenceCommentChildren",
-      "mcp__atlassian__getVisibleJiraProjects",
-      "mcp__atlassian__getJiraProjectIssueTypesMetadata",
-      "mcp__atlassian__getJiraIssueTypeMetaWithFields",
-      "mcp__atlassian__getIssueLinkTypes",
-      "mcp__atlassian__getJiraIssueRemoteIssueLinks",
-      "mcp__atlassian__lookupJiraAccountId",
-      "mcp__atlassian__fetch",
-      "mcp__atlassian__searchConfluenceUsingCql"
-    ]
-  }
-}
-```
-
-## 2. Get accessible resources and current user
+## 1. Get accessible resources and current user
 
 Use `mcp__atlassian__getAccessibleAtlassianResources` to get the `cloudId` of the Atlassian site.
 
 Use `mcp__atlassian__atlassianUserInfo` to get the `accountId` of the logged-in user.
 
-## 3. Fetch the issue
+## 2. Fetch the issue
 
 Use `mcp__atlassian__getJiraIssue` with `responseContentFormat: "markdown"`.
 
 Fields needed for the task file: `key`, `summary`, `status`, `description`, `assignee`, `sprint`, `epic`.
 
-## 4. Create or update task file
+## 3. Create or update task file
 
 Resolve the Jira folder path before writing any file:
 1. Read `.claude/jira/config.md` → `## Paths` → **Jira folder** value.
@@ -90,14 +50,14 @@ Sync task file content as a comment on the issue (via `mcp__atlassian__addCommen
 - When transitioning the issue status
 - When closing out the work (handoff or completion)
 
-## 5. Transition status
+## 4. Transition status
 
 1. Use `mcp__atlassian__getTransitionsForJiraIssue` to list available transitions.
 2. Identify the target transition ID by name (e.g. "In Progress").
 3. Use `mcp__atlassian__transitionJiraIssue` with the `transition.id` found.
 4. Update the `Status` field in the task file.
 
-## 6. Assign issue to current user
+## 5. Assign issue to current user
 
 Use `mcp__atlassian__editJiraIssue` with:
 
@@ -109,7 +69,7 @@ Use `mcp__atlassian__editJiraIssue` with:
 }
 ```
 
-## 7. Create issues (stories or tasks)
+## 6. Create issues (stories or tasks)
 
 Use `mcp__atlassian__createJiraIssue` with `issueTypeName`, `summary`, and `projectKey`.
 

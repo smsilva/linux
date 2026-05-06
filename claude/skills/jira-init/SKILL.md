@@ -112,7 +112,7 @@ Ask whether the user wants to version-control Jira files in this repository.
 - The chosen path will store task files and will be committed to the repo.
 
 **No (local):**
-- Use `.claude/jira/` as the Jira folder (task files stay local).
+- Suggest `.claude/jira/` as the Jira folder but allow the user to specify another path — use whatever they confirm.
 - Then check `.gitignore`:
   1. If `.claude/` or `.claude/**` is already listed → skip.
   2. If `.claude/jira/` is already listed → skip.

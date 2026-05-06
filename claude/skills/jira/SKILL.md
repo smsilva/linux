@@ -39,6 +39,8 @@ Format defined in `jira-workflow` Step 3.
 
 ## Start task
 
+> **All git operations run in the current working directory** — the directory where `claude` was launched. Never `cd` into a directory named after the issue, story, or project. Never create a new git repository. If `git status` fails (not a git repo), stop and tell the user.
+
 1. If not assigned, confirm and assign to the current user
 2. Create `<jira_folder>/<JIRA_TASK_ID>.md` if it doesn't exist (create the folder if needed; resolve path from `config.md` → `## Paths`, default `.claude/jira/`)
 3. If branch `feature/<JIRA_TASK_ID>` **does not exist**:

@@ -31,18 +31,30 @@ Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
 If the resolved Jira folder is `.claude/jira/` and `.claude/` is not in `.gitignore`, suggest adding it and ask before making any change.
 
+Use **exactly** this template — do not rename fields, reorder sections, or omit optional fields:
+
 ```markdown
 # <ISSUE_KEY>: <summary>
 
+**Task:** [ISSUE_KEY — summary](<site>/browse/ISSUE_KEY)
+**Story:** [STORY_KEY — story title](<site>/browse/STORY_KEY)
+**Epic:** [EPIC_KEY — epic title](<site>/browse/EPIC_KEY)
 **Status:** <status>
-**Link:** <Jira issue URL>
-**Assignee:** <assignee name>
+**Owner:** <assignee name>
+**Branch:** feature/ISSUE_KEY
 **Sprint:** <current sprint> *(optional)*
-**Epic:** <epic> *(optional)*
 
 ## Description
 
-<description>
+<description from Jira>
+
+## Work log
+
+**Goal**: What we're trying to accomplish with this task
+**Current Progress**: What has been done so far
+**What Worked**: Approaches that succeeded and should be repeated or expanded
+**What Didn't Work**: Approaches that failed (so they aren't repeated)
+**Next Steps**: Clear action items for continuing
 ```
 
 Sync task file content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:

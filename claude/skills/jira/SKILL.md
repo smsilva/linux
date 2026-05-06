@@ -29,22 +29,13 @@ If it doesn't exist, suggest running `/jira-init` to configure the project.
     - list pending tasks and ask the user to choose one
     - if there are no pending tasks, list all tasks with their status and last comment, and ask the user to choose one
 - The final working issue must be a task
+- Once the task is identified, proceed immediately to **Start task** below — do not wait for further input.
 
 ## Task file
 
 Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.claude/jira/`. Create the folder if needed.
 
-**Task:** [JIRA_TASK_ID — task title](<JIRA_SITE_URL>/browse/JIRA_TASK_ID)
-**Story:** [JIRA_STORY_ID — story title](<JIRA_SITE_URL>/browse/JIRA_STORY_ID)
-**Epic:** [JIRA_EPIC_ID — epic title](<JIRA_SITE_URL>/browse/JIRA_EPIC_ID)
-**Status:** In Development
-**Owner:** <current user name>
-**Branch:** feature/JIRA_TASK_ID
-**Goal**: What we're trying to accomplish with this task
-**Current Progress**: What has been done so far
-**What Worked**: Approaches that succeeded and should be repeated or expanded
-**What Didn't Work**: Approaches that failed (so they aren't repeated)
-**Next Steps**: Clear action items for continuing
+Format defined in `jira-workflow` Step 3.
 
 ## Start task
 
@@ -55,7 +46,8 @@ Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `co
    - Create branch from main: `git checkout -b feature/<JIRA_TASK_ID>`
 4. If branch `feature/<JIRA_TASK_ID>` **already exists** (local or remote):
    - Checkout the branch
-   - Run `git pull --rebase` if remote tracking exists
+   - Check for remote tracking: `git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null`
+   - If it returns a branch name, run `git pull --rebase`; if empty or error, skip the pull
 5. If the Sprint field is empty, ask whether to add the issue to the current sprint and do so via MCP if confirmed
 6. Add comment: "Starting work on branch `feature/<JIRA_TASK_ID>`."
 7. Transition status to "In Progress"

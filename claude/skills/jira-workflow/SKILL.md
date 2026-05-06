@@ -31,31 +31,23 @@ Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
 If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
-Use **exactly** this template — do not rename fields, reorder sections, or omit optional fields:
+To create the task file:
+1. Read `~/.claude/skills/jira-workflow/task-template.md`
+2. Substitute every `{{PLACEHOLDER}}` with the actual value from the issue:
+   - `{{ISSUE_KEY}}` → issue key (e.g. `PLTF-3`)
+   - `{{SUMMARY}}` → issue summary
+   - `{{SITE}}` → site URL from `config.md` (e.g. `https://smsilva.atlassian.net`)
+   - `{{STORY_KEY}}` → parent story key (omit the `**Story:**` line if none)
+   - `{{STORY_SUMMARY}}` → parent story summary
+   - `{{EPIC_KEY}}` → epic key (omit the `**Epic:**` line if none)
+   - `{{EPIC_SUMMARY}}` → epic summary
+   - `{{STATUS}}` → current issue status
+   - `{{ASSIGNEE}}` → assignee display name
+   - `{{SPRINT}}` → current sprint name, or remove the line if empty
+   - `{{DESCRIPTION}}` → issue description in markdown
+3. Write the result to `<jira_folder>/<JIRA_TASK_ID>.md`
 
-```markdown
-# <ISSUE_KEY>: <summary>
-
-**Task:** [ISSUE_KEY — summary](<site>/browse/ISSUE_KEY)
-**Story:** [STORY_KEY — story title](<site>/browse/STORY_KEY)
-**Epic:** [EPIC_KEY — epic title](<site>/browse/EPIC_KEY)
-**Status:** <status>
-**Owner:** <assignee name>
-**Branch:** feature/ISSUE_KEY
-**Sprint:** <current sprint> *(optional)*
-
-## Description
-
-<description from Jira>
-
-## Work log
-
-**Goal**: What we're trying to accomplish with this task
-**Current Progress**: What has been done so far
-**What Worked**: Approaches that succeeded and should be repeated or expanded
-**What Didn't Work**: Approaches that failed (so they aren't repeated)
-**Next Steps**: Clear action items for continuing
-```
+Do not rename fields, reorder sections, or add fields not in the template.
 
 Sync task file content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
 - When creating the task file for the first time

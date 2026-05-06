@@ -1,0 +1,94 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Kill a tmux session interactively or automatically.
+
+  When inside tmux with exactly 2 sessions, kills the other session immediately.
+  Otherwise, lists sessions with fzf for selection.
+
+    Options:
+
+      -t, --target <session>  Kill the specified session directly (name or number)
+      -h, --help              Show this help
+
+    Examples:
+
+      ${this_script_name}
+      ${this_script_name} --target 3
+
+EOF
+}
+
+target_session=""
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -t | --target )
+      target_session="${2?}"
+      shift
+      ;;
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ -n "${target_session}" ]]; then
+  if ! tmux list-sessions &>/dev/null 2>&1; then
+    echo "No tmux sessions."
+    exit 0
+  fi
+  tmux kill-session -t "${target_session}"
+  exit 0
+fi
+
+in_tmux="${TMUX:+true}"
+
+if ! tmux list-sessions &>/dev/null 2>&1; then
+  echo "No tmux sessions."
+  exit 0
+fi
+
+session_count=$(tmux list-sessions | wc -l)
+
+if [[ "${session_count}" -lt 2 ]]; then
+  echo "Only one session."
+  exit 0
+fi
+
+current_session=""
+if [[ "${in_tmux}" == "true" ]]; then
+  current_session=$(tmux display-message -p '#S')
+fi
+
+other_sessions() {
+  if [[ -n "${current_session}" ]]; then
+    tmux list-sessions | grep -v "^${current_session}:"
+  else
+    tmux list-sessions
+  fi
+}
+
+if [[ "${in_tmux}" == "true" && "${session_count}" -eq 2 ]]; then
+  target=$(tmux list-sessions -F "#{session_name}" | grep -v "^${current_session}$")
+  tmux kill-session -t "${target}"
+  exit 0
+fi
+
+selected=$(other_sessions | fzf --prompt="Kill session: " --no-sort)
+
+[[ -z "${selected}" ]] && exit 0
+
+target="${selected%%:*}"
+tmux kill-session -t "${target}"

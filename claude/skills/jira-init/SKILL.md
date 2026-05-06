@@ -62,15 +62,18 @@ If provided:
 2. Call `getJiraIssue` with `fields` set to the discovered custom field IDs plus `["labels", "priority", "issuetype", "parent"]`.
 3. Extract all non-null/non-empty `customfield_*` values and `labels` → use as **candidate values** for `additional_fields`.
    **Cross-reference rule:** Only include a field in `additional_fields` if it appears in **both**:
-   - the create screen metadata (step 5.1), AND
-   - the reference issue GET response (step 5.2).
-   Fields returned by GET that are absent from the create screen are auto-populated by Jira (e.g. Team, Reporter) — **do not include them in `additional_fields`**, and add a note in the config that they are auto-populated.
-4. For fields that pass the cross-reference but have a complex schema type (e.g. `com.atlassian.teams:rm-teams-custom-field`, `user`, `array` of objects): verify the write format against `allowedValues` from the metadata rather than copying the raw GET value structure. If `allowedValues` is empty and the type is complex, treat the field as auto-populated and exclude it.
+   - the create screen metadata (step 5.1) with `ops` containing `set`, AND
+   - the reference issue GET response (step 5.2) with a non-null value.
+   Fields returned by GET that are **absent from the create screen** are auto-populated by Jira and cannot be sent in creation payloads — do not include them.
+4. For fields that pass the cross-reference, determine the correct write format:
+   - Fields with `allowedValues`: use `{"id": "<id>"}` from the matching allowed value.
+   - Fields with `autoCompleteUrl` but no `allowedValues` (e.g. Team, user pickers): they ARE user-settable — derive the write format from the GET value. For object types, use `{"id": "<id>"}` (drop name/avatar/other metadata). Do NOT treat these as auto-populated just because they have no fixed list.
+   - Fields with neither `allowedValues` nor `autoCompleteUrl` and an opaque system schema (e.g. `devsummarycf`, `vulnerabilitycf`, `lexo-rank`): these are system-managed — exclude them.
 5. Skip step 6 (field metadata) and step 7 (labels prompt) — values are already known; just confirm with the user.
 
 > **Why discover fields first:** `customfield_*` is not a valid wildcard in the Jira API — only fields explicitly listed in `fields` are returned. Custom fields can have IDs above 11000 (e.g. `customfield_11550`) and are invisible if you hardcode a low range like 10000–10036.
 
-> **Why cross-reference with create screen:** a field present in GET but absent from `getJiraIssueTypeMetaWithFields` is not settable during issue creation. Including it in `additional_fields` causes a 400 error ("not valid"). Example: `customfield_10001` (Team) is auto-populated by Jira and must not be sent in creation payloads.
+> **Why cross-reference with create screen:** a field present in GET but absent from `getJiraIssueTypeMetaWithFields` is not settable during issue creation — including it causes a 400 error. The authoritative signal is presence in the create screen with `ops: [set]`, not the field's schema type. Fields with `autoCompleteUrl` (e.g. Team) are user-settable even though they have no fixed `allowedValues`.
 
 If not provided, continue to step 6.
 

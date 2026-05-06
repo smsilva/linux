@@ -6,8 +6,8 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 # jira-workflow
 
 **Paths convention:**
-- Project config: `.claude/jira/config.md`
-- Task file: `.claude/jira/<JIRA_TASK_ID>.md` (e.g. `.claude/jira/PROJ-123.md`)
+- Project config: `.claude/jira/config.md` (always here)
+- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
 
 ## 1. Check and configure the Atlassian MCP
 
@@ -63,9 +63,13 @@ Fields needed for the task file: `key`, `summary`, `status`, `description`, `ass
 
 ## 4. Create or update task file
 
-Task file path: `.claude/jira/<JIRA_TASK_ID>.md` (create `.claude/jira/` if needed).
+Resolve the Jira folder path before writing any file:
+1. Read `.claude/jira/config.md` → `## Paths` → **Jira folder** value.
+2. If absent or `config.md` doesn't exist, default to `.claude/jira/`.
 
-Verify `.claude/jira/` is in `.gitignore`; add it if missing (covers both config and task files).
+Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
+
+If the resolved Jira folder is `.claude/jira/` and `.claude/` is not in `.gitignore`, suggest adding it and ask before making any change.
 
 ```markdown
 # <ISSUE_KEY>: <summary>

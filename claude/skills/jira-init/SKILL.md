@@ -103,13 +103,22 @@ Use the format below. Include the `cloudId` discovered in step 3 and the issue t
 project metadata. Add a note about epic linking if detectable from the reference issue or field metadata
 (`parent` field accepted → use `parent`; otherwise use `customfield_10014`).
 
-### Step 9 — `.gitignore` handling
+### Step 9 — Storage and `.gitignore`
 
-Before touching `.gitignore`:
-1. Check if `.claude/` or `.claude/**` is already listed → if yes, skip entirely (file is already excluded).
-2. Check if `.claude/jira/` is already listed → if yes, skip.
-3. Otherwise ask: "Commit this file (team config) or keep it local (add to `.gitignore`)?"
-   - If local: add `.claude/jira/` to `.gitignore` (covers both config and task files).
+Ask whether the user wants to version-control Jira files in this repository.
+
+**Yes (version-controlled):**
+- Suggest `/jira` as the folder but allow the user to specify another path — use whatever they confirm.
+- The chosen path will store task files and will be committed to the repo.
+
+**No (local):**
+- Use `.claude/jira/` as the Jira folder (task files stay local).
+- Then check `.gitignore`:
+  1. If `.claude/` or `.claude/**` is already listed → skip.
+  2. If `.claude/jira/` is already listed → skip.
+  3. Otherwise: suggest adding `.claude/` to `.gitignore` and ask before making any change.
+
+**After the decision:** record the resolved Jira folder path in `config.md` under `## Paths` (see format below). `config.md` itself always lives at `.claude/jira/config.md` regardless of where task files are stored.
 
 ---
 
@@ -122,6 +131,11 @@ Before touching `.gitignore`:
 **Site:** <https://account.atlassian.net>
 **cloudId:** <uuid>
 **Owner:** <user display name>
+
+## Paths
+
+- **Jira folder:** `/jira` *(or `.claude/jira/` if local — always the folder containing task files)*
+- **Config:** `.claude/jira/config.md` *(always here, regardless of Jira folder)*
 
 ## Issue creation — required fields
 

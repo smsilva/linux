@@ -8,8 +8,8 @@ Use the `jira-workflow` skill for all Jira operations (MCP, task file, comments,
 $ARGUMENTS — JIRA_ID (epic, story, or task)
 
 **Paths used in this skill:**
-- Project config: `.claude/jira/config.md`
-- Task file: `.claude/jira/<JIRA_TASK_ID>.md` (e.g. `.claude/jira/PROJ-123.md`)
+- Project config: `.claude/jira/config.md` (always here)
+- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
 
 If `.claude/jira/config.md` exists, read it before any action to get project configuration:
 site URL, required fields when creating issues, labels, and owner name.
@@ -18,7 +18,8 @@ If it doesn't exist, suggest running `/jira-init` to configure the project.
 ## Navigation
 
 - If `$ARGUMENTS` is empty:
-  - Look for task files matching `.claude/jira/*.md` excluding `config.md`
+  - Resolve `<jira_folder>` from `config.md` → `## Paths`; default `.claude/jira/`
+  - Look for task files matching `<jira_folder>/*.md` excluding `config.md`
   - If exactly one is found, read it to get the JIRA_ID and context, and continue from where we left off
   - If multiple are found, list them and ask the user to choose
   - If none are found, ask the user for the JIRA_ID
@@ -31,7 +32,7 @@ If it doesn't exist, suggest running `/jira-init` to configure the project.
 
 ## Task file
 
-Stored at `.claude/jira/<JIRA_TASK_ID>.md` (never at the repo root; create `.claude/jira/` if needed).
+Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.claude/jira/`. Create the folder if needed.
 
 **Task:** [JIRA_TASK_ID — task title](<JIRA_SITE_URL>/browse/JIRA_TASK_ID)
 **Story:** [JIRA_STORY_ID — story title](<JIRA_SITE_URL>/browse/JIRA_STORY_ID)
@@ -48,7 +49,7 @@ Stored at `.claude/jira/<JIRA_TASK_ID>.md` (never at the repo root; create `.cla
 ## Start task
 
 1. If not assigned, confirm and assign to the current user
-2. Create `.claude/jira/<JIRA_TASK_ID>.md` if it doesn't exist (create `.claude/jira/` if needed)
+2. Create `<jira_folder>/<JIRA_TASK_ID>.md` if it doesn't exist (create the folder if needed; resolve path from `config.md` → `## Paths`, default `.claude/jira/`)
 3. If branch `feature/<JIRA_TASK_ID>` **does not exist**:
    - Checkout main and pull latest changes
    - Create branch from main: `git checkout -b feature/<JIRA_TASK_ID>`

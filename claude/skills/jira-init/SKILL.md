@@ -1,40 +1,42 @@
 ---
 name: jira-init
-description: Initialize Jira project config for the current repository, generating .claude/JIRA-PROJECT.md
+description: Initialize Jira project config for the current repository, generating .claude/jira/config.md
 ---
 
 Use the `jira-workflow` skill for MCP operations.
 
-Initializes the Jira configuration for the current project, generating `.claude/JIRA-PROJECT.md` with
-required fields discovered via MCP. Should be run once per project.
+All user-facing messages must use the language specified in the user's CLAUDE.md (e.g. `Always respond in pt-BR`). If no language is specified there, fall back to the system default.
+
+Initializes the Jira configuration for the current project, generating `.claude/jira/config.md`
+with required fields discovered via MCP. Should be run once per project.
 
 ## Steps
 
-### Step 0 — Reuse config from another project
+### Step 1 — Reuse config from another project
 
-Ask: "Do you have a `JIRA-PROJECT.md` from another project you want to reuse as a starting point?"
+Ask: "Do you have a `config.md` from another project you want to reuse as a starting point?"
 
 Accept either:
-- A **path to a file** (e.g. `~/other-project/.claude/JIRA-PROJECT.md`)
-- A **path to a project directory** (look for `.claude/JIRA-PROJECT.md` inside it)
+- A **path to a file** (e.g. `~/other-project/.claude/jira/config.md`)
+- A **path to a project directory** (look for `.claude/jira/config.md` inside it)
 
 If found, show its contents and ask: "Is this the right project? Reuse as-is or adapt it?"
-- **As-is:** copy it to `.claude/JIRA-PROJECT.md` in the current repo and skip to step 8 (.gitignore).
-- **Adapt:** use it as a template; project key is already known, jump directly to step 4 (reference issue) to verify/update field values.
+- **As-is:** copy it to `.claude/jira/config.md` in the current repo and skip to step 9 (.gitignore).
+- **Adapt:** use it as a template; project key is already known, jump directly to step 5 (reference issue) to verify/update field values.
 
 If the user declines or provides nothing, continue normally.
 
-### Step 1 — Check existing file
+### Step 2 — Check existing file
 
-If `.claude/JIRA-PROJECT.md` already exists, show its contents and ask whether to overwrite.
+If `.claude/jira/config.md` already exists, show its contents and ask whether to overwrite.
 
-### Step 2 — Fetch site info
+### Step 3 — Fetch site info
 
 In parallel:
 - `getAccessibleAtlassianResources` → get `cloudId` and site base URL
 - `atlassianUserInfo` → get the logged-in user's display name
 
-### Step 3 — Project selection
+### Step 4 — Project selection
 
 Call `getVisibleJiraProjects`. If the response is saved to a file (tool output too large), run:
 
@@ -44,7 +46,7 @@ python3 ~/.claude/skills/jira-init/scripts/parse_projects.py <path-to-tool-outpu
 
 This prints `KEY | Name | projectTypeKey` per project. Show the list and ask the user to choose.
 
-### Step 4 — Reference issue
+### Step 5 — Reference issue
 
 Ask: "Do you have an existing Jira issue key from this project to use as a reference for field values? (e.g. `PROJ-123` or full URL like `https://account.atlassian.net/browse/PROJ-123`)"
 
@@ -54,16 +56,25 @@ If provided:
    ```bash
    python3 ~/.claude/skills/jira-init/scripts/parse_fields.py <path-to-tool-output-file>
    ```
-   Collect all `customfield_XXXXX` IDs from the output.
+   The output now includes `schema.type` and `operations`. Collect:
+   - All `customfield_XXXXX` IDs that appear here → these are the **writable fields** (they exist on the create screen).
+   - For each field, note its `schema_type` and whether `ops` includes `set`.
 2. Call `getJiraIssue` with `fields` set to the discovered custom field IDs plus `["labels", "priority", "issuetype", "parent"]`.
-3. Extract all non-null/non-empty `customfield_*` values and `labels` → use as **ground truth** for `additional_fields`.
-4. Skip step 5 (field metadata) and step 6 (labels prompt) — values are already known; just confirm with the user.
+3. Extract all non-null/non-empty `customfield_*` values and `labels` → use as **candidate values** for `additional_fields`.
+   **Cross-reference rule:** Only include a field in `additional_fields` if it appears in **both**:
+   - the create screen metadata (step 5.1), AND
+   - the reference issue GET response (step 5.2).
+   Fields returned by GET that are absent from the create screen are auto-populated by Jira (e.g. Team, Reporter) — **do not include them in `additional_fields`**, and add a note in the config that they are auto-populated.
+4. For fields that pass the cross-reference but have a complex schema type (e.g. `com.atlassian.teams:rm-teams-custom-field`, `user`, `array` of objects): verify the write format against `allowedValues` from the metadata rather than copying the raw GET value structure. If `allowedValues` is empty and the type is complex, treat the field as auto-populated and exclude it.
+5. Skip step 6 (field metadata) and step 7 (labels prompt) — values are already known; just confirm with the user.
 
 > **Why discover fields first:** `customfield_*` is not a valid wildcard in the Jira API — only fields explicitly listed in `fields` are returned. Custom fields can have IDs above 11000 (e.g. `customfield_11550`) and are invisible if you hardcode a low range like 10000–10036.
 
-If not provided, continue to step 5.
+> **Why cross-reference with create screen:** a field present in GET but absent from `getJiraIssueTypeMetaWithFields` is not settable during issue creation. Including it in `additional_fields` causes a 400 error ("not valid"). Example: `customfield_10001` (Team) is auto-populated by Jira and must not be sent in creation payloads.
 
-### Step 5 — Field metadata discovery (only when no reference issue)
+If not provided, continue to step 6.
+
+### Step 6 — Field metadata discovery (only when no reference issue)
 
 For Story and Task issue types: `getJiraIssueTypeMetaWithFields`.
 
@@ -78,27 +89,28 @@ This prints `REQUIRED/optional | fieldId | name | allowed values`.
 For each non-obvious custom field that has `allowedValues` (and is not `issuetype`, `project`, `reporter`, `summary`):
 ask "Should `<name>` (`<fieldId>`) be set on every issue? If so, which value?"
 
-### Step 6 — Confirm labels (only when no reference issue)
+### Step 7 — Confirm labels (only when no reference issue)
 
 Ask: "Are there required labels for the board to filter correctly? (e.g. `Cloud_IDP`)"
 
-### Step 7 — Generate `.claude/JIRA-PROJECT.md`
+### Step 8 — Generate `.claude/jira/config.md`
 
-Use the format below. Include the `cloudId` discovered in step 2 and the issue types table from the
+Create the directory `.claude/jira/` if it doesn't exist, then write `config.md`.
+Use the format below. Include the `cloudId` discovered in step 3 and the issue types table from the
 project metadata. Add a note about epic linking if detectable from the reference issue or field metadata
 (`parent` field accepted → use `parent`; otherwise use `customfield_10014`).
 
-### Step 8 — `.gitignore` handling
+### Step 9 — `.gitignore` handling
 
 Before touching `.gitignore`:
 1. Check if `.claude/` or `.claude/**` is already listed → if yes, skip entirely (file is already excluded).
-2. Check if `JIRA-PROJECT.md` is already listed → if yes, skip.
+2. Check if `.claude/jira/` is already listed → if yes, skip.
 3. Otherwise ask: "Commit this file (team config) or keep it local (add to `.gitignore`)?"
-   - If local: add `.claude/JIRA-PROJECT.md` to `.gitignore`.
+   - If local: add `.claude/jira/` to `.gitignore` (covers both config and task files).
 
 ---
 
-## Format of `.claude/JIRA-PROJECT.md`
+## Format of `.claude/jira/config.md`
 
 ```markdown
 # Jira Project Config

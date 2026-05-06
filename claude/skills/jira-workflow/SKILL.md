@@ -1,9 +1,13 @@
 ---
 name: jira-workflow
-description: Primitives for interacting with Jira via MCP Atlassian — configure MCP, create/update JIRA.md, comment, transition status, and assign issues.
+description: Primitives for interacting with Jira via MCP Atlassian — configure MCP, create/update task files, comment, transition status, and assign issues.
 ---
 
 # jira-workflow
+
+**Paths convention:**
+- Project config: `.claude/jira/config.md`
+- Task file: `.claude/jira/<JIRA_TASK_ID>.md` (e.g. `.claude/jira/PROJ-123.md`)
 
 ## 1. Check and configure the Atlassian MCP
 
@@ -55,13 +59,13 @@ Use `mcp__atlassian__atlassianUserInfo` to get the `accountId` of the logged-in 
 
 Use `mcp__atlassian__getJiraIssue` with `responseContentFormat: "markdown"`.
 
-Fields needed for JIRA.md: `key`, `summary`, `status`, `description`, `assignee`, `sprint`, `epic`.
+Fields needed for the task file: `key`, `summary`, `status`, `description`, `assignee`, `sprint`, `epic`.
 
-## 4. Create or update JIRA.md
+## 4. Create or update task file
 
-`JIRA.md` lives at the repo root **on the working branch only**.
+Task file path: `.claude/jira/<JIRA_TASK_ID>.md` (create `.claude/jira/` if needed).
 
-Verify `JIRA.md` is in `.gitignore`; add it if missing.
+Verify `.claude/jira/` is in `.gitignore`; add it if missing (covers both config and task files).
 
 ```markdown
 # <ISSUE_KEY>: <summary>
@@ -77,8 +81,8 @@ Verify `JIRA.md` is in `.gitignore`; add it if missing.
 <description>
 ```
 
-Sync JIRA.md content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
-- When creating JIRA.md for the first time
+Sync task file content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
+- When creating the task file for the first time
 - When transitioning the issue status
 - When closing out the work (handoff or completion)
 
@@ -87,7 +91,7 @@ Sync JIRA.md content as a comment on the issue (via `mcp__atlassian__addCommentT
 1. Use `mcp__atlassian__getTransitionsForJiraIssue` to list available transitions.
 2. Identify the target transition ID by name (e.g. "In Progress").
 3. Use `mcp__atlassian__transitionJiraIssue` with the `transition.id` found.
-4. Update the `Status` field in JIRA.md.
+4. Update the `Status` field in the task file.
 
 ## 6. Assign issue to current user
 
@@ -105,6 +109,6 @@ Use `mcp__atlassian__editJiraIssue` with:
 
 Use `mcp__atlassian__createJiraIssue` with `issueTypeName`, `summary`, and `projectKey`.
 
-If `.claude/JIRA-PROJECT.md` exists in the current project, apply the `additional_fields` defined in its "Issue creation — required fields" section before creating any issue.
+If `.claude/jira/config.md` exists in the current project, apply the `additional_fields` defined in its "Issue creation — required fields" section before creating any issue.
 
 After creation, link to the epic via `mcp__atlassian__editJiraIssue` with `customfield_10014: "<EPIC_KEY>"` if the `parent` field is not accepted by the project's issue type.

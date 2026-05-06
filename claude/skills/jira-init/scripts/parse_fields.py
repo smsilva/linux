@@ -14,9 +14,13 @@ for field in fields:
     req = "REQUIRED" if field.get("required") else "optional"
     fid = field.get("fieldId", "")
     name = field.get("name", "")
+    schema = field.get("schema", {})
+    schema_type = schema.get("custom", schema.get("type", ""))
+    ops = field.get("operations", [])
+    ops_str = ",".join(ops) if ops else "—"
     av = field.get("allowedValues", [])
     av_str = ""
     if av:
         values = [v.get("value") or v.get("name", "") for v in av[:6]]
         av_str = f" | allowed: {values}" + (" ..." if len(av) > 6 else "")
-    print(f"  {req:8} | {fid:25} | {name}{av_str}")
+    print(f"  {req:8} | {fid:25} | {schema_type:35} | ops:{ops_str:15} | {name}{av_str}")

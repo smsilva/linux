@@ -25,9 +25,20 @@ EOF
 }
 
 play_sound() {
-  pw-play "${1}" 2>/dev/null \
-    || aplay "${1}" 2>/dev/null \
-    || ffplay -nodisp -autoexit "${1}" 2>/dev/null
+  local file="${1}"
+  local ext="${file##*.}"
+
+  case "${ext,,}" in
+    mp4 | mkv | avi | mov | webm | flv | wmv | m4v)
+      mpv "${file}" 2>/dev/null \
+        || ffplay -autoexit "${file}" 2>/dev/null
+      ;;
+    *)
+      pw-play "${file}" 2>/dev/null \
+        || aplay "${file}" 2>/dev/null \
+        || ffplay -nodisp -autoexit "${file}" 2>/dev/null
+      ;;
+  esac
 }
 
 case "${1}" in

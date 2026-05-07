@@ -82,16 +82,30 @@ Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
 If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
-Write the task file to `<jira_folder>/<JIRA_TASK_ID>.md` using the format defined in "Task file format" above. Substitute every `{{PLACEHOLDER}}` with the actual value from the issue:
-- `{{ISSUE_KEY}}` → issue key (e.g. `PLTF-3`)
-- `{{SUMMARY}}` → issue summary
-- `{{SITE}}` → site URL from `config.md`
-- `{{STORY_KEY}}` / `{{STORY_SUMMARY}}` → parent story (omit line if none)
-- `{{EPIC_KEY}}` / `{{EPIC_SUMMARY}}` → epic (omit line if none)
-- `{{STATUS}}` → current issue status
-- `{{ASSIGNEE}}` → assignee display name
-- `{{SPRINT}}` → sprint name (omit line if empty)
-- `{{DESCRIPTION}}` → issue description verbatim in markdown
+**Do NOT use the Write tool to create the task file.** Use the script below — it copies the template and substitutes placeholders, ensuring the format is always correct regardless of the issue description's internal structure.
+
+Steps:
+1. Write the issue description verbatim to `/tmp/jira_description.txt` using the Write tool.
+2. Run the creation script, substituting each `<VALUE>` with actual data from the issue:
+
+```bash
+python3 ~/.claude/skills/jira-workflow/create-task-file.py \
+  --template ~/.claude/skills/jira-workflow/task-template.md \
+  --output <jira_folder>/<ISSUE_KEY>.md \
+  --issue-key <ISSUE_KEY> \
+  --summary "<SUMMARY>" \
+  --site "<SITE>" \
+  --story-key "<STORY_KEY>" \
+  --story-summary "<STORY_SUMMARY>" \
+  --epic-key "<EPIC_KEY>" \
+  --epic-summary "<EPIC_SUMMARY>" \
+  --status "<STATUS>" \
+  --assignee "<ASSIGNEE>" \
+  --sprint "<SPRINT>" \
+  --description-file /tmp/jira_description.txt
+```
+
+Omit `--story-key`/`--story-summary`, `--epic-key`/`--epic-summary`, or `--sprint` entirely if the values are empty — the script removes those lines automatically.
 
 Sync task file content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
 - When creating the task file for the first time

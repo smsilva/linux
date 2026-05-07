@@ -32,7 +32,7 @@ Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
 To create the task file:
-1. Read `~/.claude/skills/jira-workflow/task-template.md`
+1. **Use the Read tool** to read `~/.claude/skills/jira-workflow/task-template.md` — do not write the task file without reading this first.
 2. Substitute every `{{PLACEHOLDER}}` with the actual value from the issue:
    - `{{ISSUE_KEY}}` → issue key (e.g. `PLTF-3`)
    - `{{SUMMARY}}` → issue summary

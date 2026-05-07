@@ -1,20 +1,20 @@
 ---
 name: jira-init
-description: Initialize Jira project config for the current repository, generating .claude/jira/config.md
+description: Initialize Jira project config for the current repository, generating .jira/config.md
 ---
 
 Use the `jira-workflow` skill for MCP operations.
 
 All user-facing messages must use the language specified in the user's CLAUDE.md (e.g. `Always respond in pt-BR`). If no language is specified there, fall back to the system default.
 
-Initializes the Jira configuration for the current project, generating `.claude/jira/config.md`
+Initializes the Jira configuration for the current project, generating `.jira/config.md`
 with required fields discovered via MCP. Should be run once per project.
 
 ## Steps
 
 ### Step 1 — Check existing file
 
-Check whether `.claude/jira/config.md` already exists.
+Check whether `.jira/config.md` already exists.
 
 - **If it exists:** show its contents and ask whether to overwrite.
   - **No:** exit without changes.
@@ -26,11 +26,11 @@ Check whether `.claude/jira/config.md` already exists.
 Ask: "Do you have a `config.md` from another project you want to reuse as a starting point?"
 
 Accept either:
-- A **path to a file** (e.g. `~/other-project/.claude/jira/config.md`)
-- A **path to a project directory** (look for `.claude/jira/config.md` inside it)
+- A **path to a file** (e.g. `~/other-project/.jira/config.md`)
+- A **path to a project directory** (look for `.jira/config.md` inside it)
 
 If found, show its contents and ask: "Is this the right project? Reuse as-is or adapt it?"
-- **As-is:** copy it to `.claude/jira/config.md` in the current repo and skip to step 10 (.gitignore).
+- **As-is:** copy it to `.jira/config.md` in the current repo and skip to step 10 (.gitignore).
 - **Adapt:** use it as a template; project key is already known, jump directly to step 6 (reference issue) to verify/update field values.
 
 If the user declines or provides nothing, continue normally.
@@ -144,9 +144,9 @@ ask "Should `<name>` (`<fieldId>`) be set on every issue? If so, which value?"
 
 Ask: "Are there required labels for the board to filter correctly? (e.g. `Cloud_IDP`)"
 
-### Step 9 — Generate `.claude/jira/config.md`
+### Step 9 — Generate `.jira/config.md`
 
-Create the directory `.claude/jira/` if it doesn't exist, then write `config.md`.
+Create the directory `.jira/` if it doesn't exist, then write `config.md`.
 Use the format below. Include the `cloudId` discovered in step 4 and the issue types table from the
 project metadata. Add a note about epic linking if detectable from the reference issue or field metadata
 (`parent` field accepted → use `parent`; otherwise use `customfield_10014`).
@@ -160,13 +160,12 @@ Ask whether the user wants to version-control Jira files in this repository.
 - The chosen path will store task files and will be committed to the repo.
 
 **No (local):**
-- Suggest `.claude/jira/` as the Jira folder but allow the user to specify another path — use whatever they confirm.
+- Suggest `.jira/` as the Jira folder but allow the user to specify another path — use whatever they confirm.
 - Then check `.gitignore`:
-  1. Run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if either matches exactly → skip.
-  2. Run `grep -xF '.claude/jira/' .gitignore` — if it matches exactly → skip.
-  3. Otherwise: suggest adding `.claude/` to `.gitignore` and ask before making any change.
+  1. Run `grep -xF '.jira/' .gitignore` — if it matches exactly → skip.
+  2. Otherwise: suggest adding `.jira/` to `.gitignore` and ask before making any change.
 
-**After the decision:** record the resolved Jira folder path in `config.md` under `## Paths` (see format below). `config.md` itself always lives at `.claude/jira/config.md` regardless of where task files are stored.
+**After the decision:** record the resolved Jira folder path in `config.md` under `## Paths` (see format below). `config.md` itself always lives at `.jira/config.md` regardless of where task files are stored.
 
 ### Step 11 — Configure task file validation hook
 
@@ -181,7 +180,7 @@ Read `.claude/settings.local.json` (create it if absent). Check whether a `PreTo
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/skills/jira-workflow/validate-task-file.py"
+            "command": "python3 ~/.claude/skills/jira-workflow/scripts/validate-task-file.py"
           }
         ]
       }
@@ -190,11 +189,11 @@ Read `.claude/settings.local.json` (create it if absent). Check whether a `PreTo
 }
 ```
 
-> This hook blocks any Write to `*/.claude/jira/*.md` whose content does not match the required task file format, providing an immediate error message and instructing Claude to use `create-task-file.py` instead.
+> This hook blocks any Write to `*/.jira/*.md` whose content does not match the required task file format, providing an immediate error message and instructing Claude to use `create-task-file.py` instead.
 
 ---
 
-## Format of `.claude/jira/config.md`
+## Format of `.jira/config.md`
 
 ```markdown
 # Jira Project Config
@@ -206,8 +205,8 @@ Read `.claude/settings.local.json` (create it if absent). Check whether a `PreTo
 
 ## Paths
 
-- **Jira folder:** `/jira` *(or `.claude/jira/` if local — always the folder containing task files)*
-- **Config:** `.claude/jira/config.md` *(always here, regardless of Jira folder)*
+- **Jira folder:** `/jira` *(or `.jira/` if local — always the folder containing task files)*
+- **Config:** `.jira/config.md` *(always here, regardless of Jira folder)*
 
 ## Issue creation — required fields
 

@@ -6,8 +6,8 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 # jira-workflow
 
 **Paths convention:**
-- Project config: `.claude/jira/config.md` (always here)
-- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
+- Project config: `.jira/config.md` (always here)
+- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.jira/`
 
 ## Task file format (authoritative — do not deviate)
 
@@ -75,12 +75,12 @@ Fields needed for the task file: `key`, `summary`, `status`, `description`, `ass
 ## 3. Create or update task file
 
 Resolve the Jira folder path before writing any file:
-1. Read `.claude/jira/config.md` → `## Paths` → **Jira folder** value.
-2. If absent or `config.md` doesn't exist, default to `.claude/jira/`.
+1. Read `.jira/config.md` → `## Paths` → **Jira folder** value.
+2. If absent or `config.md` doesn't exist, default to `.jira/`.
 
 Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
-If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
+If the resolved Jira folder is `.jira/`: run `grep -xF '.jira/' .gitignore` — if it doesn't match exactly, suggest adding `.jira/` to `.gitignore` and ask before making any change.
 
 **Do NOT use the Write tool to create the task file.** Use the script below — it copies the template and substitutes placeholders, ensuring the format is always correct regardless of the issue description's internal structure.
 
@@ -89,8 +89,8 @@ Steps:
 2. Run the creation script, substituting each `<VALUE>` with actual data from the issue:
 
 ```bash
-python3 ~/.claude/skills/jira-workflow/create-task-file.py \
-  --template ~/.claude/skills/jira-workflow/task-template.md \
+python3 ~/.claude/skills/jira-workflow/scripts/create-task-file.py \
+  --template ~/.claude/skills/jira-workflow/templates/task.md \
   --output <jira_folder>/<ISSUE_KEY>.md \
   --issue-key <ISSUE_KEY> \
   --summary "<SUMMARY>" \
@@ -135,6 +135,6 @@ Use `mcp__atlassian__editJiraIssue` with:
 
 Use `mcp__atlassian__createJiraIssue` with `issueTypeName`, `summary`, and `projectKey`.
 
-If `.claude/jira/config.md` exists in the current project, apply the `additional_fields` defined in its "Issue creation — required fields" section before creating any issue.
+If `.jira/config.md` exists in the current project, apply the `additional_fields` defined in its "Issue creation — required fields" section before creating any issue.
 
 After creation, link to the epic via `mcp__atlassian__editJiraIssue` with `customfield_10014: "<EPIC_KEY>"` if the `parent` field is not accepted by the project's issue type.

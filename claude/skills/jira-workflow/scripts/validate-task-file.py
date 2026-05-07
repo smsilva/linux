@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PreToolUse hook — validates Jira task files before Write.
-Denies writes to */.claude/jira/*.md (except config.md) that don't
+Denies writes to */.jira/*.md (except config.md) that don't
 match the required template format.
 """
 import json, re, sys
@@ -19,7 +19,7 @@ content = tool_input.get("content", "")
 
 # Only validate jira task files (not config.md)
 import os
-if not (("/.claude/jira/" in file_path or file_path.startswith(".claude/jira/"))
+if not (("/.jira/" in file_path or file_path.startswith(".jira/"))
         and file_path.endswith(".md")
         and not file_path.endswith("config.md")):
     sys.exit(0)
@@ -57,7 +57,7 @@ if errors:
         + "\n\nDo NOT use the Write tool for task files. "
         "Use create-task-file.py:\n"
         "  1. Write issue description to /tmp/jira_description.txt\n"
-        "  2. Run: python3 ~/.claude/skills/jira-workflow/create-task-file.py --template ... --output ..."
+        "  2. Run: python3 ~/.claude/skills/jira-workflow/scripts/create-task-file.py --template ~/.claude/skills/jira-workflow/templates/task.md --output ..."
     )
     print(json.dumps({
         "hookSpecificOutput": {

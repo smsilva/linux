@@ -8,10 +8,10 @@ Use the `jira-workflow` skill for all Jira operations (MCP, task file, comments,
 $ARGUMENTS — JIRA_ID (epic, story, or task)
 
 **Paths used in this skill:**
-- Project config: `.claude/jira/config.md` (always here)
-- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
+- Project config: `.jira/config.md` (always here)
+- Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.jira/`
 
-If `.claude/jira/config.md` exists, read it before any action to get project configuration:
+If `.jira/config.md` exists, read it before any action to get project configuration:
 site URL, required fields when creating issues, labels, and owner name.
 If it doesn't exist, suggest running `/jira-init` to configure the project.
 
@@ -20,7 +20,7 @@ Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-ta
 ## Navigation
 
 - If `$ARGUMENTS` is empty:
-  - Resolve `<jira_folder>` from `config.md` → `## Paths`; default `.claude/jira/`
+  - Resolve `<jira_folder>` from `config.md` → `## Paths`; default `.jira/`
   - Look for task files matching `<jira_folder>/*.md` excluding `config.md`
   - If exactly one is found, read it to get the JIRA_ID and context, and continue from where we left off
   - If multiple are found, list them and ask the user to choose
@@ -35,7 +35,7 @@ Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-ta
 
 ## Task file
 
-Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.claude/jira/`. Create the folder if needed.
+Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.jira/`. Create the folder if needed.
 
 Format defined in `jira-workflow` Step 3.
 
@@ -48,7 +48,7 @@ Format defined in `jira-workflow` Step 3.
 > Never create a new git repository. If `git status` fails (not a git repo), stop and tell the user.
 
 1. If not assigned, confirm and assign to the current user
-2. Create `<jira_folder>/<JIRA_TASK_ID>.md` if it doesn't exist (create the folder if needed; resolve path from `config.md` → `## Paths`, default `.claude/jira/`)
+2. Create `<jira_folder>/<JIRA_TASK_ID>.md` if it doesn't exist (create the folder if needed; resolve path from `config.md` → `## Paths`, default `.jira/`)
 3. If branch `feature/<JIRA_TASK_ID>` **does not exist**:
    - Checkout main and pull latest changes
    - Create branch from main: `git checkout -b feature/<JIRA_TASK_ID>`

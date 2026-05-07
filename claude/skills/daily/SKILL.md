@@ -1,6 +1,7 @@
 ---
 name: daily
 description: Generate a daily standup update based on recent conversation history
+disable-model-invocation: true
 ---
 
 Based on our recent conversations, generate my standup update for today:

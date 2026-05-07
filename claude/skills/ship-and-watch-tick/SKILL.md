@@ -1,6 +1,7 @@
 ---
 name: ship-and-watch-tick
 description: One iteration of the ship-and-watch loop — check PR CI, fix one failure if any, loop when green
+disable-model-invocation: true
 ---
 
 # /ship-and-watch-tick

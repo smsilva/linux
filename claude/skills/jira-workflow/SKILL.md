@@ -9,9 +9,54 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 - Project config: `.claude/jira/config.md` (always here)
 - Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
 
-## 0. Read task template (always first)
+## Task file format (authoritative — do not deviate)
 
-Use the Read tool to read `~/.claude/skills/jira-workflow/task-template.md` **before doing anything else in this skill**. Keep the content in context — it is the required format for every task file. Never write a task file without having read this template in the current session.
+Every task file must be written using **exactly** this structure. Replace each `{{PLACEHOLDER}}` with the actual value; omit optional lines when the value is empty.
+
+```markdown
+# {{ISSUE_KEY}}: {{SUMMARY}}
+
+**Task:** [{{ISSUE_KEY}} — {{SUMMARY}}]({{SITE}}/browse/{{ISSUE_KEY}})
+**Story:** [{{STORY_KEY}} — {{STORY_SUMMARY}}]({{SITE}}/browse/{{STORY_KEY}})
+**Epic:** [{{EPIC_KEY}} — {{EPIC_SUMMARY}}]({{SITE}}/browse/{{EPIC_KEY}})
+**Status:** {{STATUS}}
+**Owner:** {{ASSIGNEE}}
+**Branch:** feature/{{ISSUE_KEY}}
+**Sprint:** {{SPRINT}}
+
+## Description
+
+{{DESCRIPTION}}
+
+## Work log
+
+### Goal
+
+What we're trying to accomplish with this task
+
+### Current Progress
+
+What has been done so far
+
+### What Worked
+
+Approaches that succeeded and should be repeated or expanded
+
+### What Didn't Work
+
+Approaches that failed (so they aren't repeated)
+
+### Next Steps
+
+Clear action items for continuing
+```
+
+Rules:
+- Title separator is `:` (not `—`)
+- `**Owner:**` — not `**Assignee:**` or any other label
+- `## Description` — not `## Objetivo`, `## Descrição`, or any other label
+- No extra fields (no `**Repo:**`, no YAML frontmatter)
+- Paste the Jira description verbatim under `## Description` — do not summarize or rewrite it
 
 ## 1. Get accessible resources and current user
 
@@ -35,23 +80,16 @@ Task file path: `<jira_folder>/<JIRA_TASK_ID>.md` (create the folder if needed).
 
 If the resolved Jira folder is `.claude/jira/`: run `grep -xF '.claude/' .gitignore` and `grep -xF '.claude/**' .gitignore` — if neither matches exactly, suggest adding `.claude/` to `.gitignore` and ask before making any change.
 
-To create the task file:
-1. **Use the Read tool** to read `~/.claude/skills/jira-workflow/task-template.md` — do not write the task file without reading this first.
-2. Substitute every `{{PLACEHOLDER}}` with the actual value from the issue:
-   - `{{ISSUE_KEY}}` → issue key (e.g. `PLTF-3`)
-   - `{{SUMMARY}}` → issue summary
-   - `{{SITE}}` → site URL from `config.md` (e.g. `https://smsilva.atlassian.net`)
-   - `{{STORY_KEY}}` → parent story key (omit the `**Story:**` line if none)
-   - `{{STORY_SUMMARY}}` → parent story summary
-   - `{{EPIC_KEY}}` → epic key (omit the `**Epic:**` line if none)
-   - `{{EPIC_SUMMARY}}` → epic summary
-   - `{{STATUS}}` → current issue status
-   - `{{ASSIGNEE}}` → assignee display name
-   - `{{SPRINT}}` → current sprint name, or remove the line if empty
-   - `{{DESCRIPTION}}` → issue description in markdown
-3. Write the result to `<jira_folder>/<JIRA_TASK_ID>.md`
-
-Do not rename fields, reorder sections, or add fields not in the template.
+Write the task file to `<jira_folder>/<JIRA_TASK_ID>.md` using the format defined in "Task file format" above. Substitute every `{{PLACEHOLDER}}` with the actual value from the issue:
+- `{{ISSUE_KEY}}` → issue key (e.g. `PLTF-3`)
+- `{{SUMMARY}}` → issue summary
+- `{{SITE}}` → site URL from `config.md`
+- `{{STORY_KEY}}` / `{{STORY_SUMMARY}}` → parent story (omit line if none)
+- `{{EPIC_KEY}}` / `{{EPIC_SUMMARY}}` → epic (omit line if none)
+- `{{STATUS}}` → current issue status
+- `{{ASSIGNEE}}` → assignee display name
+- `{{SPRINT}}` → sprint name (omit line if empty)
+- `{{DESCRIPTION}}` → issue description verbatim in markdown
 
 Sync task file content as a comment on the issue (via `mcp__atlassian__addCommentToJiraIssue` with `contentFormat: "markdown"`) at these moments:
 - When creating the task file for the first time

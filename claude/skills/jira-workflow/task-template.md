@@ -14,8 +14,22 @@
 
 ## Work log
 
-**Goal**: What we're trying to accomplish with this task  
-**Current Progress**: What has been done so far  
-**What Worked**: Approaches that succeeded and should be repeated or expanded  
-**What Didn't Work**: Approaches that failed (so they aren't repeated)  
-**Next Steps**: Clear action items for continuing
+### Goal
+
+What we're trying to accomplish with this task
+
+### Current Progress
+
+What has been done so far
+
+### What Worked
+
+Approaches that succeeded and should be repeated or expanded
+
+### What Didn't Work
+
+Approaches that failed (so they aren't repeated)
+
+### Next Steps
+
+Clear action items for continuing

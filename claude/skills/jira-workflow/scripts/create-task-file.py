@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import argparse, re, os, sys
 
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+DEFAULT_TEMPLATE = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'templates', 'task.md'))
+
 parser = argparse.ArgumentParser(description="Create a Jira task file from template")
-parser.add_argument("--template", required=True)
+parser.add_argument("--template", default=DEFAULT_TEMPLATE)
 parser.add_argument("--output", required=True)
 parser.add_argument("--issue-key", required=True)
 parser.add_argument("--summary", required=True)

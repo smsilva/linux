@@ -85,12 +85,12 @@ If the resolved Jira folder is `.jira/`: run `grep -xF '.jira/' .gitignore` — 
 **Do NOT use the Write tool to create the task file.** Use the script below — it copies the template and substitutes placeholders, ensuring the format is always correct regardless of the issue description's internal structure.
 
 Steps:
-1. Write the issue description verbatim to `/tmp/jira_description.txt` using the Write tool.
+1. Write the issue description verbatim to `/tmp/jira_description_<JIRA_TASK_ID>.txt` using the Write tool.
 2. Run the creation script, substituting each `<VALUE>` with actual data from the issue:
 
 ```bash
-python3 ~/.claude/skills/jira-workflow/scripts/create-task-file.py \
-  --template ~/.claude/skills/jira-workflow/templates/task.md \
+skill_dir="$(readlink -f ~/.claude/skills/jira-workflow)"
+python3 "${skill_dir}/scripts/create-task-file.py" \
   --output <jira_folder>/<ISSUE_KEY>.md \
   --issue-key <ISSUE_KEY> \
   --summary "<SUMMARY>" \
@@ -102,7 +102,7 @@ python3 ~/.claude/skills/jira-workflow/scripts/create-task-file.py \
   --status "<STATUS>" \
   --assignee "<ASSIGNEE>" \
   --sprint "<SPRINT>" \
-  --description-file /tmp/jira_description.txt
+  --description-file /tmp/jira_description_<JIRA_TASK_ID>.txt
 ```
 
 Omit `--story-key`/`--story-summary`, `--epic-key`/`--epic-summary`, or `--sprint` entirely if the values are empty — the script removes those lines automatically.

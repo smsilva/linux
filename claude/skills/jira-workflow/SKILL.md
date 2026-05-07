@@ -9,7 +9,9 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 - Project config: `.claude/jira/config.md` (always here)
 - Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.claude/jira/`
 
-> **Task file format — mandatory:** The task file format is defined in `~/.claude/skills/jira-workflow/task-template.md`. You MUST use the Read tool to read that file before writing any task file. Never invent or recall a format from memory.
+## 0. Read task template (always first)
+
+Use the Read tool to read `~/.claude/skills/jira-workflow/task-template.md` **before doing anything else in this skill**. Keep the content in context — it is the required format for every task file. Never write a task file without having read this template in the current session.
 
 ## 1. Get accessible resources and current user
 

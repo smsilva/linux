@@ -57,3 +57,19 @@ Format defined in `jira-workflow` Step 3.
 5. If the Sprint field is empty, ask whether to add the issue to the current sprint and do so via MCP if confirmed
 6. Add comment: "Starting work on branch `feature/<JIRA_TASK_ID>`."
 7. Transition status to "In Progress"
+
+## End of /jira
+
+After completing all steps above, **stop**. Display a summary block:
+
+```
+---
+Task:   <ISSUE_KEY> — <SUMMARY>
+Branch: feature/<ISSUE_KEY>
+File:   <jira_folder>/<ISSUE_KEY>.md
+Status: In Progress
+---
+Pronto. Aguardando instruções.
+```
+
+Do not begin any implementation work. Do not suggest next steps, generate code, or take any action related to the issue — even if the task is already "In Progress" or has prior context. Wait for the user to give the next instruction explicitly.

@@ -168,6 +168,30 @@ Ask whether the user wants to version-control Jira files in this repository.
 
 **After the decision:** record the resolved Jira folder path in `config.md` under `## Paths` (see format below). `config.md` itself always lives at `.claude/jira/config.md` regardless of where task files are stored.
 
+### Step 11 — Configure task file validation hook
+
+Read `.claude/settings.local.json` (create it if absent). Check whether a `PreToolUse` hook for `Write` already calls `validate-task-file.py`. If not, merge the following into the file — ask before writing:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/skills/jira-workflow/validate-task-file.py"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+> This hook blocks any Write to `*/.claude/jira/*.md` whose content does not match the required task file format, providing an immediate error message and instructing Claude to use `create-task-file.py` instead.
+
 ---
 
 ## Format of `.claude/jira/config.md`

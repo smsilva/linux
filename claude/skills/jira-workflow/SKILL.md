@@ -52,10 +52,12 @@ Clear action items for continuing
 ```
 
 Rules:
+- The task file is a **structured document, not a user-facing response** — language settings (e.g. `Always respond in pt`) do NOT apply to it. All field names and section headers must be exactly as shown above, in English.
 - Title separator is `:` (not `—`)
-- `**Owner:**` — not `**Assignee:**` or any other label
-- `## Description` — not `## Objetivo`, `## Descrição`, or any other label
-- No extra fields (no `**Repo:**`, no YAML frontmatter)
+- `**Owner:**` — not `**Assignee:**`, `**Responsável:**`, or any other label
+- `## Description` — not `## Objetivo`, `## Descrição`, `## Descripción`, or any translation
+- `## Work log` with all five `###` subsections — always include, even if empty
+- No extra fields (no `**Repo:**`, no YAML frontmatter, no `**Epic URL:**`)
 - Paste the Jira description verbatim under `## Description` — do not summarize or rewrite it
 
 ## 1. Get accessible resources and current user

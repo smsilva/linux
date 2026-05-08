@@ -1,6 +1,6 @@
 ---
 name: tmux-monitor
-description: Monitor a tmux pane for changes and report each one here. Use when the user asks to watch, follow, supervisor or accompany commands running in another tmux window, pane or panel.
+description: Use when the user mentions a tmux window, pane, or panel — including "what's in that panel", "look at that window" — or asks to monitor a process running in tmux. Do NOT use peek (scrot screenshots) for tmux content — tmux panes are text, not GUI.
 ---
 
 $ARGUMENTS — `[interval=10] [pane=0:0.1]`

@@ -1,6 +1,6 @@
 ---
 name: peek
-description: Get visual feedback from the user's screen using scrot. Use this skill whenever you need to see what is on the user's screen and cannot automate the action yourself — e.g. to verify a UI state, inspect a running process, or confirm a visual result. Do NOT use when the user mentions a tmux window or tmux panel — interact directly via tmux commands instead.
+description: Use when you need to see what is on the user's screen — e.g. to verify a UI state, inspect a visual result, or confirm on-screen output — and cannot automate the action yourself. Do NOT use for tmux windows, panes, or panels — use tmux-monitor instead.
 ---
 
 ## Screenshot path

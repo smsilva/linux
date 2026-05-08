@@ -33,12 +33,6 @@ Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-ta
 - The final working issue must be a task
 - Once the task is identified, proceed immediately to **Start task** below — do not wait for further input.
 
-## Task file
-
-Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.jira/`. Create the folder if needed.
-
-Format defined in `jira-workflow` Step 3.
-
 ## Start task
 
 > **All operations run in the current working directory** — the directory where `claude` was launched.

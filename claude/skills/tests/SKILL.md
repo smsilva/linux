@@ -1,6 +1,7 @@
 ---
 name: tests
 description: Run all tests in the current repository
+disable-model-invocation: true
 ---
 
 - Detect the test framework(s) in use (pytest, jest, go test, bats, etc.) and run all tests

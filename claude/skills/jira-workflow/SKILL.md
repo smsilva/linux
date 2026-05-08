@@ -9,54 +9,18 @@ description: Primitives for interacting with Jira via MCP Atlassian — configur
 - Project config: `.jira/config.md` (always here)
 - Task file: `<jira_folder>/<JIRA_TASK_ID>.md` — read `## Paths` → Jira folder from `config.md`; default `.jira/`
 
-## Task file format (authoritative — do not deviate)
+## Task file
 
-Every task file must be written using **exactly** this structure. Replace each `{{PLACEHOLDER}}` with the actual value; omit optional lines when the value is empty.
+This file will be created and updated by the skill to keep track of the issue's status, owner, branch, and work log. It serves as the authoritative source of truth for the issue's current state and history of actions taken.
 
-```markdown
-# {{ISSUE_KEY}}: {{SUMMARY}}
+Stored at `<jira_folder>/<JIRA_TASK_ID>.md` — resolve `<jira_folder>` from `config.md` → `## Paths`; default `.jira/`. 
 
-**Task:** [{{ISSUE_KEY}} — {{SUMMARY}}]({{SITE}}/browse/{{ISSUE_KEY}})
-**Story:** [{{STORY_KEY}} — {{STORY_SUMMARY}}]({{SITE}}/browse/{{STORY_KEY}})
-**Epic:** [{{EPIC_KEY}} — {{EPIC_SUMMARY}}]({{SITE}}/browse/{{EPIC_KEY}})
-**Status:** {{STATUS}}
-**Owner:** {{ASSIGNEE}}
-**Branch:** feature/{{ISSUE_KEY}}
-**Sprint:** {{SPRINT}}
+## Task file format
 
-## Description
-
-{{DESCRIPTION}}
-
-## Work log
-
-### Goal
-
-What we're trying to accomplish with this task
-
-### Current Progress
-
-What has been done so far
-
-### What Worked
-
-Approaches that succeeded and should be repeated or expanded
-
-### What Didn't Work
-
-Approaches that failed (so they aren't repeated)
-
-### Next Steps
-
-Clear action items for continuing
-```
+Should use the template at `jira-workflow/templates/task.md`.
 
 Rules:
-- The task file is a **structured document, not a user-facing response** — language settings (e.g. `Always respond in pt`) do NOT apply to it. All field names and section headers must be exactly as shown above, in English.
-- Title separator is `:` (not `—`)
-- `**Owner:**` — not `**Assignee:**`, `**Responsável:**`, or any other label
-- `## Description` — not `## Objetivo`, `## Descrição`, `## Descripción`, or any translation
-- `## Work log` with all five `###` subsections — always include, even if empty
+- The task file is a **structured document, not a user-facing response** — language settings (e.g. `Always respond in pt`) do NOT apply to it.
 - No extra fields (no `**Repo:**`, no YAML frontmatter, no `**Epic URL:**`)
 - Paste the Jira description verbatim under `## Description` — do not summarize or rewrite it
 

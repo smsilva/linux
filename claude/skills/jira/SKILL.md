@@ -15,7 +15,7 @@ If `.jira/config.md` exists, read it before any action to get project configurat
 site URL, required fields when creating issues, labels, and owner name.
 If it doesn't exist, suggest running `/jira-init` to configure the project.
 
-Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-task-file.py`. If absent, warn the user and suggest running `/jira-init` to configure it before proceeding.
+Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-task-file.py`. If absent, warn the user that task file writes are unprotected and suggest running `/jira-init` to set it up — then stop.
 
 ## Navigation
 

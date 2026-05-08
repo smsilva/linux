@@ -44,6 +44,7 @@
     "superpowers@claude-plugins-official": true,
     "chrome-devtools-mcp@claude-plugins-official": true
   },
+  "skillListingBudgetFraction": 0.02,
   "language": "pt",
   "awaySummaryEnabled": false,
   "voice": {

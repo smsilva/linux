@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse, hashlib, os, sys
+from urllib.parse import quote
 
 try:
   from PIL import Image, PngImagePlugin
@@ -36,7 +37,8 @@ errors = []
 
 for fname in files:
   fpath = os.path.join(folder, fname)
-  uri = f"file://{fpath}"
+  safe_chars = "/:@!$&'()*+,;="
+  uri = f"file://{quote(fpath, safe=safe_chars)}"
   md5 = hashlib.md5(uri.encode()).hexdigest()
 
   fail_path = os.path.join(args.fail_directory, md5 + ".png")

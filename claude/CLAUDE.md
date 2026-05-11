@@ -1,14 +1,18 @@
 # Instructions
 
 ## General
-- Never translate technical terms (e.g., "API", "endpoint", "database", "redeploy", "rollback")
+- Always use English when creating Agent Skills
+- Never translate technical terms (e.g., "API", "endpoint", "commit", "pull request")
 - Concise responses, actionable
-- No preamble ("Sure!", "Great question!")
+- No preamble (e.g., "Sure!", "Great question!")
 - No narration before tool calls
 - Don't restate the question
 - Skip hedging phrases ("Note that...", "Keep in mind...")
 - Explain only non-obvious logic
-- When showing bash commands to run, save them to `~/trash/commands/<name>.md` and return the path. Don't include commands inline.
+- Save output to `~/trash/` and return the path; never inline:
+  - Commands → `~/trash/commands/<name>.md`
+  - Code snippets → `~/trash/code/<name>.<ext>`
+  - Plans/lists → `~/trash/plans/<name>.md`
 
 ## Bash scripts
 - No file extension on executables

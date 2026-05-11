@@ -1,0 +1,123 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Delete all default VPCs across every enabled AWS region.
+
+    Options:
+
+      -h,  --help     Show this help
+      -dr, --dry-run  Dry Run (default: false)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --dry-run
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    -dr | --dry-run )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        dry_run="${2}"
+        shift
+      else
+        dry_run=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+dry_run="${dry_run:-false}"
+
+regions=$(aws ec2 describe-regions \
+  --query 'Regions[].RegionName' \
+  --output text)
+
+for region in ${regions}; do
+  vpc_id=$(aws ec2 describe-vpcs \
+    --region "${region}" \
+    --filters "Name=isDefault,Values=true" \
+    --query 'Vpcs[0].VpcId' \
+    --output text 2>/dev/null)
+
+  if [[ -z "${vpc_id}" || "${vpc_id}" == "None" ]]; then
+    echo "[${region}] sem VPC default — pulando"
+    continue
+  fi
+
+  echo "[${region}] VPC default: ${vpc_id}"
+
+  # Subnets
+  subnet_ids=$(aws ec2 describe-subnets \
+    --region "${region}" \
+    --filters "Name=vpc-id,Values=${vpc_id}" \
+    --query 'Subnets[*].SubnetId' \
+    --output text 2>/dev/null)
+
+  for subnet_id in ${subnet_ids}; do
+    echo "[${region}]   deletando subnet ${subnet_id}"
+    if [[ "${dry_run}" == "false" ]]; then
+      aws ec2 delete-subnet \
+        --region "${region}" \
+        --subnet-id "${subnet_id}"
+    fi
+  done
+
+  # Internet Gateways
+  igw_ids=$(aws ec2 describe-internet-gateways \
+    --region "${region}" \
+    --filters "Name=attachment.vpc-id,Values=${vpc_id}" \
+    --query 'InternetGateways[*].InternetGatewayId' \
+    --output text 2>/dev/null)
+
+  for igw_id in ${igw_ids}; do
+    echo "[${region}]   detachando IGW ${igw_id}"
+    if [[ "${dry_run}" == "false" ]]; then
+      aws ec2 detach-internet-gateway \
+        --region "${region}" \
+        --internet-gateway-id "${igw_id}" \
+        --vpc-id "${vpc_id}"
+    fi
+
+    echo "[${region}]   deletando IGW ${igw_id}"
+    if [[ "${dry_run}" == "false" ]]; then
+      aws ec2 delete-internet-gateway \
+        --region "${region}" \
+        --internet-gateway-id "${igw_id}"
+    fi
+  done
+
+  # VPC (route tables main, SG default e NACL default somem junto)
+  echo "[${region}]   deletando VPC ${vpc_id}"
+  if [[ "${dry_run}" == "false" ]]; then
+    aws ec2 delete-vpc \
+      --region "${region}" \
+      --vpc-id "${vpc_id}"
+    echo "[${region}]   OK"
+  else
+    echo "[${region}]   (dry-run) delete-vpc ${vpc_id}"
+  fi
+done

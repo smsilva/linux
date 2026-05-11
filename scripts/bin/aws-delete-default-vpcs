@@ -68,6 +68,12 @@ for region in ${regions}; do
     continue
   fi
 
+  dopt_id=$(aws ec2 describe-vpcs \
+    --region "${region}" \
+    --filters "Name=isDefault,Values=true" \
+    --query 'Vpcs[0].DhcpOptionsId' \
+    --output text 2>/dev/null)
+
   echo "[${region}] VPC default: ${vpc_id}"
 
   # Subnets
@@ -119,5 +125,17 @@ for region in ${regions}; do
     echo "[${region}]   OK"
   else
     echo "[${region}]   (dry-run) delete-vpc ${vpc_id}"
+  fi
+
+  # DHCP Options Set
+  if [[ -n "${dopt_id}" && "${dopt_id}" != "None" ]]; then
+    echo "[${region}]   deletando DHCP options set ${dopt_id}"
+    if [[ "${dry_run}" == "false" ]]; then
+      aws ec2 delete-dhcp-options \
+        --region "${region}" \
+        --dhcp-options-id "${dopt_id}"
+    else
+      echo "[${region}]   (dry-run) delete-dhcp-options ${dopt_id}"
+    fi
   fi
 done

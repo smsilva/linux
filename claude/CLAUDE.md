@@ -9,10 +9,7 @@
 - Don't restate the question
 - Skip hedging phrases ("Note that...", "Keep in mind...")
 - Explain only non-obvious logic
-- Save output to `~/trash/` and return the path; never inline:
-  - Commands → `~/trash/commands/<name>.md`
-  - Code snippets → `~/trash/code/<name>.<ext>`
-  - Plans/lists → `~/trash/plans/<name>.md`
+- Offer to open artifacts like pdf files using `open <file>` or `xdg-open <file>` instead of just returning the path
 
 ## Bash scripts
 - No file extension on executables

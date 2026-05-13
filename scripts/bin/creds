@@ -1,0 +1,27 @@
+#!/bin/bash
+credentials_directory="${CREDENTIALS_DIRECTORY:-${HOME}/.credentials}"
+
+credentials_list_file="$(mktemp)"
+
+find "${credentials_directory}" \
+  -maxdepth 1 \
+  -type f \
+  -printf "%f\n" \
+  | sort \
+  | sed 's/^bash_//' > "${credentials_list_file}"
+
+selected_name="$(cat "${credentials_list_file}" | fzf)"
+
+rm "${credentials_list_file}"
+
+if [[ -z "${selected_name}" ]]; then
+  exit 0
+fi
+
+if [[ -f "${credentials_directory}/bash_${selected_name}" ]]; then
+  target_file="${credentials_directory}/bash_${selected_name}"
+else
+  target_file="${credentials_directory}/${selected_name}"
+fi
+
+code "${target_file}"

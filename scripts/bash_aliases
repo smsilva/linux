@@ -15,7 +15,6 @@ alias c='clear'
 alias cat='batcat -p'
 alias clip="xclip -selection clipboard"
 alias cobra='cobra-cli'
-alias creds='[ -e "${CREDENTIALS_DIRECTORY}" ] && cd "${CREDENTIALS_DIRECTORY}"'
 alias csvt='. csvt'
 alias ct='column -t'
 alias dc='docker compose'

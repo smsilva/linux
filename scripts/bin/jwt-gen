@@ -1,0 +1,110 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+if ! command -v openssl &>/dev/null; then
+  echo "Error: openssl is required but not found in PATH"
+  exit 1
+fi
+
+_base64_jwt_encode() {
+  base64 | tr '+/' '-_' | tr -d '=\n'
+}
+
+show_usage() {
+  cat <<EOF
+
+  Generate a HS256 JWT token
+
+    Options:
+
+      --help           Show this help
+      -h,  --header    JSON header (default: {"alg":"HS256","typ":"JWT"})
+      -p,  --payload   JSON payload (required)
+      -s,  --secret    HMAC signing secret (reads from stdin if omitted)
+
+    Examples:
+
+      ${this_script_name} --payload '{"sub":"user1"}' --secret mysecret
+
+      echo "mysecret" | ${this_script_name} --payload '{"sub":"user1"}'
+
+      ${this_script_name} \\
+        --header '{"alg":"HS256","typ":"JWT"}' \\
+        --payload '{"sub":"user1","exp":9999999999}' \\
+        --secret mysecret
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    --help )
+      show_usage
+      exit 0
+      ;;
+
+    -h | --header )
+      shift
+      header="${1}"
+      ;;
+
+    -p | --payload )
+      shift
+      payload="${1}"
+      ;;
+
+    -s | --secret )
+      shift
+      secret="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+default_header='{"alg":"HS256","typ":"JWT"}'
+header="${header:-${default_header}}"
+
+if [[ -z "${payload}" ]]; then
+  echo "Error: --payload is required"
+  show_usage
+  exit 1
+fi
+
+if [[ -z "${secret}" ]]; then
+  if [[ ! -t 0 ]]; then
+    secret="$(cat)"
+  else
+    echo "Error: --secret is required (or pipe the secret via stdin)"
+    show_usage
+    exit 1
+  fi
+fi
+
+header_b64=$(printf '%s' "${header}" | _base64_jwt_encode)
+payload_b64=$(printf '%s' "${payload}" | _base64_jwt_encode)
+
+signing_input="${header_b64}.${payload_b64}"
+
+signature=$(
+  printf '%s' "${signing_input}" \
+    | openssl dgst \
+        --sha256 \
+        --hmac "${secret}" \
+        -binary \
+    | _base64_jwt_encode
+)
+
+printf '%s\n' "${signing_input}.${signature}"

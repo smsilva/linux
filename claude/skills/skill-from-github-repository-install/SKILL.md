@@ -1,6 +1,7 @@
 ---
 name: skill-from-github-repository-install
 description: Use when the user invokes /skill-from-github-repository-install with a GitHub URL pointing to a skill directory. Installs the skill by cloning the repository and creating a symlink into the Claude skills directory.
+disable-model-invocation: true
 ---
 
 # skill-from-github-repository-install

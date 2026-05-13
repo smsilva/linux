@@ -1,6 +1,7 @@
 ---
 name: skill-from-github-repository-update
 description: Use when the user invokes /skill-from-github-repository-update to update one or more symlink-based skills by pulling their source git repositories.
+disable-model-invocation: true
 ---
 
 # skill-from-github-repository-update

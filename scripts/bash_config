@@ -1,8 +1,9 @@
 user_scripts_directory="${HOME}/.scripts"
-krew_bin_directory="${HOME}/.krew/bin"
+krew_bin_directory="${KREW_ROOT:-${HOME}/.krew}/bin"
 npm_packages_bin_directory="${HOME}/.npm-packages/bin"
 android_studio_bin_directory="${HOME}/bin/android-studio/bin"
 android_platform_tools_directory="${HOME}/Android/Sdk/platform-tools"
+lmstudio_bin_directory="${HOME}/.lmstudio/bin"
 
 export CLAUDE_CONTEXT_THRESHOLD_WARNING=50
 export CLAUDE_CONTEXT_THRESHOLD_CRITICAL=70
@@ -44,6 +45,7 @@ PATH=$(add_to_path "${HOME}/.local/bin")
 PATH=$(add_to_path "${android_studio_bin_directory}")
 PATH=$(add_to_path "${android_platform_tools_directory}")
 PATH=$(add_to_path "${PYENV_ROOT}/bin")
+PATH=$(add_to_path "${lmstudio_bin_directory}")
 
 if which pyenv &> /dev/null; then
   eval "$(pyenv init -)"

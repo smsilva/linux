@@ -7,11 +7,13 @@ description: Create or update a handoff document so the next agent with fresh co
 
 2. Run `git log main..HEAD` to capture work since the last update.
 
-3. Write `HANDOFF.md` in the project root with:
+3. Find open security issues: check `CLAUDE.md` for a "Security tracking" section with a custom path; otherwise use `docs/security/issues/*.md`. Exclude any `archived/` subfolder. For each file found, extract `id`, `severity`, and the one-line description.
+
+4. If step 3 found files, open `HANDOFF.md` with an **⚠️ Open Security Issues** section listing each as `SEC-NNN (Severity) — title`, with a note to address them before new features.
+
+5. Write `HANDOFF.md` in the project root with:
    - **Goal**: What we're trying to accomplish
    - **Current Progress**: What's been done so far
    - **What Worked**: Approaches that succeeded
    - **What Didn't Work**: Approaches that failed
-   - **Next Steps**: Clear action items for continuing
-
-4. Tell the user the file path.
+   - **Next Steps**: Clear action items — if there are open security issues, list fixing them first

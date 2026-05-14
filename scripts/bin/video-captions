@@ -1,0 +1,121 @@
+#!/usr/bin/env python3.12
+"""Extract captions from a video file using OpenAI Whisper."""
+
+import argparse
+import sys
+from pathlib import Path
+
+
+def show_usage():
+    return """
+  Extract captions/subtitles from a video file using Whisper speech recognition.
+
+    Options:
+
+      -h,  --help              Show this help
+      -l,  --language LANG     Source language code (default: en)
+      -m,  --model MODEL       Whisper model size: tiny, base, small, medium, large (default: base)
+      -f,  --format FORMAT     Output format: text, srt, vtt, json (default: text)
+      -o,  --output FILE       Write output to FILE instead of stdout
+
+    Examples:
+
+      video-captions video.mp4
+
+      video-captions --language pt --model small video.mp4
+
+      video-captions --format srt --output captions.srt video.mp4
+
+      video-captions --model medium --format vtt video.mkv
+"""
+
+
+def format_timestamp(seconds: float, fmt: str) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int((seconds % 1) * 1000)
+    if fmt == "srt":
+        return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+    return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+
+
+def to_srt(segments) -> str:
+    lines = []
+    for i, seg in enumerate(segments, 1):
+        start = format_timestamp(seg["start"], "srt")
+        end = format_timestamp(seg["end"], "srt")
+        lines.append(f"{i}\n{start} --> {end}\n{seg['text'].strip()}\n")
+    return "\n".join(lines)
+
+
+def to_vtt(segments) -> str:
+    lines = ["WEBVTT\n"]
+    for seg in segments:
+        start = format_timestamp(seg["start"], "vtt")
+        end = format_timestamp(seg["end"], "vtt")
+        lines.append(f"{start} --> {end}\n{seg['text'].strip()}\n")
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Extract captions from video using Whisper",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=show_usage(),
+        add_help=False,
+    )
+    parser.add_argument("-h", "--help", action="store_true")
+    parser.add_argument("-l", "--language", default="en")
+    parser.add_argument("-m", "--model", default="base")
+    parser.add_argument("-f", "--format", dest="fmt", default="text",
+                        choices=["text", "srt", "vtt", "json"])
+    parser.add_argument("-o", "--output")
+    parser.add_argument("video", nargs="?")
+
+    args = parser.parse_args()
+
+    if args.help:
+        print(show_usage())
+        sys.exit(0)
+
+    if not args.video:
+        parser.print_usage(sys.stderr)
+        sys.exit(1)
+
+    video_path = Path(args.video)
+    if not video_path.exists():
+        print(f"error: file not found: {video_path}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        import whisper
+    except ModuleNotFoundError:
+        print("error: openai-whisper not installed. Run: pip install openai-whisper --break-system-packages", file=sys.stderr)
+        sys.exit(1)
+
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    model = whisper.load_model(args.model)
+    result = model.transcribe(str(video_path), language=args.language, verbose=False)
+
+    if args.fmt == "text":
+        output = result["text"].strip()
+    elif args.fmt == "srt":
+        output = to_srt(result["segments"])
+    elif args.fmt == "vtt":
+        output = to_vtt(result["segments"])
+    elif args.fmt == "json":
+        import json
+        output = json.dumps(result, indent=2, ensure_ascii=False)
+
+    if args.output:
+        Path(args.output).write_text(output, encoding="utf-8")
+        print(f"saved to {args.output}", file=sys.stderr)
+    else:
+        print(output)
+
+
+if __name__ == "__main__":
+    main()

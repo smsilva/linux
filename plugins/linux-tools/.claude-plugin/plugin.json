@@ -1,0 +1,5 @@
+{
+  "name": "linux-tools",
+  "description": "Bash script conventions and conventional commits for Linux development",
+  "version": "1.0.0"
+}

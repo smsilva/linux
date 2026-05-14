@@ -1,0 +1,14 @@
+{
+  "name": "linux",
+  "owner": {
+    "name": "Silvio Silva",
+    "url": "https://github.com/smsilva"
+  },
+  "plugins": [
+    {
+      "name": "linux-tools",
+      "source": "./plugins/linux-tools",
+      "description": "Bash script conventions and conventional commits for Linux development"
+    }
+  ]
+}

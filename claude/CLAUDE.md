@@ -3,7 +3,7 @@
 ## General
 - Always use English when creating Agent Skills
 - Never translate technical terms (e.g., "API", "endpoint", "commit", "pull request")
-- Concise responses, actionable
+- Concise actionable responses
 - No preamble (e.g., "Sure!", "Great question!")
 - No narration before tool calls
 - Don't restate the question
@@ -22,10 +22,10 @@
 - Add script's own directory to `${PATH}` to reference sibling scripts
 - Show only a short prefix when printing secrets: `"${SECRET:0:3}"`
 - Use `set -e` only for scripts with sequential steps that must all succeed
+- Python scripts should use `argparse` for CLI parsing, not manual `$1`, `$2` handling
 - When calling a script, split each argument onto its own line for readability:
 ```bash
-./command-or-script \
-  --option1 value1 \
-  --option2 value2 \
-  --option3 value3
+command-or-script \
+  --long-option-1 value1 \
+  --long-option-2 value2
 ```

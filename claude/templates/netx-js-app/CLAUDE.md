@@ -1,9 +1,21 @@
-# Project Overview
-Next.js application with microservices backend
-# Architecture
-@docs/architecture/overview.md
-@docs/architecture/api-design.md
-# Coding Standards
+# Next.js App
+
+Next.js application with microservices backend.
+
+## Architecture
+
+- [Overview](docs/architecture/overview.md)
+- [API Design](docs/architecture/api-design.md)
+
+## Coding Standards
+
 - TypeScript strict mode
 - Functional components with hooks
-- @standards/testing-guidelines.md
+
+## Testing
+
+- [Testing Guidelines](standards/testing-guidelines.md)
+
+## Tools
+
+- Markdown linting: `npx markdownlint-cli2 <file>`

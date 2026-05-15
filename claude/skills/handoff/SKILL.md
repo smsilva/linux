@@ -3,6 +3,8 @@ name: handoff
 description: Create or update a handoff document so the next agent with fresh context can continue the work
 ---
 
+0. Invoke the `save-session-learnings` skill to persist any lasting knowledge from this session.
+
 1. If `HANDOFF.md` exists, read it before proceeding.
 
 2. Run `git log main..HEAD` to capture work since the last update.

@@ -1,0 +1,124 @@
+#!/bin/bash
+settings_file="${HOME}/.claude/settings.json"
+
+show_usage() {
+  cat <<EOF
+
+  Toggle Claude Code plugins on/off in ~/.claude/settings.json.
+
+    Options:
+
+      -h, --help    Show this help
+      -l, --list    List plugins and their current state, then exit
+
+    Examples:
+
+      plugins
+
+      plugins --list
+EOF
+}
+
+list_only=false
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help)
+      show_usage
+      exit 0
+      ;;
+    -l | --list)
+      list_only=true
+      ;;
+    *)
+      printf 'error: unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+[[ "${1}" == "--" ]] && shift
+
+if [[ ! -f "${settings_file}" ]]; then
+  printf 'error: settings file not found at %s\n' "${settings_file}" >&2
+  exit 1
+fi
+
+mapfile -t all_plugins < <(
+  jq -r '.enabledPlugins | keys[]' "${settings_file}" | sort
+)
+
+if [[ "${list_only}" == true ]]; then
+  jq -r '.enabledPlugins | to_entries[] | "\(.value)\t\(.key)"' "${settings_file}" \
+    | sort -k2 \
+    | awk '{printf "%-8s %s\n", $1, $2}'
+  exit 0
+fi
+
+mapfile -t enabled_now < <(
+  jq -r '.enabledPlugins | to_entries[] | select(.value == true) | .key' "${settings_file}" | sort
+)
+
+load_actions="first"
+for plugin in "${enabled_now[@]}"; do
+  pos=1
+  for p in "${all_plugins[@]}"; do
+    [[ "${p}" == "${plugin}" ]] && break
+    ((pos++))
+  done
+  load_actions="pos(${pos})+toggle+${load_actions}"
+done
+
+if [[ -n "${TMUX}" ]]; then
+  fzf_opts=(fzf --tmux "center,80%,80%")
+else
+  fzf_opts=(fzf --height "100%")
+fi
+
+selected=$(
+  printf '%s\n' "${all_plugins[@]}" \
+  | "${fzf_opts[@]}" --multi \
+      --bind "load:${load_actions}" \
+      --bind "space:toggle" \
+      --bind "enter:transform:[[ \$FZF_SELECT_COUNT -eq 0 ]] && echo 'become(true)' || echo 'accept'" \
+      --prompt "Plugins > "
+) || {
+  printf 'Cancelled.\n'
+  exit 0
+}
+
+declare -A selected_map=()
+while IFS= read -r name; do
+  [[ -n "${name}" ]] && selected_map["${name}"]=1
+done <<< "${selected}"
+
+enabled_json="["
+first=1
+for plugin in "${all_plugins[@]}"; do
+  if [[ -n "${selected_map[${plugin}]+_}" ]]; then
+    [[ "${first}" -eq 0 ]] && enabled_json+=","
+    enabled_json+="\"${plugin}\""
+    first=0
+  fi
+done
+enabled_json+="]"
+
+tmp="$(mktemp)"
+jq --argjson enabled "${enabled_json}" \
+  '.enabledPlugins = (.enabledPlugins | to_entries | map(.value = (.key as $k | $enabled | index($k) != null)) | from_entries)' \
+  "${settings_file}" > "${tmp}"
+mv "${tmp}" "${settings_file}"
+
+new_enabled=()
+new_disabled=()
+for plugin in "${all_plugins[@]}"; do
+  if [[ -n "${selected_map[${plugin}]+_}" ]]; then
+    new_enabled+=("${plugin}")
+  else
+    new_disabled+=("${plugin}")
+  fi
+done
+
+printf '\nEnabled  (%d): %s\n' "${#new_enabled[@]}" "${new_enabled[*]:-none}"
+printf 'Disabled (%d): %s\n' "${#new_disabled[@]}" "${new_disabled[*]:-none}"

@@ -45,3 +45,10 @@ This is a Next.js application with a microservices backend. The frontend and bac
 - **API routes for BFF** — Next.js API routes act as a Backend-for-Frontend, proxying microservice calls and handling auth
 - **Shared types package** — `packages/types` is consumed by both frontend and backend services to keep contracts in sync
 - **Environment-based service discovery** — service URLs are injected via environment variables; no hardcoded hostnames
+
+## Further Reading
+
+- [Auth Flow](references/auth-flow.md) — JWT lifecycle, token refresh, middleware, and role model
+- [Data Flow](references/data-flow.md) — read/write paths, state layers, and cache revalidation
+- [Deployment](references/deployment.md) — environments, container layout, Kubernetes resources, and CI/CD
+- [Error Handling](references/error-handling.md) — error layers, classification table, and logging

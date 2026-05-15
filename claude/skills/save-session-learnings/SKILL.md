@@ -1,9 +1,9 @@
 ---
-name: session-learnings
+name: save-session-learnings
 description: Use when ending a session to persist project knowledge, user corrections, and inferred details from the conversation into the appropriate CLAUDE.md files.
 ---
 
-# session-learnings
+# save-session-learnings
 
 Extract lasting knowledge from the current session and write it to the right CLAUDE.md file.
 

@@ -1,5 +1,5 @@
 {
-  "skillListingBudgetFraction": 0.02,
+  "skillListingBudgetFraction": 0.03,
   "hooks": {
     "Stop": [
       {

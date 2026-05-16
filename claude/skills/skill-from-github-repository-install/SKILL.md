@@ -119,6 +119,31 @@ Origem:  ${skill_source}
 Destino: ${target}
 ```
 
+### 7. Register in third-party registry
+
+Append the skill to `${HOME}/.claude/skills/third-party.md` if not already present,
+or update its URL if the skill is already listed.
+
+The URL to register is:
+```
+https://github.com/${owner}/${repo}/tree/${branch}/${skill_path}
+```
+
+If the registry file does not exist yet, create it with the standard header:
+```markdown
+# Third-party skills
+
+Skills installed from external GitHub repositories via `/skill-from-github-repository-install`.
+Run `/skill-from-github-repository-update bootstrap` to reinstall all entries on a new machine.
+
+| skill | url |
+|-------|-----|
+```
+
+Then insert the new row in alphabetical order by skill name.
+
+If the file exists, insert or update the row for `${skill_name}` keeping the table sorted alphabetically.
+
 ## Error cases
 
 | Situation | Action |

@@ -1,0 +1,30 @@
+#!/bin/bash
+# Discovers symlink-based skills and outputs "skill_name github_url" lines.
+# Reconstructs GitHub URLs from ~/.git/{owner}/{repo}/{skill_path} symlink targets.
+
+global_dir="${HOME}/.claude/skills"
+local_dir="${PWD}/.claude/skills"
+
+{
+  for dir in "${global_dir}" "${local_dir}"; do
+    [ -d "${dir}" ] || continue
+    for link in "${dir}"/*/; do
+      skill="${link%/}"
+      [ -L "${skill}" ] || continue
+      skill_name=$(basename "${skill}")
+      target=$(readlink "${skill}")
+
+      local_repo=$(echo "${target}" | grep -oP "^${HOME}/\.git/[^/]+/[^/]+")
+      [ -z "${local_repo}" ] && continue
+
+      skill_path="${target#${local_repo}/}"
+      owner_repo="${local_repo#${HOME}/.git/}"
+      owner="${owner_repo%%/*}"
+      repo="${owner_repo#*/}"
+
+      branch=$(git -C "${local_repo}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+      echo "${skill_name} https://github.com/${owner}/${repo}/tree/${branch}/${skill_path}"
+    done
+  done
+} | sort -u

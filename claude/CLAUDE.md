@@ -10,6 +10,7 @@
 - Skip hedging phrases ("Note that...", "Keep in mind...")
 - Explain only non-obvious logic
 - Offer to open artifacts like pdf files using `open <file>` or `xdg-open <file>` instead of just returning the path
+- Folder structures should reflect the ideas they contain; files at deeper levels must not repeat parent folder names unless genuinely meaningful
 
 ## Bash scripts
 - No file extension on executables

@@ -9,14 +9,12 @@ description: Review a Markdown file for conciseness and clarity. Accepts a file 
 
 2. Read the file.
 
-3. Open the file in VS Code: `code <resolved-path>`.
-
-4. Review for:
+3. Review for:
    - Redundant or mergeable steps
    - Vague instructions (prefer concrete commands over prose descriptions)
    - Implicit information that doesn't need to be stated
    - Awkward or overly verbose phrasing
 
-5. If issues found, list them and ask the user for approval before applying any changes via Edit.
+4. If issues found, list them and ask the user for approval before applying any changes via Edit.
 
-6. If the file is in pt-br, translate it to English after reviewing.
+5. If the file is in pt-br, translate it to English after reviewing.

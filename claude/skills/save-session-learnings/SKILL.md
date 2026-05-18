@@ -3,21 +3,11 @@ name: save-session-learnings
 description: Use when ending a session to persist project knowledge, user corrections, and inferred details from the conversation into the appropriate CLAUDE.md files.
 ---
 
-# save-session-learnings
-
-Extract lasting knowledge from the current session and write it to the right CLAUDE.md file.
-
-## When to Use
-
-- End of a task, debugging session, or feature implementation
-- User says "capture what we learned", "update CLAUDE.md", "save session notes"
-- Corrections were made to Claude's code, explanations, or assumptions during the session
-
 ## Workflow
 
-### 1. Scan the session for learnings
+### 1. Scan for lasting learnings
 
-Review the conversation history for:
+Look for:
 - Facts about the project not derivable from the code alone
 - Corrections the user made to generated code or explanations
 - Implementation details that required inference or research
@@ -56,7 +46,9 @@ Do not add boilerplate or verbose explanations. If a reader would understand it 
 
 ### 5. Report
 
-After updating, output a brief summary:
-- Which files were updated
-- What was added (one line per entry)
-- Anything that seemed useful but was discarded and why
+After updating, print:
+```
+Updated: <file> — <entry>
+Updated: <file> — <entry>
+Discarded: <topic> (<reason>)
+```

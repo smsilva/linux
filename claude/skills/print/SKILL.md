@@ -37,6 +37,6 @@ sudo apt install --yes scrot
 
 ## Notes
 
-- Always open the image with the `Read` tool — do not print the path or cat the file.
+- Always open the image with the `Read` tool, not just print the path.
 - If the user refers to a specific screenshot (e.g. "the 08:37 one"), find the closest match by timestamp.
 - Do NOT use `peek` for this — `peek` is for mid-task UI verification with multi-monitor support.

@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Skill(conventional-commits)",
+
       "Bash(cat:*)",
       "Bash(file:*)",
       "Bash(find:*)",

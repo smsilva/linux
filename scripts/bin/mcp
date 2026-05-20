@@ -87,11 +87,7 @@ fi
 mcp_file="${project_dir}/.mcp.json"
 
 if [[ "${list_active}" == true ]]; then
-  if [[ ! -f "${mcp_file}" ]]; then
-    printf 'error: %s not found\n' "${mcp_file}" >&2
-    exit 1
-  fi
-  jq -r '.mcpServers | keys[]' "${mcp_file}" | sort
+  [[ -f "${mcp_file}" ]] && jq -r '.mcpServers | keys[]' "${mcp_file}" | sort
   exit 0
 fi
 

@@ -1,0 +1,54 @@
+#!/bin/bash
+# Outputs skill names with broken symlinks (symlink exists, target missing), sorted.
+# Checks both the global (~/.claude/skills) and local project (.claude/skills) directories.
+
+show_usage() {
+  cat <<EOF
+
+  List Claude skills installed as broken symlinks (target path missing).
+
+    Options:
+
+      -h, --help  Show this help
+
+    Output:
+
+      One skill name per line, alphabetically sorted, deduplicated.
+
+    Examples:
+
+      list-broken-skills
+
+      list-broken-skills | xargs -I{} repair-skill {}
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+global_dir="${HOME}/.claude/skills"
+local_dir="${PWD}/.claude/skills"
+
+{
+  for dir in "${global_dir}" "${local_dir}"; do
+    [ -d "${dir}" ] || continue
+    for link in "${dir}"/*; do
+      [ -L "${link}" ] || continue
+      [ -e "${link}" ] && continue
+      basename "${link}"
+    done
+  done
+} | sort -u

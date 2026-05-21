@@ -12,25 +12,30 @@ Update installed skills that were installed as symlinks by pulling their underly
 
 Optional skill name or special argument:
 ```
-/skill-from-github-repository-update [skill-name|bootstrap]
+/skill-from-github-repository-update [skill-name|bootstrap|repair]
 ```
 
-- **Without argument** — list all updatable (symlink) skills and ask which to update.
+- **Without argument** — list all updatable (symlink) skills and ask which to update; broken symlinks are detected and repaired automatically first.
 - **With skill name** — update that skill directly.
-- **`bootstrap`** — sync registry from symlinks, then reinstall any missing skills.
+- **`bootstrap`** — sync registry from symlinks, reinstall missing skills, and repair broken symlinks.
+- **`repair`** — detect and repair all broken symlinks using URLs from the registry.
 
 ## Steps
 
-### 1. Discover updatable skills
+### 1. Discover skills
 
-Use the `list-symlink-skills` script (in `scripts/` next to this file):
+Run both discovery scripts:
 ```bash
 "${SKILL_DIR}/scripts/list-symlink-skills"
+"${SKILL_DIR}/scripts/list-broken-skills"
 ```
+
+`list-symlink-skills` returns valid symlinks (updatable).
+`list-broken-skills` returns symlinks whose target path is missing (repairable).
 
 Where `SKILL_DIR` is the base directory of this skill (provided at skill load time).
 
-### 2. If argument is `bootstrap` — sync registry and reinstall missing skills
+### 2. If argument is `bootstrap` — sync registry, reinstall missing, and repair broken
 
 #### 2a. Discover installed symlink skills
 
@@ -81,9 +86,44 @@ Report each action:
 ✓ pptx      — reinstalled from https://github.com/anthropics/skills/tree/main/skills/pptx
 ```
 
-### 3. If no argument was given — show list and ask
+#### 2d. Repair broken symlinks
 
-If no updatable skills found: abort.
+```bash
+"${SKILL_DIR}/scripts/list-broken-skills" | while read -r skill; do
+  "${SKILL_DIR}/scripts/repair-skill" "${skill}"
+done
+```
+
+Report each result.
+
+### 2b. If argument is `repair` — repair broken symlinks
+
+Run `list-broken-skills`. If none found:
+```
+Nenhuma skill com symlink quebrado encontrada.
+```
+
+Otherwise, repair each:
+```bash
+"${SKILL_DIR}/scripts/list-broken-skills" | while read -r skill; do
+  "${SKILL_DIR}/scripts/repair-skill" "${skill}"
+done
+```
+
+### 3. If no argument was given — repair broken first, then show list
+
+#### 3a. Repair broken symlinks (automatic)
+
+Run `list-broken-skills`. If any are found, report and repair them automatically before proceeding:
+```bash
+"${SKILL_DIR}/scripts/list-broken-skills" | while read -r skill; do
+  "${SKILL_DIR}/scripts/repair-skill" "${skill}"
+done
+```
+
+#### 3b. Show updatable skills and ask
+
+If no valid symlinks found: abort.
 ```
 Nenhuma skill instalada via symlink encontrada.
 ```
@@ -124,6 +164,12 @@ When multiple skills share the same repo, each `update-skill` call is independen
 ✓ skill-name  →  /home/user/.git/owner/repo
 ```
 
+`repair-skill` prints for each skill:
+```
+✓ skill-name  →  /home/user/.git/owner/repo (clonado)
+  symlink OK: /home/user/.git/owner/repo/skills/skill-name
+```
+
 ## Error cases
 
 | Situation | Action |
@@ -132,3 +178,6 @@ When multiple skills share the same repo, each `update-skill` call is independen
 | Named skill exists but not a symlink | Abort, suggest manual update |
 | `.git` repo not found at expected path | Abort showing the resolved path |
 | `git pull` fails (conflict, network) | Show full git output |
+| Broken skill not found in registry | Abort: skill must be registered in `third-party.md` to be repaired |
+| Registry URL cannot be parsed | Abort showing the URL that failed to parse |
+| Symlink still broken after clone | Abort showing the symlink target path |

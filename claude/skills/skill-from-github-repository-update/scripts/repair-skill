@@ -1,0 +1,88 @@
+#!/bin/bash
+# Repairs a broken-symlink skill by cloning the missing source repository.
+# The symlink must already exist; only the target repo is missing.
+# Reads the GitHub URL from ~/.claude/skills/third-party.md.
+
+show_usage() {
+  cat <<EOF
+
+  Repair a Claude skill with a broken symlink by cloning its source repository.
+
+    Options:
+
+      -h, --help  Show this help
+
+    Arguments:
+
+      <skill-name>  Name of the skill to repair (required)
+
+    Examples:
+
+      repair-skill diagnose
+
+      list-broken-skills | xargs -I{} repair-skill {}
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+skill_name="${1?skill-name is required — run repair-skill --help}"
+
+registry="${HOME}/.claude/skills/third-party.md"
+
+if [ ! -f "${registry}" ]; then
+  echo "Registry não encontrado: ${registry}"
+  exit 1
+fi
+
+url=$(awk -F'|' -v skill="${skill_name}" \
+  '$2 ~ "^[[:space:]]*"skill"[[:space:]]*$" { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $3); print $3 }' \
+  "${registry}")
+
+if [ -z "${url}" ]; then
+  echo "Skill \"${skill_name}\" não encontrada no registry: ${registry}"
+  exit 1
+fi
+
+# Parse: https://github.com/{owner}/{repo}/tree/{branch}/{path}
+owner_repo=$(echo "${url}" | grep -oP 'github\.com/\K[^/]+/[^/]+')
+
+if [ -z "${owner_repo}" ]; then
+  echo "Não foi possível extrair owner/repo da URL: ${url}"
+  exit 1
+fi
+
+clone_dir="${HOME}/.git/${owner_repo}"
+
+if [ -d "${clone_dir}/.git" ]; then
+  git -C "${clone_dir}" pull --ff-only
+  echo "✓ ${skill_name}  →  ${clone_dir} (atualizado)"
+else
+  mkdir --parents "$(dirname "${clone_dir}")"
+  git clone --depth 1 "https://github.com/${owner_repo}" "${clone_dir}"
+  echo "✓ ${skill_name}  →  ${clone_dir} (clonado)"
+fi
+
+link="${HOME}/.claude/skills/${skill_name}"
+if [ -e "${link}" ]; then
+  echo "  symlink OK: $(readlink "${link}")"
+else
+  echo "  ERRO: symlink ainda quebrado — $(readlink "${link}")"
+  exit 1
+fi

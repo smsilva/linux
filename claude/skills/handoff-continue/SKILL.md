@@ -3,8 +3,10 @@ name: handoff-continue
 description: Read HANDOFF.md and continue from where we left off
 ---
 
-Read `HANDOFF.md` and continue from where we left off.
+Read `HANDOFF.md`. Identify the next task.
 
-Identify the next task and suggest the `mcp` command with the appropriate servers, one `--add` per line. Use only available servers get the list with `mcp --list`.
+Suggest the `mcp` command with the appropriate servers from `mcp --list`, one `--add` per line.
+
+Suggest the best-fit model for the task.
 
 When done, remove the completed item from `HANDOFF.md`.

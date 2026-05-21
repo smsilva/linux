@@ -54,5 +54,6 @@
   },
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "autoMemoryEnabled": false
 }

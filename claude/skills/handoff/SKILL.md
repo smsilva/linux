@@ -27,3 +27,4 @@ description: Create or update a handoff document so the next agent with fresh co
      - `Approved` specs without a matching plan → "create a plan for X"
      - `Deferred` / other backlog specs → optional **Backlog** subsection
      - If there are open security issues, list fixing them first
+     - **Do NOT mention commits, PRs, branch merges, or any git workflow steps** — those decisions belong to the user, not the handoff document.

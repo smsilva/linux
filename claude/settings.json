@@ -1,5 +1,7 @@
 {
-  "skillListingBudgetFraction": 0.04,
+  "permissions": {
+    "allow": ["Skill(conventional-commits)"]
+  },
   "hooks": {
     "Stop": [
       {
@@ -42,18 +44,21 @@
     "refreshInterval": 5
   },
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": false,
     "chrome-devtools-mcp@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false
+    "claude-md-management@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": false
   },
-  "language": "pt",
-  "awaySummaryEnabled": false,
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
-  "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
-  "voiceEnabled": true,
-  "autoMemoryEnabled": false
+  "alwaysThinkingEnabled": true,
+  "autoMemoryEnabled": false,
+  "awaySummaryEnabled": false,
+  "fileCheckpointingEnabled": false,
+  "language": "pt-BR",
+  "model": "sonnet",
+  "skillListingBudgetFraction": 0.04
 }

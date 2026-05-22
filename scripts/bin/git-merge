@@ -32,19 +32,38 @@ rebase_onto() {
   local target_branch="${1}"
   local current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
-  echo "==> Switching to ${target_branch}"
+  echo "Switching to ${target_branch}"
   git checkout "${target_branch}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to switch to ${target_branch}"
+    exit 1
+  fi
+  echo ""
 
-  echo "==> Pulling ${target_branch} (rebase + prune)"
+  echo "Pulling ${target_branch} (rebase + prune)"
   git pull --rebase --prune
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to pull ${target_branch}"
+    exit 1
+  fi
+  echo ""
 
-  echo "==> Switching back to ${current_branch}"
+  echo "Switching back to ${current_branch}"
   git checkout "${current_branch}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to switch back to ${current_branch}"
+    exit 1
+  fi
+  echo ""
 
-  echo "==> Rebasing ${current_branch} onto ${target_branch}"
+  echo "Rebasing ${current_branch} onto ${target_branch}"
   git rebase "${target_branch}"
+  if [ $? -ne 0 ]; then
+    echo "Error: Failed to rebase ${current_branch} onto ${target_branch}"
+    exit 1
+  fi
 
-  echo "==> Done"
+  echo "Done"
 }
 
 subcommand="${1}"

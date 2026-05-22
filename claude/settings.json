@@ -1,7 +1,4 @@
 {
-  "permissions": {
-    "allow": ["Skill(conventional-commits)"]
-  },
   "hooks": {
     "Stop": [
       {
@@ -45,20 +42,30 @@
   },
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": false,
-    "claude-md-management@claude-plugins-official": false,
+    "ralph-loop@claude-plugins-official": false,
     "skill-creator@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "smsilva-linux": {
+      "source": {
+        "source": "github",
+        "repo": "smsilva/linux",
+        "ref": "dev"
+      }
+    }
   },
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
   "agentPushNotifEnabled": true,
-  "alwaysThinkingEnabled": true,
   "autoMemoryEnabled": false,
   "awaySummaryEnabled": false,
+  "effortLevel": "high",
   "fileCheckpointingEnabled": false,
-  "language": "pt-BR",
-  "model": "sonnet",
-  "skillListingBudgetFraction": 0.04
+  "language": "pt",
+  "skillListingBudgetFraction": 0.04,
+  "theme": "dark",
+  "voiceEnabled": true
 }

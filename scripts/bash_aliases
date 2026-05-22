@@ -113,6 +113,7 @@ alias lower='tr "[:upper:]" "[:lower:]"'
 alias ls='ls -1 --color=auto'
 alias mdp='gcor dev && gcor main && grb dev && git push'
 alias mem='free -h'
+alias merge='git-merge'
 alias mod='stat -c "%a"'
 alias mp='multipass'
 alias mpalias="alias | grep -E '(^alias).*(multipass).*' | sed 's/alias //' | column -t -s '=' | tr -d \' | sed '/^mpalias/ d'"

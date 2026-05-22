@@ -43,8 +43,8 @@
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": false,
     "ralph-loop@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": true,
-    "superpowers@claude-plugins-official": true
+    "skill-creator@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "smsilva-linux": {
@@ -64,7 +64,7 @@
   "awaySummaryEnabled": false,
   "effortLevel": "high",
   "fileCheckpointingEnabled": false,
-  "language": "pt",
+  "language": "pt-BR",
   "skillListingBudgetFraction": 0.04,
   "theme": "dark",
   "voiceEnabled": true

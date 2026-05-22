@@ -1,6 +1,4 @@
 #!/bin/bash
-set -e
-
 this_script_path="$(realpath ${0})"
 this_script_name="${this_script_path##*/}"
 this_script_directory="${this_script_path%/*}"
@@ -28,46 +26,47 @@ show_usage() {
 EOF
 }
 
-rebase_onto() {
-  local target_branch="${1}"
-  local current_branch="$(git rev-parse --abbrev-ref HEAD)"
+checkout_branch() {
+  local branch="${1}"
 
-  echo "Switching to ${target_branch}"
-  git checkout "${target_branch}"
+  git checkout "${branch}" 2> /dev/null
+  
   if [ $? -ne 0 ]; then
-    echo "Error: Failed to switch to ${target_branch}"
+    echo ""
+    echo "  ERROR: Failed to switch to ${branch}"
     exit 1
   fi
+
+  git pull --rebase --prune 2> /dev/null
+}
+
+rebase_from_source_to_target() {
+  local source_branch="${1}"
+  local target_branch="${2}"
+
+  echo "1. Update SOURCE: ${source_branch}"
+  checkout_branch "${source_branch}" 2> /dev/null
+
+  echo ""
+  echo "2. Update TARGET: ${target_branch}"
+  checkout_branch "${target_branch}" 2> /dev/null
+
+  echo ""
+  echo "3. Rebase from SOURCE ${source_branch} to TARGET ${target_branch}"
   echo ""
 
-  echo "Pulling ${target_branch} (rebase + prune)"
-  git pull --rebase --prune
+  git rebase "${source_branch}"
+
   if [ $? -ne 0 ]; then
-    echo "Error: Failed to pull ${target_branch}"
+    echo ""
+    echo "  ERROR: Failed to rebase ${source_branch} onto ${target_branch}"
     exit 1
   fi
-  echo ""
-
-  echo "Switching back to ${current_branch}"
-  git checkout "${current_branch}"
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to switch back to ${current_branch}"
-    exit 1
-  fi
-  echo ""
-
-  echo "Rebasing ${current_branch} onto ${target_branch}"
-  git rebase "${target_branch}"
-  if [ $? -ne 0 ]; then
-    echo "Error: Failed to rebase ${current_branch} onto ${target_branch}"
-    exit 1
-  fi
-
-  echo "Done"
 }
 
 subcommand="${1}"
-target_branch="${2}"
+input_branch="${2}"
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
 
 case "${subcommand}" in
   -h | --help )
@@ -75,8 +74,17 @@ case "${subcommand}" in
     exit 0
     ;;
 
-  to | from )
-    rebase_onto "${target_branch?}"
+  to )
+    source_branch="${current_branch}"
+    target_branch="${input_branch}"
+    rebase_from_source_to_target "${source_branch}" "${target_branch}"
+    checkout_branch "${source_branch}" 2> /dev/null
+    ;;
+
+  from )
+    source_branch="${input_branch}"
+    target_branch="${current_branch}"
+    rebase_from_source_to_target "${source_branch}" "${target_branch}"
     ;;
 
   * )

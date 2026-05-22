@@ -1,6 +1,7 @@
 ---
 name: jira-workflow
 description: Primitives for interacting with Jira via MCP Atlassian — configure MCP, create/update task files, comment, transition status, and assign issues.
+user-invocable: false
 ---
 
 # jira-workflow

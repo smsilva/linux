@@ -1,6 +1,7 @@
 ---
 name: commit
 description: Commits all pending changes in the working tree
+disable-model-invocation: true
 ---
 
 - Run `git status` and `git diff` to understand what changed before staging

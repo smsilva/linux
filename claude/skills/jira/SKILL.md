@@ -1,6 +1,7 @@
 ---
 name: jira
 description: Navigate and work on a Jira issue (epic, story, or task) using the jira-workflow skill
+disable-model-invocation: true
 ---
 
 Use the `jira-workflow` skill for all Jira operations (MCP, task file, comments, transitions, assignments).

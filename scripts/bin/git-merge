@@ -1,0 +1,68 @@
+#!/bin/bash
+set -e
+
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Rebase the current branch against a target branch.
+
+    ${this_script_name} to <branch>    Pull <branch> with --rebase --prune, then rebase current branch onto it
+    ${this_script_name} from <branch>  Pull <branch> with --rebase --prune, then rebase current branch onto it
+
+    Options:
+
+      -h, --help  Show this help
+
+    Examples:
+
+      ${this_script_name} to main
+
+      ${this_script_name} from dev
+
+EOF
+}
+
+rebase_onto() {
+  local target_branch="${1}"
+  local current_branch="$(git rev-parse --abbrev-ref HEAD)"
+
+  echo "==> Switching to ${target_branch}"
+  git checkout "${target_branch}"
+
+  echo "==> Pulling ${target_branch} (rebase + prune)"
+  git pull --rebase --prune
+
+  echo "==> Switching back to ${current_branch}"
+  git checkout "${current_branch}"
+
+  echo "==> Rebasing ${current_branch} onto ${target_branch}"
+  git rebase "${target_branch}"
+
+  echo "==> Done"
+}
+
+subcommand="${1}"
+target_branch="${2}"
+
+case "${subcommand}" in
+  -h | --help )
+    show_usage
+    exit 0
+    ;;
+
+  to | from )
+    rebase_onto "${target_branch?}"
+    ;;
+
+  * )
+    echo "Unknown subcommand: ${subcommand}"
+    show_usage
+    exit 1
+    ;;
+esac

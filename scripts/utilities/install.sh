@@ -12,6 +12,8 @@ sudo apt-get install --yes -q \
   fd-find \
   ffmpeg \
   flameshot \
+  fonts-firacode \
+  fonts-jetbrains-mono \
   fortune \
   gnupg \
   ipcalc \
@@ -30,6 +32,8 @@ sudo apt-get install --yes -q \
   vim-gtk3 \
   wget \
   xclip
+
+fc-cache -f -v
 
 find scripts/utilities/ \
   -mindepth 1 \

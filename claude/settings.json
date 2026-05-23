@@ -43,8 +43,8 @@
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": false,
     "ralph-loop@claude-plugins-official": false,
-    "skill-creator@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": false
+    "skill-creator@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "smsilva-linux": {

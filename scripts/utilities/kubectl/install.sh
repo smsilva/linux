@@ -48,4 +48,6 @@ EOF
   )
 
   sudo apt-get install kubectl=${last_available_kubectl_version?} --yes -q
+
+  sudo apt-mark hold kubectl
 fi

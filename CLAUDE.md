@@ -17,21 +17,18 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
 - `scripts/bin/` — executable utility scripts (no `.sh` extension)
 - `scripts/utilities/` — per-tool installation scripts (azure-cli, docker, kubectl, terraform, etc.)
 - `scripts/git/hooks/` — git hooks; `commit-msg` enforces Conventional Commits format
-- `claude/` — Claude Code config (symlinked to `~/.claude/` by `install.sh`):
-  - `skills/` — Claude Code skills; skills de terceiros são symlinks → `~/.git/{owner}/{repo}/`; registry em `claude/skills/third-party.md`
-  - para reinstalar skills de terceiros em máquina nova: `/skill-from-github-repository-update bootstrap`
+- `claude/` — Claude Code config (symlinked to `~/.claude/`):
+  - `skills/` — Claude Code skills; third-party skills are symlinks → `~/.git/{owner}/{repo}/`; registry at `claude/skills/third-party.md`
+  - to reinstall third-party skills on a new machine: `/skill-from-github-repository-update bootstrap`
   - `agents/` — Claude Code custom agents
   - `CLAUDE.md` — global user instructions (symlinked to `~/.claude/CLAUDE.md`)
   - `settings.json` — global Claude settings
 - `plugins/linux-tools/` — Claude Code plugin that publishes the `bash-scripts` and `conventional-commits` skills
 
-## Bash script conventions
+## Conventions
 
-Use `/bash-scripts` skill when creating new scripts.
-
-## Commit message conventions
-
-Use the `conventional-commits` skill. Format is enforced by the git `commit-msg` hook.
+- Bash scripts: use the `/bash-scripts` skill
+- Commit messages: use the `conventional-commits` skill; format is enforced by the git `commit-msg` hook
 
 ## Bash configuration chain
 

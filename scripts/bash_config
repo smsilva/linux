@@ -75,8 +75,17 @@ fi
 
 if which kubectl &> /dev/null; then
   export KUBE_EDITOR='code --wait'
-  
-  source <(kubectl completion bash)
+
+  _kubectl_bin=$(which kubectl)
+  _kubectl_mtime=$(stat --format=%Y "${_kubectl_bin}")
+  _kubectl_cache="${HOME}/.cache/kubectl-completion-${_kubectl_mtime}.bash"
+  if [[ ! -f "${_kubectl_cache}" ]]; then
+    mkdir --parents "${HOME}/.cache"
+    kubectl completion bash > "${_kubectl_cache}"
+  fi
+  source "${_kubectl_cache}"
+  unset _kubectl_bin _kubectl_mtime _kubectl_cache
+
   complete -F __start_kubectl k
 fi
 

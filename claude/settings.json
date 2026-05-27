@@ -1,4 +1,5 @@
 {
+  "skillListingBudgetFraction": 0.04,
   "hooks": {
     "Stop": [
       {
@@ -55,17 +56,16 @@
       }
     }
   },
+  "language": "pt-BR",
+  "effortLevel": "high",
+  "awaySummaryEnabled": false,
   "voice": {
     "enabled": true,
     "mode": "hold"
   },
-  "agentPushNotifEnabled": true,
   "autoMemoryEnabled": false,
-  "awaySummaryEnabled": false,
-  "effortLevel": "high",
-  "fileCheckpointingEnabled": false,
-  "language": "pt-BR",
-  "skillListingBudgetFraction": 0.04,
   "theme": "dark",
+  "fileCheckpointingEnabled": false,
+  "agentPushNotifEnabled": true,
   "voiceEnabled": true
 }

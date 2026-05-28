@@ -78,7 +78,6 @@ case "${subcommand}" in
     source_branch="${current_branch}"
     target_branch="${input_branch}"
     rebase_from_source_to_target "${source_branch}" "${target_branch}"
-    checkout_branch "${source_branch}" 2> /dev/null
     ;;
 
   from )

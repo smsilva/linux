@@ -47,15 +47,6 @@
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true
   },
-  "extraKnownMarketplaces": {
-    "smsilva-linux": {
-      "source": {
-        "source": "github",
-        "repo": "smsilva/linux",
-        "ref": "dev"
-      }
-    }
-  },
   "language": "pt-BR",
   "effortLevel": "high",
   "awaySummaryEnabled": false,

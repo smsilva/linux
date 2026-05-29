@@ -43,7 +43,7 @@
   },
   "enabledPlugins": {
     "chrome-devtools-mcp@claude-plugins-official": false,
-    "ralph-loop@claude-plugins-official": false,
+    "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true
   },

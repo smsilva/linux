@@ -11,7 +11,7 @@ Fetch an article, extract the main learnings as short bullet topics, and write a
 
 ## Steps
 
-1. Fetch the article URL with `WebFetch` — prompt: "Extract all main topics, key concepts, problems, solutions, and conclusions."
+1. Fetch the article URL with `WebFetch` — prompt: "Extract the author name, publication date, and all main topics, key concepts, problems, solutions, and conclusions."
 2. If the page returns only navigation (no body), requires auth (LinkedIn, Substack paywall, Google Docs), or redirects to a login wall — search via `WebSearch` for the article title + year to find an alternate source, then fetch that.
 3. Extract 6–12 short topic groups. Each group: one bold header line + 1–3 plain lines of substance.
 4. Write to `~/tmp/articles/<article-title-condensed>.txt` (e.g. `~/tmp/articles/context-lake-ai-agents.txt`). Create the directory if it doesn't exist.
@@ -21,6 +21,9 @@ Fetch an article, extract the main learnings as short bullet topics, and write a
 
 ```
 *Title of the article*
+
+*<author name>*
+_<publication date>_
 
 *Topic header*
 Short sentence or two. No bullet dashes, no emoji, no markdown except *bold*.
@@ -32,11 +35,12 @@ Content here.
 ```
 
 Rules:
-- Bold only with `*asterisks*` (Google Chat syntax)
+- Bold with `*asterisks*` and italic with `_underscores_` (Google Chat syntax)
 - No `-` bullets, no `#` headers, no emoji
 - Numbers allowed for ordered lists when order matters
 - Portuguese unless user specifies otherwise
 - Keep each topic group under 4 lines
+- Right after the title: author name on its own line in bold, then publication date on the next line in italic. If author or date can't be found, write what is known or skip the missing line.
 - Bare URL on the last line of the file — no "Fonte:" label
 
 ## Google Chat: sharing with link

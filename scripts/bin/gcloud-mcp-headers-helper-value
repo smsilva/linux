@@ -1,0 +1,72 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Print a JSON object suitable for an MCP server 'headersHelper'
+  entry that authenticates Google Cloud APIs with ADC.
+
+    Options:
+
+      -h,  --help       Show this help
+      -p,  --project    Google Cloud project ID for x-goog-user-project
+                        (default: \${CLOUDSDK_CORE_PROJECT} or current gcloud project)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --project ciandt-flow-platform
+
+    Use in .mcp.json:
+
+      {
+        "type": "http",
+        "url": "https://chatmcp.googleapis.com/mcp/v1",
+        "headersHelper": "${this_script_name} --project ciandt-flow-platform"
+      }
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -p | --project )
+      shift
+      project="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}" >&2
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+project="${project:-${CLOUDSDK_CORE_PROJECT:-$(gcloud config get-value project 2>/dev/null)}}"
+
+if [[ -z "${project}" ]]; then
+  echo "No project set. Pass --project or run 'gcloud config set project ...'." >&2
+  exit 1
+fi
+
+token="$(gcloud auth application-default print-access-token 2>/dev/null)"
+
+if [[ -z "${token}" ]]; then
+  echo "Failed to get ADC token. Run 'gcloud auth application-default login'." >&2
+  exit 1
+fi
+
+printf '{"Authorization":"Bearer %s","x-goog-user-project":"%s"}' "${token}" "${project}"

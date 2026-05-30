@@ -48,7 +48,7 @@
     "superpowers@claude-plugins-official": true
   },
   "language": "pt-BR",
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "awaySummaryEnabled": false,
   "voice": {
     "enabled": true,

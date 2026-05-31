@@ -1,27 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OLLAMA_API_URL="http://localhost:11434"
-MODEL_ALIAS="${OLLAMA_MODEL_ALIAS:-qwen3.5-9b-custom}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ollama_api_url="${OLLAMA_API_URL:-http://localhost:11434}"
+ollama_model_alias="${OLLAMA_MODEL_ALIAS:-qwen3.5-9b-custom}"
 
-# Verificar se ollama está instalado
 if ! command -v ollama &>/dev/null; then
   echo "ERRO: ollama não encontrado no PATH."
   echo "Instale em: https://ollama.com/download"
   exit 1
 fi
 
-# Verificar se servidor já está rodando
 server_running=false
-if curl --silent --fail --max-time 2 "${OLLAMA_API_URL}" &>/dev/null; then
-  echo "Servidor Ollama já está rodando em ${OLLAMA_API_URL}."
+if curl --silent --fail --max-time 2 "${ollama_api_url}" &>/dev/null; then
+  echo "Servidor Ollama já está rodando em ${ollama_api_url}."
   server_running=true
 fi
 
 # Carregar variáveis de ambiente
 # shellcheck source=configure-env
-source "${SCRIPT_DIR}/configure-env"
+source "${script_dir}/configure-env"
 echo "Flash Attention: ${OLLAMA_FLASH_ATTENTION} | KV Cache: ${OLLAMA_KV_CACHE_TYPE} | Keep Alive: ${OLLAMA_KEEP_ALIVE}"
 
 # Localizar ou baixar modelo
@@ -29,18 +27,18 @@ OLLAMA_MODEL_PATH=""
 OLLAMA_MODEL_NAME=""
 OLLAMA_MODEL_SOURCE=""
 # shellcheck source=find-or-pull-model
-source "${SCRIPT_DIR}/find-or-pull-model"
+source "${script_dir}/find-or-pull-model"
 
 # Gerar Modelfile com o caminho real do modelo
 tmp_modelfile="$(mktemp /tmp/Modelfile.XXXXXX)"
 if [[ "${OLLAMA_MODEL_SOURCE}" == "local" ]]; then
-  sed "s|__MODEL_PATH__|${OLLAMA_MODEL_PATH}|g" "${SCRIPT_DIR}/Modelfile" > "${tmp_modelfile}"
-  echo "Registrando modelo '${MODEL_ALIAS}' a partir de ${OLLAMA_MODEL_PATH}..."
-  ollama create "${MODEL_ALIAS}" --file "${tmp_modelfile}"
+  sed "s|__MODEL_PATH__|${OLLAMA_MODEL_PATH}|g" "${script_dir}/Modelfile" > "${tmp_modelfile}"
+  echo "Registrando modelo '${ollama_model_alias}' a partir de ${OLLAMA_MODEL_PATH}..."
+  ollama create "${ollama_model_alias}" --file "${tmp_modelfile}"
 else
-  sed "s|__MODEL_PATH__|${OLLAMA_MODEL_NAME}|g" "${SCRIPT_DIR}/Modelfile" > "${tmp_modelfile}"
-  echo "Registrando modelo '${MODEL_ALIAS}' a partir de ${OLLAMA_MODEL_NAME}..."
-  ollama create "${MODEL_ALIAS}" --file "${tmp_modelfile}"
+  sed "s|__MODEL_PATH__|${OLLAMA_MODEL_NAME}|g" "${script_dir}/Modelfile" > "${tmp_modelfile}"
+  echo "Registrando modelo '${ollama_model_alias}' a partir de ${OLLAMA_MODEL_NAME}..."
+  ollama create "${ollama_model_alias}" --file "${tmp_modelfile}"
 fi
 rm --force "${tmp_modelfile}"
 
@@ -53,7 +51,7 @@ if [[ "${server_running}" == "false" ]]; then
 
   echo -n "Aguardando API ficar disponível..."
   for i in $(seq 1 30); do
-    if curl --silent --fail --max-time 1 "${OLLAMA_API_URL}" &>/dev/null; then
+    if curl --silent --fail --max-time 1 "${ollama_api_url}" &>/dev/null; then
       echo " OK"
       break
     fi
@@ -68,6 +66,6 @@ if [[ "${server_running}" == "false" ]]; then
 fi
 
 echo ""
-echo "Modelo: ${MODEL_ALIAS}"
-echo "API:    ${OLLAMA_API_URL}"
-echo "Teste:  ./ollama/test-model"
+echo "Modelo: ${ollama_model_alias}"
+echo "API:    ${ollama_api_url}"
+echo "Teste:  ./call"

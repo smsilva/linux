@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ollama_api_url="${OLLAMA_API_URL:-http://localhost:11434}"
+model_alias="${OLLAMA_MODEL_ALIAS:-qwen3.5-9b-custom}"
+prompt="${1:-Responda em uma frase: qual é a capital do Brasil?}"
+
+echo "Testando modelo '${model_alias}' em ${ollama_api_url}..."
+echo "Prompt: ${prompt}"
+echo ""
+
+curl \
+  --silent \
+  --fail \
+  --request POST \
+  --url "${ollama_api_url}/api/generate" \
+  --header "Content-Type: application/json" \
+  --data "$(printf '{"model":"%s","prompt":"%s","stream":false}' "${model_alias}" "${prompt}")" \
+  | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print('Resposta:', data.get('response', '').strip())
+print()
+print(f'Tokens gerados : {data.get(\"eval_count\", \"N/A\")}')
+print(f'Tempo total    : {data.get(\"total_duration\", 0) // 1_000_000} ms')
+"

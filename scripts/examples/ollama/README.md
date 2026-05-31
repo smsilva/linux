@@ -18,10 +18,10 @@ Runs the Qwen3.5 9B model on Ollama with the same optimized settings as LM Studi
 
 ```bash
 # 1. Start server + load model
-./ollama/run-model
+./run
 
 # 2. Test
-./ollama/test-model
+./call
 ```
 
 API available at: `http://localhost:11434`
@@ -32,8 +32,8 @@ API available at: `http://localhost:11434`
 |---|---|
 | `configure-env` | Exports server environment variables (source this file) |
 | `find-or-pull-model` | Locates LM Studio GGUF or downloads via `ollama pull` |
-| `run-model` | Orchestrates everything: env vars, model, server |
-| `test-model` | Sends a test request via curl |
+| `run` | Orchestrates everything: env vars, model, server |
+| `call` | Sends a test request via curl |
 
 ## Technical Details
 
@@ -49,5 +49,5 @@ with "qwen" in the name. If found, uses the existing file (avoids ~5 GB download
 ## Override Model Name
 
 ```bash
-OLLAMA_MODEL_NAME=qwen2.5:9b ./ollama/run-model
+OLLAMA_MODEL_NAME=qwen3.5-9b-custom ./run
 ```

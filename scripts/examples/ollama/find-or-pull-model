@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LM_STUDIO_MODELS_DIR="${HOME}/.cache/lm-studio/models"
-PULL_MODEL="${OLLAMA_MODEL_NAME:-qwen2.5:7b}"
+lm_studio_models_dir="${HOME}/.cache/lm-studio/models"
+model_name_to_pull="${OLLAMA_MODEL_NAME:-qwen2.5:7b}"
 
-echo "Buscando modelo Qwen em ${LM_STUDIO_MODELS_DIR}..."
+echo "Buscando modelo Qwen em ${lm_studio_models_dir}..."
 
-if [[ -d "${LM_STUDIO_MODELS_DIR}" ]]; then
-  gguf_path="$(find "${LM_STUDIO_MODELS_DIR}" -iname "*.gguf" | grep --ignore-case "qwen" | head --lines=1 || true)"
+if [[ -d "${lm_studio_models_dir}" ]]; then
+  gguf_path="$(
+    find "${lm_studio_models_dir}" -iname "*.gguf" \
+    | grep --ignore-case "${model_name_to_pull}" \
+    | head --lines=1 || true
+  )"
 
   if [[ -n "${gguf_path}" ]]; then
     echo "Modelo encontrado: ${gguf_path}"
@@ -17,7 +21,7 @@ if [[ -d "${LM_STUDIO_MODELS_DIR}" ]]; then
   fi
 fi
 
-echo "Nenhum GGUF do LM Studio encontrado. Fazendo pull: ${PULL_MODEL}"
-ollama pull "${PULL_MODEL}"
-export OLLAMA_MODEL_NAME="${PULL_MODEL}"
+echo "Nenhum GGUF do LM Studio encontrado. Fazendo pull: ${model_name_to_pull}"
+ollama pull "${model_name_to_pull}"
+export OLLAMA_MODEL_NAME="${model_name_to_pull}"
 export OLLAMA_MODEL_SOURCE="registry"

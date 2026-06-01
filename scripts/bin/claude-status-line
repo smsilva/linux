@@ -8,6 +8,7 @@ json_input=$(cat)
 # Fixed segment backgrounds (256-color)
 section_location_background_color=31 # dark blue
 section_branch_background_color=236  # #303030
+section_turns_background_color=235   # #262626, dark gray
 section_model_background_color=238   # #444444
 section_tokens_background_color=244  # #808080, lighter than model
 
@@ -67,6 +68,7 @@ fi
 # --- Context window ---
 used_pct=$(echo "${json_input}" | jq --raw-output '.context_window.used_percentage // 0')
 used_int=$(printf '%.0f' "$used_pct")
+turn_count=$(echo "${json_input}" | jq --raw-output '.session.turns // 0')
 
 if   [ "$used_int" -ge "${context_threshold_critical}" ]; then
   section_context_background_color=1
@@ -151,6 +153,7 @@ fi
 
 add_segment --text " ≡ ${used_int}% "        --background "${section_context_background_color}" --foreground "${section_context_foreground_color}"
 add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
+add_segment --text " ⇌ ${turn_count} "       --background "${section_turns_background_color}"   --foreground 247
 add_segment --text " ✦ ${model} "            --background "${section_model_background_color}"   --foreground 247
 add_segment --text " ◈ ${tokens_display} "   --background "${section_tokens_background_color}"  --foreground 0
 

@@ -68,7 +68,12 @@ fi
 # --- Context window ---
 used_pct=$(echo "${json_input}" | jq --raw-output '.context_window.used_percentage // 0')
 used_int=$(printf '%.0f' "$used_pct")
-turn_count=$(echo "${json_input}" | jq --raw-output '.session.turns // 0')
+transcript_path=$(echo "${json_input}" | jq --raw-output '.transcript_path // ""')
+if [ -n "${transcript_path}" ] && [ -f "${transcript_path}" ]; then
+  turn_count=$(jq --slurp '[.[] | select(.type == "user") | .message.content | if type == "array" then .[0].type else "text" end | select(. != "tool_result")] | length' "${transcript_path}" 2>/dev/null || echo 0)
+else
+  turn_count=0
+fi
 
 if   [ "$used_int" -ge "${context_threshold_critical}" ]; then
   section_context_background_color=1

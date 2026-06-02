@@ -1,6 +1,6 @@
 #!/bin/bash
 
-kubectl_version="1.35"
+kubectl_version="1.34"
 kubernetes_apt_keyring="/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
 
 # Install using native package management

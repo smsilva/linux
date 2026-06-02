@@ -1,4 +1,5 @@
 {
+  "autoUpdatesChannel": "stable",
   "skillListingBudgetFraction": 0.04,
   "hooks": {
     "Stop": [
@@ -58,6 +59,5 @@
   "theme": "dark",
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
-  "voiceEnabled": true,
-  "model": "sonnet"
+  "voiceEnabled": true
 }

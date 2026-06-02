@@ -1,0 +1,142 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Upgrade deferred and/or held packages selectively.
+
+    Options:
+
+      -h,  --help      Show this help
+      -d,  --deferred  Upgrade packages deferred due to phasing (excludes held packages)
+      -ho, --hold      Unhold, upgrade, and re-hold held packages
+      -dr, --dry-run   Dry run (default: false)
+
+    Examples:
+
+      ${this_script_name} --deferred
+
+      ${this_script_name} --hold
+
+      ${this_script_name} --deferred --hold
+
+      ${this_script_name} --deferred --hold --dry-run
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    -d | --deferred )
+      deferred=true
+      ;;
+
+    -ho | --hold )
+      hold=true
+      ;;
+
+    -dr | --dry-run )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        dry_run="${2}"
+        shift
+      else
+        dry_run=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+deferred="${deferred:-false}"
+hold="${hold:-false}"
+dry_run="${dry_run:-false}"
+
+if [[ "${deferred}" == "false" && "${hold}" == "false" ]]; then
+  show_usage
+  exit 1
+fi
+
+run() {
+  if [[ "${dry_run}" == "true" ]]; then
+    echo "$* [dry-run]"
+  else
+    "$@"
+  fi
+}
+
+echo "updating package lists..."
+sudo apt-get update -qq
+
+held_packages=()
+while IFS= read -r pkg; do
+  [[ -n "${pkg}" ]] && held_packages+=("${pkg}")
+done < <(apt-mark showhold 2>/dev/null)
+
+if [[ "${deferred}" == "true" ]]; then
+  all_deferred=()
+  while IFS= read -r pkg; do
+    [[ -n "${pkg}" ]] && all_deferred+=("${pkg}")
+  done < <(
+    apt-get upgrade --simulate 2>/dev/null \
+      | awk '/deferred due to phasing/{f=1;next} f && /^  /{print} f && /^[^ ]/{exit}' \
+      | tr -s ' ' '\n' \
+      | grep --extended-regexp '\S'
+  )
+
+  deferred_packages=()
+  for pkg in "${all_deferred[@]}"; do
+    skip=false
+    for held in "${held_packages[@]}"; do
+      if [[ "${pkg}" == "${held}" ]]; then
+        skip=true
+        break
+      fi
+    done
+    [[ "${skip}" == "false" ]] && deferred_packages+=("${pkg}")
+  done
+
+  if [[ "${#deferred_packages[@]}" -eq 0 ]]; then
+    echo "deferred: none"
+  else
+    echo "deferred:"
+    for pkg in "${deferred_packages[@]}"; do
+      echo "  ${pkg}"
+    done
+    echo "upgrading deferred packages..."
+    run sudo apt-get install --yes "${deferred_packages[@]}"
+  fi
+fi
+
+if [[ "${hold}" == "true" ]]; then
+  if [[ "${#held_packages[@]}" -eq 0 ]]; then
+    echo "hold: none"
+  else
+    echo "hold:"
+    for pkg in "${held_packages[@]}"; do
+      echo "  ${pkg}"
+    done
+    echo "upgrading held packages..."
+    run sudo apt-mark unhold "${held_packages[@]}"
+    run sudo apt-get install --yes "${held_packages[@]}"
+    run sudo apt-mark hold "${held_packages[@]}"
+  fi
+fi
+
+echo "done."

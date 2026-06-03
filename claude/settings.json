@@ -1,5 +1,4 @@
 {
-  "autoUpdatesChannel": "stable",
   "skillListingBudgetFraction": 0.04,
   "hooks": {
     "Stop": [

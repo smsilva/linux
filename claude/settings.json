@@ -58,6 +58,7 @@
   "theme": "dark",
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
-  "skipAutoPermissionPrompt": true
+  "model": "opus"
 }

@@ -1,5 +1,6 @@
 {
   "skillListingBudgetFraction": 0.04,
+  "model": "sonnet",
   "hooks": {
     "Stop": [
       {
@@ -59,6 +60,5 @@
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true,
-  "model": "opus"
+  "voiceEnabled": true
 }

@@ -11,6 +11,11 @@
 
 ## Workflow
 - Walk Skeleton: ship a thin end-to-end slice early for feedback
+- Bitbucket PRs: 
+  - Generate a description
+  - Save it as `/tmp/<branch>-pr.txt` but using markdown
+  - Open with `xdg-open`
+  - Display the Bitbucket URL for creation (`https://bitbucket.org/.../pull-requests/new?source=<branch>&t=1`)
 
 ## Language
 - Write Agent Skills in English

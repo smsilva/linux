@@ -40,7 +40,8 @@ pick a curated group:
 |-------------|----------|
 | `values-aws.yaml` | AWS family provider + service providers |
 | `values-azure.yaml` | Azure family provider + service providers |
-| `values-tools.yaml` | composition functions + helm/kubernetes/terraform/keycloak providers |
+| `values-functions.yaml` | composition functions |
+| `values-providers.yaml` | helm/kubernetes/terraform/keycloak providers |
 
 Helm replaces (does not merge) list values across `--values` flags, so install
 one subset per release. Preview the rendered manifests:

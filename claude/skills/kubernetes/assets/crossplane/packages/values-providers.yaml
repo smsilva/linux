@@ -1,0 +1,20 @@
+# Tooling providers. Use with:
+#   helm upgrade --install crossplane-providers assets/crossplane/packages \
+#     --namespace crossplane-system --values assets/crossplane/packages/values-providers.yaml
+items:
+  - name: crossplane-contrib-provider-keycloak
+    kind: Provider
+    package: xpkg.upbound.io/crossplane-contrib/provider-keycloak
+    version: v2.6.0
+  - name: upbound-provider-helm
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-helm
+    version: v1
+  - name: upbound-provider-kubernetes
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-kubernetes
+    version: v1.2.1
+  - name: upbound-provider-terraform
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-terraform
+    version: v1

@@ -1,0 +1,16 @@
+# Composition functions. Use with:
+#   helm upgrade --install crossplane-functions assets/crossplane/packages \
+#     --namespace crossplane-system --values assets/crossplane/packages/values-functions.yaml
+items:
+  - name: function-auto-ready
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready
+    version: v0.4.2
+  - name: function-kcl
+    kind: Function
+    package: xpkg.upbound.io/crossplane-contrib/function-kcl
+    version: ""
+  - name: function-patch-and-transform
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-patch-and-transform
+    version: v0.8.2

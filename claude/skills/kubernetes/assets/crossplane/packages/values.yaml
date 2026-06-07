@@ -10,7 +10,8 @@
 # The default installs nothing. Pick a subset with one of the bundled value
 # files (combine them with repeated --values flags is NOT supported, since Helm
 # replaces list values — use one subset per release, or merge the lists here):
-#   - values-aws.yaml    AWS providers
-#   - values-azure.yaml  Azure providers
-#   - values-tools.yaml  composition functions + helm/kubernetes/terraform/keycloak
+#   - values-aws.yaml        AWS providers
+#   - values-azure.yaml      Azure providers
+#   - values-functions.yaml  composition functions
+#   - values-providers.yaml  helm/kubernetes/terraform/keycloak providers
 items: []

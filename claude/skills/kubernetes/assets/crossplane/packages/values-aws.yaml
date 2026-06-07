@@ -1,0 +1,72 @@
+# AWS providers. Use with:
+#   helm upgrade --install crossplane-aws assets/crossplane/packages \
+#     --namespace crossplane-system --values assets/crossplane/packages/values-aws.yaml
+items:
+  - name: upbound-provider-family-aws
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-family-aws
+    version: v2.4.0
+  - name: upbound-provider-aws-acm
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-acm
+    version: v2
+  - name: upbound-provider-aws-docdb
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-docdb
+    version: v2
+  - name: upbound-provider-aws-ec2
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-ec2
+    version: v2
+  - name: upbound-provider-aws-ecr
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-ecr
+    version: v2
+  - name: upbound-provider-aws-eks
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-eks
+    version: v2
+  - name: upbound-provider-aws-iam
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-iam
+    version: v2
+  - name: upbound-provider-aws-kms
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-kms
+    version: v2
+  - name: upbound-provider-aws-lambda
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-lambda
+    version: v2
+  - name: upbound-provider-aws-rds
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-rds
+    version: v2
+  - name: upbound-provider-aws-resourcegroups
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-resourcegroups
+    version: v2
+  - name: upbound-provider-aws-rolesanywhere
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-rolesanywhere
+    version: v2
+  - name: upbound-provider-aws-route53
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-route53
+    version: v2
+  - name: upbound-provider-aws-s3
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-s3
+    version: v2
+  - name: upbound-provider-aws-secretsmanager
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-secretsmanager
+    version: v2
+  - name: upbound-provider-aws-servicequotas
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-servicequotas
+    version: v2
+  - name: upbound-provider-aws-vpc
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-aws-vpc
+    version: v2

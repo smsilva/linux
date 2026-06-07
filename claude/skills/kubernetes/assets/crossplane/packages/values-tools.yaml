@@ -1,0 +1,35 @@
+# Composition functions and tooling providers. Use with:
+#   helm upgrade --install crossplane-tools assets/crossplane/packages \
+#     --namespace crossplane-system --values assets/crossplane/packages/values-tools.yaml
+items:
+  # composition functions
+  - name: function-auto-ready
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-auto-ready
+    version: v0.4.2
+  - name: function-kcl
+    kind: Function
+    package: xpkg.upbound.io/crossplane-contrib/function-kcl
+    version: ""
+  - name: function-patch-and-transform
+    kind: Function
+    package: xpkg.crossplane.io/crossplane-contrib/function-patch-and-transform
+    version: v0.8.2
+
+  # tooling providers
+  - name: crossplane-contrib-provider-keycloak
+    kind: Provider
+    package: xpkg.upbound.io/crossplane-contrib/provider-keycloak
+    version: v2.6.0
+  - name: upbound-provider-helm
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-helm
+    version: v1
+  - name: upbound-provider-kubernetes
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-kubernetes
+    version: v1.2.1
+  - name: upbound-provider-terraform
+    kind: Provider
+    package: xpkg.upbound.io/upbound/provider-terraform
+    version: v1

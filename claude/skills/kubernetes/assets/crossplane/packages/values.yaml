@@ -1,0 +1,16 @@
+# Crossplane packages to install.
+#
+# Each item renders a Crossplane Function or Provider:
+#   - name:    metadata.name of the package resource
+#   - kind:    Function or Provider
+#   - package: OCI image reference (without tag)
+#   - version: image tag; if empty, "latest" is used
+#   - enabled: set to false to skip this item (default true)
+#
+# The default installs nothing. Pick a subset with one of the bundled value
+# files (combine them with repeated --values flags is NOT supported, since Helm
+# replaces list values — use one subset per release, or merge the lists here):
+#   - values-aws.yaml    AWS providers
+#   - values-azure.yaml  Azure providers
+#   - values-tools.yaml  composition functions + helm/kubernetes/terraform/keycloak
+items: []

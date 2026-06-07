@@ -1,0 +1,30 @@
+# k3d references
+
+## cluster create command exposing ports 80 and 443 on the load balancer, and 32080 on all nodes
+
+```bash
+k3d cluster create \
+  --api-port 6550 \
+  --port "9080:80@loadbalancer" \
+  --port "9443:443@loadbalancer" \
+  --port "32080:80@loadbalancer" \
+  --servers 3 \
+  --k3s-arg '--disable=traefik@server:*' \
+  --wait \
+  --timeout 360s
+
+kubectl wait node \
+  --selector kubernetes.io/os=linux \
+  --for condition=Ready
+
+kubectl wait deployment metrics-server \
+  --namespace kube-system \
+  --for condition=Available \
+  --timeout=360s; sleep 2
+
+kubectl wait pods \
+  --namespace kube-system \
+  --selector k8s-app=metrics-server \
+  --for condition=Ready \
+  --timeout=360s
+```

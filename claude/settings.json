@@ -1,6 +1,6 @@
 {
   "skillListingBudgetFraction": 0.04,
-  "model": "opus",
+  "model": "sonnet",
   "hooks": {
     "Stop": [
       {

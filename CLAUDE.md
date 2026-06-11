@@ -21,7 +21,8 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
   - `skills/` — Claude Code skills; third-party skills are symlinks → `~/.git/{owner}/{repo}/`; registry at `claude/skills/third-party.md`
   - to reinstall third-party skills on a new machine: `/skill-from-github-repository-update bootstrap`
   - `agents/` — Claude Code custom agents
-  - `CLAUDE.md` — global user instructions (symlinked to `~/.claude/CLAUDE.md`)
+  - `rules/` — global user instructions, one topic per file (symlinked to `~/.claude/rules/`)
+  - `CLAUDE.md` — kept for the `~/.claude/CLAUDE.md` symlink; content lives in `rules/`
   - `settings.json` — global Claude settings
 - `plugins/linux-tools/` — Claude Code plugin that publishes the `bash-scripts` and `conventional-commits` skills
 

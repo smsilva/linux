@@ -23,3 +23,5 @@ Never mention git commits, PRs, merges.
 
 4. Append this line at the end of the file, verbatim:
    > Before trusting anything time-sensitive above, run `git status`, `git diff`, and `git log` against the base branch.
+
+5. Double-check to ensure a safety /clear

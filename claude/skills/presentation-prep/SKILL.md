@@ -47,6 +47,39 @@ Above 6 objects, the brain is forced to *count* instead of *see* — 500% more c
 3. **Define visual hierarchy** — largest element = most important message (not the title)
 4. **Count objects** per slide — ≤ 6; split if exceeded
 
+## Default patterns
+
+**Progressive reveal is the default.** Almost every content slide should split into multiple reveals — `animations: none` is the exception, reserved for opening/closing slides.
+
+### Standard slide types
+
+- **Opening**: title alone → title + subtitle
+- **Topic with detail**: keyword bright → keyword dimmed + body content
+- **Topic list (per-section)**: each topic as its own progressive item (no body — just one keyword per reveal)
+- **Flow diagram**: keyword + nodes revealed one per reveal (each node becomes active; previous nodes dim; keyword bright on first reveal, dimmed on subsequent)
+- **Numbered list of steps**: one item per reveal; previous items dimmed
+
+### Topics, not sentences
+
+The body of a content slide is a **keyword phrase** (2–4 words), not a complete sentence. Descriptive sentences belong in `notes`. If you find yourself writing "Well-defined issues take time…" on a slide, that's prose — extract the keyword ("Repetitive work") and move the sentence to notes.
+
+### Icons: off by default
+
+Do not add icons unless the user explicitly asks. When the user requests icons:
+- **Monochromatic** (white on dark background)
+- **Simple outline style** (e.g. Phosphor Icons Light, Heroicons outline)
+- **Same family throughout the deck** — never mix Phosphor with Font Awesome
+
+### Vertical spacing for progressive lists
+
+Ensure footer clearance with an explicit calculation:
+
+```
+N items × (itemH + gap) ≤ (footerY - listTop)
+```
+
+Example: a 5-item list between y=1.1 and y=5.1 → `itemH + gap = 0.80` (e.g. `itemH=0.68, gap=0.12`).
+
 ## Reference assets
 
 | File | Purpose |
@@ -65,9 +98,9 @@ Deliver as YAML:
 | Field | What goes here |
 |---|---|
 | `message` | The ONE idea this slide communicates — one sentence max |
-| `visual` | The dominant visual element(s): image, icon, keyword, code snippet, table, or diagram. Describe **what** appears — not layout, not size, not position. Size follows Principle 3 automatically. **Forbidden:** size words (`grande`, `pequeno`, `large`, `small`), position words (`centralizado`, `esquerdo`, `direito`, `horizontal`, `lado a lado`, `left`, `right`, `center`, `top`, `bottom`), the `"Título pequeno: '...'"` pattern, and animation descriptions (those belong in `animations`). |
+| `visual` | The dominant visual element(s): image, icon, keyword, code snippet, table, or diagram. Describe **what** appears — not layout, not size, not position. Size follows Principle 3 automatically. **Forbidden:** size words (`large`, `small`), position words (`centered`, `left`, `right`, `horizontal`, `side by side`, `top`, `bottom`), the `"Small title: '...'"` pattern, and animation descriptions (those belong in `animations`). |
 | `notes` | Everything the presenter would speak — text that must NOT appear on the slide (Principle 2) |
-| `animations` | `none` or `progressive-build`. In pptxgenjs (no native animation support): implement as **duplicate slides** — one per item revealed. Active item: full brightness, bold. Previous items: dimmed (`565E6B` text, `253050` borders — avoid `1A2535`, too close to `0A0E1A` background). Future items: hidden. Title and section headers persist on every duplicate. Arrows: full brightness toward active item; dimmed between already-shown items. For ODP native animations, see [references/odp-animations.md](references/odp-animations.md). |
+| `animations` | `progressive-build` (default) or `none` (opening/closing only). In pptxgenjs (no native animation support): implement as **duplicate slides** — one per reveal. Active: full brightness, bold. Previous: dimmed (`DIM` from validated palette). Future: hidden. Title and section labels persist on every duplicate. Arrows: full brightness toward active item; dimmed between already-shown items. For ODP native animations, see [references/odp-animations.md](references/odp-animations.md). |
 | `objects` | Count every visible element: title, keywords, icons, list items, images, table rows |
 
 ```yaml
@@ -101,3 +134,21 @@ slides:
     animations: none
     objects: 2
 ```
+
+### Validated dark palette
+
+| Token | Hex | Use |
+|---|---|---|
+| `BG` | `0A0E1A` | Slide background |
+| `WHITE` | `FFFFFF` | Active keyword, label |
+| `BODY` | `C0D2E4` | Body text (high contrast on BG) |
+| `DIM` | `6B7A8D` | Previous-reveal items, dimmed keyword (validated for projector; avoid `565E6B` — too dark) |
+| `ACCENT` | `4A9EF4` | Footer rule, flow-diagram borders |
+
+Section label: 10pt, bold, white, `charSpacing: 3`, uppercase. Footer: thin horizontal line at y=5.2 in `ACCENT` with `transparency: 60` — anchors the bottom of every content slide.
+
+## Visual QA (required before delivery)
+
+After generating the `.pptx`, convert to images (`soffice --convert-to pdf` + `pdftoppm -jpeg -r 150`) and dispatch a **subagent** for visual inspection. The subagent catches problems the generator cannot see: overflow, dead space, invisible icons, last item clipping the footer, insufficient dimming for projector, vertical position inconsistencies across slides in the same section.
+
+Iterate until zero critical issues remain.

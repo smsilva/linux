@@ -3,9 +3,9 @@ name: handoff
 description: Use when ending a session, completing a milestone, or stopping mid-task and context must be preserved for the next agent
 ---
 
-Capture only what exists in the conversation. Skip anything reproducible from git.
+Capture only what exists in the conversation. Skip anything reproducible from git unless it was explicitly requested.
 
-The HANDOFF.md is read by another agent. Write it imperatively and densely, no narration or context-setting.
+The `HANDOFF.md` will be read by another agent. Write it imperatively and densely, no narration or context-setting.
 
 Never mention git commits, PRs, merges.
 
@@ -24,4 +24,4 @@ Never mention git commits, PRs, merges.
 4. Append this line at the end of the file, verbatim:
    > Before trusting anything time-sensitive above, run `git status`, `git diff`, and `git log` against the base branch.
 
-5. Double-check to ensure a safety /clear
+5. Double-check to ensure a safety `/clear` invokation.

@@ -165,7 +165,6 @@ alias vgr='vagrant reload'
 alias vgs='vagrant status'
 alias vgsu='vagrant suspend'
 alias vgu='vagrant up'
-alias wasp="kubectl wasp"
 alias wi=which
 alias wic='. wic'
 alias xa='xargs'

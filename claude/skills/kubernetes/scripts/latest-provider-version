@@ -1,0 +1,32 @@
+#!/bin/bash
+# Print the latest stable semver tag (vX.Y.Z) of a Crossplane provider.
+# Source: OCI registry tags/list (authoritative for Upbound providers).
+#
+# The registry defaults to xpkg.upbound.io; override with the second arg for
+# providers hosted elsewhere. The OCI token is fetched from the registry's
+# /service/token endpoint, then tags/list is filtered to strict semver and
+# sorted numerically (the registry returns tags unordered).
+#
+# Usage:
+#   latest-provider-version upbound/provider-family-azure
+#   latest-provider-version upbound/provider-family-aws
+#   latest-provider-version crossplane-contrib/provider-keycloak
+set -e
+
+repo="${1?usage: latest-provider-version <repo> [registry]}"
+registry="${2:-xpkg.upbound.io}"
+
+token=$(curl -sSL \
+  "https://${registry}/service/token?scope=repository:${repo}:pull&service=${registry}" \
+  | python3 -c 'import sys, json; print(json.load(sys.stdin)["token"])')
+
+curl -sSL \
+  --header "Authorization: Bearer ${token}" \
+  "https://${registry}/v2/${repo}/tags/list" \
+  | python3 -c '
+import sys, json, re
+tags = json.load(sys.stdin)["tags"]
+semver = [t for t in tags if re.fullmatch(r"v\d+\.\d+\.\d+", t)]
+semver.sort(key=lambda t: list(map(int, t[1:].split("."))))
+print(semver[-1] if semver else "none")
+'

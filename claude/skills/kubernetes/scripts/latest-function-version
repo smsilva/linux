@@ -1,0 +1,13 @@
+#!/bin/bash
+# Print the latest release tag of a crossplane-contrib composition function.
+# Source: GitHub releases API (authoritative for functions).
+#
+# Usage:
+#   latest-function-version function-kcl
+#   latest-function-version function-patch-and-transform
+set -e
+
+name="${1?usage: latest-function-version <function-name>}"
+
+curl -sSL "https://api.github.com/repos/crossplane-contrib/${name}/releases/latest" \
+  | python3 -c 'import sys, json; print(json.load(sys.stdin)["tag_name"])'

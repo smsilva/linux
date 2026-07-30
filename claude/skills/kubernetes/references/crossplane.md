@@ -3,8 +3,7 @@
 ## install Crossplane via Helm
 
 Run the install script. It adds and updates the `crossplane-stable` Helm repo,
-installs the `crossplane-stable/crossplane` chart (pinned to version `2.2.1`)
-into the `crossplane-system` namespace, waits for the deployment to become
+installs the `crossplane-stable/crossplane` chart into the `crossplane-system` namespace, waits for the deployment to become
 `Available`, and lists the resulting pods.
 
 ```bash
@@ -32,6 +31,9 @@ Each entry under `items` renders one `Function` or `Provider`:
 | `package` | OCI image reference, without the tag |
 | `version` | image tag; if empty, `latest` is used |
 | `enabled` | set to `false` to skip the item (default `true`) |
+
+Before installing, check for newer package versions and pin them — see
+`updates.md`.
 
 The default `values.yaml` installs nothing (`items: []`). Bundled subset files
 pick a curated group:

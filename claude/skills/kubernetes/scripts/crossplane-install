@@ -12,7 +12,7 @@ helm install crossplane \
   --create-namespace \
   --namespace crossplane-system \
   crossplane-stable/crossplane \
-  --version 2.3.1 \
+  --version 2.3.4 \
   --wait &> /dev/null
 
 echo ""

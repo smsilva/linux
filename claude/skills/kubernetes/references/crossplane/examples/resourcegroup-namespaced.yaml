@@ -1,0 +1,37 @@
+# Namespaced Managed Resource example (Crossplane v2 / Upbound v2 provider).
+#
+# This is an Azure ResourceGroup expressed in the NAMESPACED API group.
+# The `.m.` infix in the apiVersion group (azure.m.upbound.io) marks the
+# namespaced variant introduced by Crossplane v2 + Upbound family v2 providers.
+# The cluster-scoped equivalent would use group `azure.upbound.io` and omit
+# `metadata.namespace`.
+#
+# Owning provider: upbound-provider-azure-management (see values-azure.yaml).
+#
+# NOTE: the exact apiVersion below (azure.m.upbound.io/v1beta1) follows the
+# Upbound v2 naming convention. Confirm it against the installed CRD once the
+# provider is up:
+#   kubectl explain resourcegroup --api-version=azure.m.upbound.io/v1beta1
+#   kubectl get crds | grep resourcegroup
+#
+# SCOPE: this demonstrates the namespaced SHAPE only. It will not provision a
+# real ResourceGroup without Azure credentials and a ProviderConfig. Setting
+# those up (Secret + ProviderConfig) is out of scope here.
+apiVersion: azure.m.upbound.io/v1beta1
+kind: ResourceGroup
+metadata:
+  name: example-rg
+  namespace: default          # namespaced MRs live in a namespace
+spec:
+  forProvider:
+    location: eastus
+  # A ProviderConfig must exist and be referenced for real provisioning.
+  # In v2, providerConfigRef requires BOTH kind and name (kind is mandatory).
+  # A namespaced MR can reference either:
+  #   - kind: ProviderConfig         (namespaced, azure.m.upbound.io, same ns)
+  #   - kind: ClusterProviderConfig  (cluster-scoped, shared across namespaces)
+  # Left here as a placeholder — create the ProviderConfig separately (out of
+  # scope; needs an Azure credentials Secret).
+  providerConfigRef:
+    kind: ProviderConfig
+    name: default

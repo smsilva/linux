@@ -69,3 +69,8 @@ Check that the packages become healthy:
 ```bash
 kubectl get providers,functions
 ```
+
+## use an installed provider
+
+For a minimal example of consuming a provider — a namespaced Azure
+`ResourceGroup` Managed Resource — see `crossplane/examples/`.

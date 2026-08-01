@@ -4,10 +4,11 @@ Always check the latest version **before** installing or upgrading a Crossplane
 package, then pin it in the matching `values-*.yaml` under
 `assets/crossplane/packages/`.
 
-| Resource type            | Guide            | values file(s) to edit                          |
+| Resource type            | Guide            | file(s) to edit                          |
 |--------------------------|------------------|-------------------------------------------------|
 | Composition functions    | `updates/functions.md` | `values-functions.yaml`                   |
 | Providers (AWS/Azure/…)  | `updates/providers.md` | `values-aws.yaml`, `values-azure.yaml`, `values-providers.yaml` |
+| Helm charts (Crossplane core, ArgoCD) | `updates/charts.md` | `scripts/crossplane-install`, `scripts/argocd-install` |
 
 ## General rules
 

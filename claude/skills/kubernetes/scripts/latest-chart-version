@@ -1,0 +1,25 @@
+#!/bin/bash
+# Print the latest stable chart version of a Helm chart.
+# Source: helm search repo (authoritative for chart releases).
+#
+# The repo must already be added; pass its URL as the second arg to add/update
+# it first. helm excludes pre-releases by default, so the first result is the
+# latest stable version.
+#
+# Usage:
+#   latest-chart-version crossplane-stable/crossplane
+#   latest-chart-version argo/argo-cd
+#   latest-chart-version argo/argo-cd https://argoproj.github.io/argo-helm
+set -e
+
+chart="${1?usage: latest-chart-version <repo/chart> [repo-url]}"
+repo_url="${2:-}"
+repo="${chart%%/*}"
+
+if [[ -n "${repo_url}" ]]; then
+  helm repo add "${repo}" "${repo_url}" > /dev/null
+fi
+helm repo update "${repo}" > /dev/null
+
+helm search repo "${chart}" --versions --output json \
+  | python3 -c 'import sys, json; print(json.load(sys.stdin)[0]["version"])'

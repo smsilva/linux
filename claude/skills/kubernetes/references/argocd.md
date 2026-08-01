@@ -25,15 +25,12 @@ scripts/argocd-install
 ## values applied to the Helm chart
 
 The chart is installed with `assets/argocd/service.yaml`, which exposes the
-ArgoCD server as a `LoadBalancer` on node ports `32080` (HTTP) and `32444`
-(HTTPS):
+ArgoCD server as a `LoadBalancer` on ports 80 and 443:
 
 ```yaml
 server:
   service:
     type: LoadBalancer
-    nodePortHttp: 32080
-    nodePortHttps: 32444
     servicePortHttp: 80
     servicePortHttps: 443
     servicePortHttpName: http
@@ -41,8 +38,10 @@ server:
     namedTargetPort: true
 ```
 
-This pairs with the k3d cluster that maps `32080:80@loadbalancer` (see
-`k3d.md`), so the CLI logs in at `localhost:32080`.
+This pairs with the k3d cluster that maps `9443:443@loadbalancer` (see
+`k3d.md`), so the CLI logs in at `localhost:9443` over HTTPS. k3d routes the
+LoadBalancer Service through that host port via klipper-lb, so the randomly
+assigned NodePorts are irrelevant.
 
 ## retrieve the initial admin password
 
@@ -57,7 +56,7 @@ kubectl \
 ## login with the ArgoCD CLI
 
 ```bash
-argocd login localhost:32080 \
+argocd login localhost:9443 \
   --username admin \
   --password "${argocd_password}" \
   --insecure

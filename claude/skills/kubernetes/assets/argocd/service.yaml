@@ -1,8 +1,6 @@
 server:
   service:
     type: LoadBalancer
-    nodePortHttp: 32080
-    nodePortHttps: 32444
     servicePortHttp: 80
     servicePortHttps: 443
     servicePortHttpName: http

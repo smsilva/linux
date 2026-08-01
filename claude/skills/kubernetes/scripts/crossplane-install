@@ -1,9 +1,11 @@
 #!/bin/bash
-helm repo \
-  add crossplane-stable https://charts.crossplane.io/stable &> /dev/null
+set -e
 
 helm repo \
-  update crossplane-stable &> /dev/null
+  add crossplane-stable https://charts.crossplane.io/stable > /dev/null
+
+helm repo \
+  update crossplane-stable > /dev/null
 
 echo ""
 echo "Installing crossplane..."
@@ -13,7 +15,7 @@ helm install crossplane \
   --namespace crossplane-system \
   crossplane-stable/crossplane \
   --version 2.3.4 \
-  --wait &> /dev/null
+  --wait > /dev/null
 
 echo ""
 
@@ -22,7 +24,7 @@ kubectl \
     --namespace crossplane-system \
     --selector release=crossplane \
     --for condition=Available \
-    --timeout=360s &> /dev/null
+    --timeout=360s > /dev/null
 
 echo ""
 

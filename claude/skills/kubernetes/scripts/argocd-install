@@ -1,16 +1,21 @@
 #!/bin/bash
-this_script_path="$(realpath ${0})"
+set -e
+
+this_script_path="$(realpath "${0}")"
 this_script_name="${this_script_path##*/}"
 this_script_directory="${this_script_path%/*}"
 
+# make sibling scripts referenceable by name
+PATH="${this_script_directory}:${PATH}"
+
 # read the realpath of the assets directory
-assets_directory="$(realpath ${this_script_directory}/../assets)"
+assets_directory="$(realpath "${this_script_directory}/../assets")"
 
 helm repo \
-  add argo https://argoproj.github.io/argo-helm &> /dev/null
+  add argo https://argoproj.github.io/argo-helm > /dev/null
 
 helm repo \
-  update argo &> /dev/null
+  update argo > /dev/null
 
 echo ""
 echo "Installing argo-cd..."
@@ -20,8 +25,9 @@ helm upgrade \
   --namespace argocd \
   --create-namespace \
   argocd argo/argo-cd \
+  --version 10.2.1 \
   --values "${assets_directory}/argocd/service.yaml" \
-  --wait &> /dev/null
+  --wait > /dev/null
 
 echo ""
 
@@ -36,7 +42,7 @@ for deployment in $(
     wait \
     --for condition=Available \
     --timeout=360s \
-    "${deployment}" &> /dev/null
+    "${deployment}" > /dev/null
 done
 
 echo ""
@@ -44,7 +50,7 @@ echo ""
 if ! which argocd &> /dev/null; then
   echo "ArgoCD CLI Install..."
 
-  sh argocd-cli-install
+  argocd-cli-install
 fi
 
 argocd_password=$(
@@ -59,7 +65,7 @@ echo ""
 
 echo "ArgoCD CLI login"
 
-argocd login localhost:32080 \
+argocd login localhost:9443 \
   --username admin \
   --password "${argocd_password}" \
   --insecure

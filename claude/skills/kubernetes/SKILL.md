@@ -11,3 +11,5 @@ description: Use when working with Kubernetes clusters, manifests, and related t
 | ArgoCD install or setup                                    | `argocd.md`           |
 | Crossplane install or setup                                | `crossplane.md`       |
 | Update package/provider/function versions                  | `updates.md`          |
+| Cluster teardown, delete cluster, destroy cluster          | `k3d.md`              |
+| Prerequisite check, required tools, prereqs                | `k3d.md`              |

@@ -1,0 +1,12 @@
+#!/bin/bash
+cluster_name="${1:-k3s-default}"
+
+echo ""
+echo "Deleting k3d cluster '${cluster_name}'..."
+
+k3d cluster delete \
+  "${cluster_name}"
+
+echo ""
+
+k3d cluster list

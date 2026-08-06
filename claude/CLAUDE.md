@@ -11,5 +11,7 @@ Quando o usuário pedir para "iniciar o trabalho" em uma issue Jira, automaticam
 
 ## Contexto EMU dry-run
 
-- **FLWP-66200 (D2):** concluída em 31/07/2026 — azure-login service principal validado, run 7 ID `30630728549`, todos os 3 elos passaram (github/token, docker-login, azure-login). Status: In Production.
-- **Próxima story:** FLWP-66201 (D3)
+- **Épico FLWP-66196** (cloudId Jira `a293ae84-29b1-4838-ba47-b8f890959f53`). Status por story vive no `CLAUDE.md` do projeto `flow-cloud-hub`, não aqui.
+- **D6 (FLWP-66204):** concluída em 05/08/2026, In Production.
+- **Próxima story ativa:** D5 (FLWP-66203) — bloqueio externo: owner precisa elevar `cloud-ao` para `organization_secrets: write`.
+- **Cadeia de transições Jira até In Production** (workflow destas stories): `Finish Development` → `Start Testing` → `Finish Testing` → `Em homologação` → `Homologado` → `Move to Production`. Sempre re-consultar os transition IDs por story (mudam) via `getTransitionsForJiraIssue`.

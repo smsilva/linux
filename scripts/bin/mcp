@@ -9,7 +9,7 @@ show_usage() {
   the selected ones to .mcp.json. Claude Code does not support a "disabled"
   field — servers must be absent from .mcp.json to be inactive.
 
-    Usage: mcp [--add <server>]... [project-dir]
+    Usage: mcp [--add <server>]... [--remove <server>]... [project-dir]
            mcp --list
            mcp --list-active [project-dir]
 
@@ -18,11 +18,12 @@ show_usage() {
                     (default: current directory)
 
     Options:
-      --add <name>    Enable this server; skips interactive UI (repeatable)
-      --list          Print available server names from the catalog and exit
-      --list-active   Print servers currently enabled in project .mcp.json and exit
-      --clear         Disable all servers in project .mcp.json and exit
-      -h, --help      Show this help
+      --add <name>      Enable this server; skips interactive UI (repeatable)
+      --remove <name>   Disable this server; skips interactive UI (repeatable)
+      --list            Print available server names from the catalog and exit
+      --list-active     Print servers currently enabled in project .mcp.json and exit
+      --clear           Disable all servers in project .mcp.json and exit
+      -h, --help        Show this help
 
     Examples:
       mcp
@@ -34,10 +35,13 @@ show_usage() {
       mcp --clear ~/git/aws-saas-platform
       mcp --add atlassian --add github
       mcp --add atlassian ~/git/aws-saas-platform
+      mcp --remove github
+      mcp --add atlassian --remove github
 EOF
 }
 
 cli_mcps=()
+cli_remove=()
 list_only=false
 list_active=false
 clear_active=false
@@ -60,6 +64,10 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
     --add)
       shift
       cli_mcps+=("${1}")
+      ;;
+    --remove)
+      shift
+      cli_remove+=("${1}")
       ;;
     *)
       printf 'error: unknown option: %s\n' "${1}" >&2
@@ -121,7 +129,7 @@ main() {
 
   local -A selected_map=()
 
-  if [[ ${#cli_mcps[@]} -gt 0 ]]; then
+  if [[ ${#cli_mcps[@]} -gt 0 || ${#cli_remove[@]} -gt 0 ]]; then
     local unknown=()
     local name found s
 
@@ -141,13 +149,20 @@ main() {
       fi
     done
 
+    for name in "${cli_remove[@]}"; do
+      found=0
+      for s in "${all_servers[@]}"; do
+        [[ "${s}" == "${name}" ]] && found=1 && break
+      done
+      if [[ "${found}" -eq 1 ]]; then
+        unset "selected_map[${name}]"
+      else
+        unknown+=("${name}")
+      fi
+    done
+
     if [[ ${#unknown[@]} -gt 0 ]]; then
       printf 'warning: unknown servers (skipped): %s\n' "${unknown[*]}" >&2
-    fi
-
-    if [[ ${#selected_map[@]} -eq 0 ]]; then
-      printf 'error: no valid servers specified\n' >&2
-      exit 1
     fi
   else
     check_deps fzf

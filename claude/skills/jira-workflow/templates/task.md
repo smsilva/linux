@@ -5,7 +5,7 @@
 **Epic:** [{{EPIC_KEY}} — {{EPIC_SUMMARY}}]({{SITE}}/browse/{{EPIC_KEY}})  
 **Status:** {{STATUS}}  
 **Owner:** {{ASSIGNEE}}  
-**Branch:** feature/{{ISSUE_KEY}}  
+**Branch:** feat/{{ISSUE_KEY}}  
 **Sprint:** {{SPRINT}}
 
 ## Description

@@ -79,10 +79,28 @@ Sync task file content as a comment on the issue (via `mcp__atlassian__addCommen
 
 ## 4. Transition status
 
-1. Use `mcp__atlassian__getTransitionsForJiraIssue` to list available transitions.
-2. Identify the target transition ID by name (e.g. "In Progress").
-3. Use `mcp__atlassian__transitionJiraIssue` with the `transition.id` found.
-4. Update the `Status` field in the task file.
+The unit of work is a **target status by name** (e.g. "In Development", "In Production"), NOT a single transition. The target is almost never one hop away — reaching it usually means walking several transitions in sequence. Never stop at the first transition and assume you're done.
+
+Loop until the issue's current status equals the target:
+
+1. Use `mcp__atlassian__getTransitionsForJiraIssue` to list transitions available from the **current** status.
+2. If a transition leads directly to the target status, take it — you're on the last hop.
+3. Otherwise pick the transition that advances **forward** along the workflow toward the target (the next status in the chain), avoiding side-exits like `Blocked`, `Cancel`, `Pause …`, or `Review …` (which move backward). If the repo's `CLAUDE.local.md` documents the chain, use it to choose; otherwise infer the forward step from the status names.
+4. Apply it with `mcp__atlassian__transitionJiraIssue` using the `transition.id` (IDs are per-issue — always take them from the fresh `getTransitionsForJiraIssue` output, never reuse an ID from a previous issue or step).
+5. Re-fetch transitions and repeat from step 1 until the target status is reached.
+6. Update the `Status` field in the task file to the final status.
+
+Two common targets:
+- **Start of work** → target "In Development". From a fresh issue this can be several hops (e.g. `New → In Specification → Specified → In Development`), not a single "In Development" transition. Do NOT fall back to a different status (e.g. "In Progress") just because the first hop out of `New` isn't literally named "In Development" — keep walking; the "In Development" status typically appears a few steps in. Only fall back if, after reaching a terminal-forward status, no path to "In Development" exists at all in this workflow.
+- **End of work** → target "In Production" (or "Done"/"Closed"). Walk the full chain (e.g. `Developed → In Testing → Tested → Em Homologação → Homologado → In Production`).
+
+**Record the chain the first time it's discovered.** If the repo's `CLAUDE.local.md` does NOT yet document the transition chain for this project/issue-type combination, add a `## Cadeia de transições Jira` (or matching-language heading) section to it once a walk is complete, listing the status names in order with the transition name on each edge:
+
+```
+Status A --(Transition name)--> Status B --(Transition name)--> Status C
+```
+
+Transition IDs are re-fetched per issue, but the status names and their order are stable for the same project + issue type — that's what makes the recorded chain reusable. An issue may enter the chain partway through (e.g. created already in "In Specification"), so record the whole chain you observe and note the entry point. If the file already documents a chain for this project/issue-type, extend or correct it only when the actually-walked path diverges from what's recorded.
 
 ## 5. Assign issue to current user
 

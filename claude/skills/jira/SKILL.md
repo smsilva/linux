@@ -44,16 +44,16 @@ Check `.claude/settings.local.json` for a `PreToolUse` hook calling `validate-ta
 
 1. If not assigned, confirm and assign to the current user
 2. Create `<jira_folder>/<JIRA_TASK_ID>.md` if it doesn't exist (create the folder if needed; resolve path from `config.md` → `## Paths`, default `.jira/`)
-3. If branch `feature/<JIRA_TASK_ID>` **does not exist**:
+3. If branch `feat/<JIRA_TASK_ID>` **does not exist**:
    - Checkout main and pull latest changes
-   - Create branch from main: `git checkout -b feature/<JIRA_TASK_ID>`
-4. If branch `feature/<JIRA_TASK_ID>` **already exists** (local or remote):
+   - Create branch from main: `git checkout -b feat/<JIRA_TASK_ID>`
+4. If branch `feat/<JIRA_TASK_ID>` **already exists** (local or remote):
    - Checkout the branch
    - Check for remote tracking: `git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null`
    - If it returns a branch name, run `git pull --rebase`; if empty or error, skip the pull
 5. If the Sprint field is empty, ask whether to add the issue to the current sprint and do so via MCP if confirmed
-6. Add comment: "Starting work on branch `feature/<JIRA_TASK_ID>`."
-7. Transition status to "In Progress"
+6. Add comment: "Starting work on branch `feat/<JIRA_TASK_ID>`."
+7. Transition the issue to **"In Development"** following jira-workflow §4 — walk the full chain of transitions until the status is actually "In Development", re-fetching available transitions after each hop. This is usually several hops from a fresh issue (e.g. `New → In Specification → Specified → In Development`), not a single transition; do not stop early. Only fall back to "In Progress" if this workflow genuinely has no "In Development" status anywhere in its chain.
 
 ## End of /jira
 
@@ -62,11 +62,11 @@ After completing all steps above, **stop**. Display a summary block:
 ```
 ---
 Task:   <ISSUE_KEY> — <SUMMARY>
-Branch: feature/<ISSUE_KEY>
+Branch: feat/<ISSUE_KEY>
 File:   <jira_folder>/<ISSUE_KEY>.md
-Status: In Progress
+Status: In Development
 ---
 Pronto. Aguardando instruções.
 ```
 
-Do not begin any implementation work. Do not suggest next steps, generate code, or take any action related to the issue — even if the task is already "In Progress" or has prior context. Wait for the user to give the next instruction explicitly.
+Do not begin any implementation work. Do not suggest next steps, generate code, or take any action related to the issue — even if the task is already "In Development" or has prior context. Wait for the user to give the next instruction explicitly.

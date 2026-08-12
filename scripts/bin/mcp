@@ -124,6 +124,11 @@ main() {
   if [[ ${#cli_mcps[@]} -gt 0 ]]; then
     local unknown=()
     local name found s
+
+    for name in "${enabled_now[@]}"; do
+      selected_map["${name}"]=1
+    done
+
     for name in "${cli_mcps[@]}"; do
       found=0
       for s in "${all_servers[@]}"; do

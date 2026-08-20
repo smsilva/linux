@@ -23,18 +23,6 @@
           }
         ]
       }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "claude-yaml-validator",
-            "statusMessage": "Validating YAML..."
-          }
-        ]
-      }
     ]
   },
   "statusLine": {

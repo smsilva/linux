@@ -2,6 +2,10 @@
 
 <!-- Global instructions live in rules/*.md (symlinked to ~/.claude/rules/). This file is kept for the ~/.claude/CLAUDE.md symlink created by install.sh. -->
 
+## Language / terminologia
+
+- Usar **"cerne"** em vez de "crux" ao se referir ao ponto central/decisivo de um problema.
+
 ## Jira
 
 Sempre que o usuário disser que vai **iniciar uma issue** (qualquer fraseado: "iniciar o

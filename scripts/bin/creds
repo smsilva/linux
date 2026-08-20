@@ -37,4 +37,6 @@ elif [[ "${TERM_PROGRAM}" == "vscode" ]]; then
   editor="code"
 fi
 
+echo "${target_file}"
+
 "${editor}" "${target_file}"

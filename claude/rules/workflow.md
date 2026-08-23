@@ -1,6 +1,7 @@
 # Workflow
 
 - Walk Skeleton is always preferred approach for development: ship a thin end-to-end slice early for feedback
+- `CLAUDE.local.md` deve estar sempre no `.gitignore` de qualquer repositório (arquivo local, não versionado, análogo a `HANDOFF.local.md`)
 - PRs (Bitbucket and GitHub): detect the host via `git remote get-url origin`.
   - Generate a description and save it as `/tmp/<branch>-pr.txt` using markdown
   - In chat messages: show absolute file paths so the user can click/open in the editor

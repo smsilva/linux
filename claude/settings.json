@@ -1,6 +1,6 @@
 {
   "skillListingBudgetFraction": 0.04,
-  "model": "opus",
+  "model": "haiku",
   "hooks": {
     "Stop": [
       {
@@ -23,6 +23,17 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rtk hook claude"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -31,6 +42,7 @@
     "refreshInterval": 5
   },
   "enabledPlugins": {
+    "azure@claude-plugins-official": true,
     "chrome-devtools-mcp@claude-plugins-official": false,
     "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
@@ -44,9 +56,23 @@
     "mode": "hold"
   },
   "autoMemoryEnabled": false,
+  "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(terraform fmt:*) in azure-kubernetes",
+      "Bash(terraform validate:*) in azure-kubernetes",
+      "Bash(terraform init -backend=false:*) in azure-kubernetes"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "terraform apply -replace on module.ingress_istio[0].helm_release.istio_gateway (documented footgun: destroys/recreates LoadBalancer, changes public IP, breaks DNS for all three hosts)",
+      "az aks get-credentials --admin (bypasses Azure RBAC, writes kube_admin_config credentials in cleartext)"
+    ]
+  },
+  "voiceEnabled": false
 }

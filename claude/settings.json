@@ -1,6 +1,5 @@
 {
   "skillListingBudgetFraction": 0.04,
-  "model": "haiku",
   "hooks": {
     "Stop": [
       {

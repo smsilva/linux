@@ -14,6 +14,7 @@ alias brc="source ~/.bashrc"
 alias c='clear'
 alias cat='batcat -p'
 alias claudea='claude --allow-dangerously-skip-permissions'
+alias claudear='claude --allow-dangerously-skip-permissions --resume'
 alias clip="xclip -selection clipboard"
 alias cobra='cobra-cli'
 alias csvt='. csvt'

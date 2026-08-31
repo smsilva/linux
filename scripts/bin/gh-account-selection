@@ -1,0 +1,61 @@
+#!/bin/bash
+this_script_path="$(realpath ${0})"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+gh_hosts_file="${HOME}/.config/gh/hosts.yml"
+gh_host="${GH_HOST:-github.com}"
+
+account_name_input="${1}"
+
+if [[ ! -f "${gh_hosts_file}" ]]; then
+  cat <<EOF
+
+${gh_hosts_file} not found.
+
+try:
+
+  gh auth login
+
+EOF
+
+  exit 1
+fi
+
+list_accounts() {
+  local active_account
+  active_account="$(yq ".\"${gh_host}\".user" "${gh_hosts_file}")"
+
+  yq ".\"${gh_host}\".users | keys | .[]" "${gh_hosts_file}" \
+    | while read -r account_name; do
+        if [[ "${account_name}" == "${active_account}" ]]; then
+          printf "%-24s %s\n" "${account_name}" "active"
+        else
+          printf "%-24s %s\n" "${account_name}" "-"
+        fi
+      done
+}
+
+accounts_list_file="$(mktemp)"
+list_accounts > "${accounts_list_file}"
+
+if [[ -z "${account_name_input}" ]]; then
+  selected_line="$(cat "${accounts_list_file}" | fzf)"
+else
+  record_count=$(grep --extended-regexp "${account_name_input}" "${accounts_list_file}" | wc -l)
+
+  if [[ ${record_count} -eq 1 ]]; then
+    selected_line="$(grep --extended-regexp "${account_name_input}" "${accounts_list_file}")"
+  else
+    selected_line="$(grep --extended-regexp "${account_name_input}" "${accounts_list_file}" | fzf)"
+  fi
+fi
+
+rm "${accounts_list_file}"
+
+if [[ -n "${selected_line}" ]]; then
+  selected_account="$(awk '{print $1}' <<< "${selected_line}")"
+  gh auth switch --hostname "${gh_host}" --user "${selected_account}" || exit ${?}
+  gh-account
+fi

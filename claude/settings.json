@@ -1,5 +1,6 @@
 {
   "skillListingBudgetFraction": 0.04,
+  "model": "sonnet",
   "hooks": {
     "Stop": [
       {
@@ -52,7 +53,7 @@
   "effortLevel": "medium",
   "awaySummaryEnabled": false,
   "voice": {
-    "enabled": true,
+    "enabled": false,
     "mode": "hold"
   },
   "autoMemoryEnabled": false,

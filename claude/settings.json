@@ -52,6 +52,9 @@
   "language": "pt-BR",
   "effortLevel": "medium",
   "awaySummaryEnabled": false,
+  "remote": {
+    "defaultEnvironmentId": "env_01CotcYiVnddBdypZaRN2J6p"
+  },
   "voice": {
     "enabled": false,
     "mode": "hold"
@@ -67,12 +70,43 @@
       "$defaults",
       "Bash(terraform fmt:*) in azure-kubernetes",
       "Bash(terraform validate:*) in azure-kubernetes",
-      "Bash(terraform init -backend=false:*) in azure-kubernetes"
+      "Bash(terraform init -backend=false:*) in azure-kubernetes",
+      "Bash(terraform fmt:*) in /home/silvios/git/wasp-idp",
+      "Bash(terraform validate:*) in /home/silvios/git/wasp-idp",
+      "Bash(terraform init -backend=false:*) in /home/silvios/git/wasp-idp"
     ],
     "soft_deny": [
       "$defaults",
       "terraform apply -replace on module.ingress_istio[0].helm_release.istio_gateway (documented footgun: destroys/recreates LoadBalancer, changes public IP, breaks DNS for all three hosts)",
-      "az aks get-credentials --admin (bypasses Azure RBAC, writes kube_admin_config credentials in cleartext)"
+      "az aks get-credentials --admin (bypasses Azure RBAC, writes kube_admin_config credentials in cleartext)",
+      "terraform apply/destroy in aws/terraform/state-backend or aws/terraform/ci (bootstrap/CI backend layers — footgun for state loss or CI credential exposure)",
+      "aws iam / aws eks delete-* or update-* commands against the bootstrap IAM user or EKS cluster referenced in aws/eks/providers/bootstrap-iam-policy.json"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: AWS (aws/terraform, aws/eks — state-backend, dns, ci layers) and Azure (existing auto-mode entries reference azure-kubernetes context, but that appears to be from a different/prior repo — not corroborated here)",
+      "**Repository visibility**: PUBLIC — smsilva/wasp-idp (confirmed via gh)",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: CI secret SAML_METADATA_XML referenced (name only, not its value); AWS Secrets Manager appears relevant per docs/superpowers/specs/2026-08-27-saml-metadata-secrets-manager.md (unverified provenance, doc content only — not adopted as a trusted service)",
+      "**Default / protected branches**: main (default); no branch protection rules or rulesets listed via gh — treat main as unprotected at the platform level, still avoid destructive history rewrites",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Source control**: The trusted repo (smsilva/wasp-idp) and its origin remote (github.com:smsilva/wasp-idp.git) only",
+      "**Trusted internal domains**: services.control-plane-us-east-1.nonprod.wasp.silvios.me and services.control-plane.nonprod.wasp.silvios.me (nonprod control-plane hosts contacted repeatedly in this project's transcripts)",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: ghcr.io (container registry, contacted 5× in this project's transcripts)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: aws/eks/providers/bootstrap-iam-policy.json, aws/terraform/state-backend/terraform.tfvars, aws/terraform/ci/main.tf and related aws/terraform/* files, CLAUDE.local.md (gitignored PII per repo's own CLAUDE.md), .env / *.env (gitignored) — share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace/host/container with `prod` or `production` as a whole word or segment (default heuristic); note observed k8s namespaces (foo, istio-ingress, schema, httpbin, istio-system) and hosts are nonprod-labelled, not production",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or segment; also treat aws/terraform/state-backend and aws/terraform/ci layers as sensitive given CI secrets and bootstrap IAM policy content there",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (Backstage IDP proof-of-concept, Terraform/AWS/EKS/Kubernetes infra work)",
+      "**Trusted repo**: /home/silvios/git/wasp-idp (working directory) and its origin remote github.com:smsilva/wasp-idp.git — PUBLIC repo, so only this repo's own work is safe to commit/push; confidential material (secrets, PII) is never cleared into it regardless of visibility",
+      "**Org-specific CLIs**: terraform, aws, aws-vpn-client, helm (frequently used in this project per transcript mining)",
+      "routine under aws/terraform/* and aws/eks/* prefixes: terraform fmt/validate/init(-backend=false)/plan-type read operations are routine for this project"
     ]
   },
   "voiceEnabled": false

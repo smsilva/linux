@@ -41,6 +41,10 @@ try:
 
   aws sso login
 
+or:
+
+  aws sso login --use-device-code
+
 EOF
 
   exit ${result_code}

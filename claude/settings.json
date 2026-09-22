@@ -1,6 +1,18 @@
 {
   "skillListingBudgetFraction": 0.04,
+  "permissions": {
+    "defaultMode": "auto"
+  },
   "model": "sonnet",
+  "skillOverrides": {
+    "about-me": "off",
+    "presentation-prep": "off",
+    "skill-usage-review": "off",
+    "use-browser": "off",
+    "daily": "off",
+    "all-skills-review": "off",
+    "video-captions": "off"
+  },
   "hooks": {
     "Stop": [
       {
@@ -109,17 +121,5 @@
       "routine under aws/terraform/* and aws/eks/* prefixes: terraform fmt/validate/init(-backend=false)/plan-type read operations are routine for this project"
     ]
   },
-  "voiceEnabled": false,
-  "skillOverrides": {
-    "about-me": "off",
-    "presentation-prep": "off",
-    "skill-usage-review": "off",
-    "use-browser": "off",
-    "daily": "off",
-    "all-skills-review": "off",
-    "video-captions": "off"
-  },
-  "permissions": {
-    "defaultMode": "auto"
-  }
+  "voiceEnabled": false
 }

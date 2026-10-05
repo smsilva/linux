@@ -22,13 +22,13 @@ sudo apt-get install --yes -q \
   xclip \
   ydotool
 
-# 2. GPU detection: CUDA build + large-v3-turbo with NVIDIA, CPU build + medium without
+# 2. GPU detection: CUDA build + large-v3-turbo with NVIDIA, CPU build + small without
 if which nvidia-smi > /dev/null && nvidia-smi > /dev/null 2>&1; then
   cuda_flag="-DGGML_CUDA=1"
   model="large-v3-turbo"
 else
   cuda_flag=""
-  model="medium"
+  model="small"
 fi
 echo "whisper.cpp build: ${cuda_flag:-CPU only}, model: ${model}"
 

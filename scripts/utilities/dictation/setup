@@ -1,0 +1,92 @@
+#!/bin/bash
+# Offline voice dictation (pt-BR) with whisper.cpp + GNOME shortcut.
+# Super+V starts recording, Super+V again transcribes and copies to the clipboard.
+# Paste with Ctrl+Shift+V in the terminal.
+# Not named install.sh on purpose: scripts/utilities/install.sh must not run it.
+set -e
+
+this_script_path="$(realpath "${0}")"
+this_script_directory="${this_script_path%/*}"
+
+whisper_directory="${WHISPER_DIRECTORY:-${HOME}/whisper.cpp}"
+dictate_binding="${DICTATE_BINDING:-<Super>v}"
+
+# 1. Dependencies
+sudo apt-get install --yes -q \
+  alsa-utils \
+  build-essential \
+  cmake \
+  git \
+  libnotify-bin \
+  wl-clipboard \
+  xclip \
+  ydotool
+
+# 2. GPU detection: CUDA build + large-v3-turbo with NVIDIA, CPU build + medium without
+if which nvidia-smi > /dev/null && nvidia-smi > /dev/null 2>&1; then
+  cuda_flag="-DGGML_CUDA=1"
+  model="large-v3-turbo"
+else
+  cuda_flag=""
+  model="medium"
+fi
+echo "whisper.cpp build: ${cuda_flag:-CPU only}, model: ${model}"
+
+# 3. Clone and build whisper.cpp
+if [[ ! -d "${whisper_directory}" ]]; then
+  git clone --depth 1 https://github.com/ggml-org/whisper.cpp "${whisper_directory}"
+fi
+
+if [[ ! -x "${whisper_directory}/build/bin/whisper-cli" ]]; then
+  cmake \
+    -S "${whisper_directory}" \
+    -B "${whisper_directory}/build" \
+    ${cuda_flag}
+
+  cmake \
+    --build "${whisper_directory}/build" \
+    --parallel "$(nproc)" \
+    --config Release
+fi
+
+# 4. Download the model
+if [[ ! -f "${whisper_directory}/models/ggml-${model}.bin" ]]; then
+  "${whisper_directory}/models/download-ggml-model.sh" "${model}"
+fi
+
+# 5. Install the toggle script (symlink keeps it versioned in this repo)
+mkdir -p "${HOME}/.local/bin"
+ln --symbolic --force \
+  "${this_script_directory}/dictate-toggle" \
+  "${HOME}/.local/bin/dictate-toggle"
+
+# 6. GNOME shortcut, preserving existing custom shortcuts
+if which gsettings > /dev/null; then
+  media_keys="org.gnome.settings-daemon.plugins.media-keys"
+  keybinding_path="/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/dictate/"
+  keybinding="${media_keys}.custom-keybinding:${keybinding_path}"
+
+  # Super+V opens the notification list by default; keep only Super+M for it
+  if [[ "${dictate_binding}" == "<Super>v" ]]; then
+    gsettings set org.gnome.shell.keybindings toggle-message-tray "['<Super>m']"
+  fi
+
+  current="$(gsettings get "${media_keys}" custom-keybindings)"
+  if [[ "${current}" == "@as []" || "${current}" == "[]" ]]; then
+    updated="['${keybinding_path}']"
+  elif [[ "${current}" == *"${keybinding_path}"* ]]; then
+    updated="${current}"
+  else
+    updated="${current%]}, '${keybinding_path}']"
+  fi
+
+  gsettings set "${media_keys}" custom-keybindings "${updated}"
+  gsettings set "${keybinding}" name "Ditado"
+  gsettings set "${keybinding}" command "${HOME}/.local/bin/dictate-toggle"
+  gsettings set "${keybinding}" binding "${dictate_binding}"
+
+  echo "shortcut: $(gsettings get "${keybinding}" binding) -> $(gsettings get "${keybinding}" command)"
+fi
+
+echo "ydotool: $(dpkg-query --show --showformat='${Version}' ydotool) (auto-paste syntax notes in dictate-toggle)"
+echo "test: arecord -q -f S16_LE -r 16000 -c 1 -d 5 /tmp/dictate-test.wav && ${whisper_directory}/build/bin/whisper-cli --model ${whisper_directory}/models/ggml-${model}.bin --language pt --no-timestamps --file /tmp/dictate-test.wav"

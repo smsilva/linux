@@ -1,0 +1,56 @@
+#!/bin/bash
+# Toggle voice dictation: first run starts recording, second run stops,
+# transcribes with whisper.cpp (pt) and copies the text to the clipboard.
+pid_file="/tmp/dictate.pid"
+wav_file="/tmp/dictate.wav"
+whisper_directory="${WHISPER_DIRECTORY:-${HOME}/whisper.cpp}"
+
+# Prefer the GPU-sized model when it was downloaded, fall back to medium.
+if [[ -z "${DICTATE_MODEL}" ]]; then
+  for candidate in large-v3-turbo medium small; do
+    if [[ -f "${whisper_directory}/models/ggml-${candidate}.bin" ]]; then
+      DICTATE_MODEL="${whisper_directory}/models/ggml-${candidate}.bin"
+      break
+    fi
+  done
+fi
+
+copy_to_clipboard() {
+  if [[ "${XDG_SESSION_TYPE}" == "wayland" ]]; then
+    wl-copy
+  else
+    xclip -selection clipboard
+  fi
+}
+
+if [[ -f "${pid_file}" ]]; then
+  kill "$(cat "${pid_file}")"
+  rm -f "${pid_file}"
+  sleep 0.3
+
+  notify-send "Ditado" "Transcrevendo…"
+
+  text=$("${whisper_directory}/build/bin/whisper-cli" \
+    --model "${DICTATE_MODEL?}" \
+    --language pt \
+    --no-timestamps \
+    --no-prints \
+    --threads "$(nproc)" \
+    --file "${wav_file}" \
+  | tr '\n' ' ' \
+  | sed 's/^ *//; s/ *$//')
+
+  printf '%s' "${text}" | copy_to_clipboard
+
+  notify-send "Ditado" "Copiado: ${text:0:60}…"
+
+  # Auto-paste (optional; needs ydotoold running and /dev/uinput access).
+  # ydotool 0.1.x syntax (Ubuntu 24.04 ships 0.1.8):
+  # ydotool key ctrl+shift+v
+  # ydotool 1.x syntax:
+  # ydotool key 29:1 42:1 47:1 47:0 42:0 29:0
+else
+  arecord -q -f S16_LE -r 16000 -c 1 "${wav_file}" &
+  echo $! > "${pid_file}"
+  notify-send "Ditado" "Gravando…"
+fi

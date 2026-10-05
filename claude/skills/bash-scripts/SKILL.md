@@ -49,7 +49,7 @@ arg2="${2}"
 
 ```bash
 #!/bin/bash
-this_script_path="$(realpath ${0})"
+this_script_path="$(realpath "${0}")"
 this_script_name="${this_script_path##*/}"
 this_script_directory="${this_script_path%/*}"
 
@@ -79,7 +79,7 @@ EOF
 }
 
 while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
-  case $1 in
+  case "${1}" in
     -h | --help )
       show_usage
       exit 1
@@ -146,7 +146,7 @@ Use `${var?}` to fail fast with a clear error when a required variable is unset:
 
 ```bash
 url="${1}"
-openssl s_client -connect ${url?}:443 ...
+openssl s_client -connect "${url?}:443" ...
 ```
 
 ### Dry-run flag

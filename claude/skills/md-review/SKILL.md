@@ -52,7 +52,7 @@ Go through every item. Flag what fails.
 - Reference other skills by name with an explicit marker: `**REQUIRED:** Use {skill-name}`.
 
 **Loopholes (for rule-enforcing files)**
-- Every rule has a counter-rationalization. Add a "Red flags" or rationalization table if missing.
+- Add a "Red flags" table only for a rule agents have been seen rationalizing around.
 
 **Language**
 - Written in English. If pt-BR, flag for translation (per global rule "Write Agent Skills in English").

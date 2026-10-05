@@ -68,7 +68,4 @@ After writing, output:
 - What was documented and in which file
 - Any ambiguities left unresolved (and why)
 - Subdirectories that might benefit from their own CLAUDE.md
-- If `[output-file]` was specified, add `@<output-file>` to the root CLAUDE.md under a
-  relevant heading — a custom output path implies intent to `@`-import it. If using the
-  default `<dir>/CLAUDE.md`, add `@<dir>/CLAUDE.md` to root only for core subsystems;
-  otherwise it loads automatically whenever Claude accesses files in that directory.
+- If `[output-file]` was specified, reference it from the root CLAUDE.md by plain relative path under a relevant heading. The default `<dir>/CLAUDE.md` needs no reference: it loads automatically whenever Claude accesses files in that directory.

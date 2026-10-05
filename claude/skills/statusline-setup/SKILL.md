@@ -9,14 +9,7 @@ Configure and update the Claude Code statusline displayed at the bottom of the t
 
 ## File locations & sync
 
-There are two copies that must always be kept in sync:
-
-| File | Role |
-|------|------|
-| `~/git/linux/scripts/bin/claude-status-line` | Source of truth — edit this first |
-| `~/.claude/statusline.sh` | Active copy executed by Claude Code |
-
-**Sync procedure:** Edit the repo file, then copy it verbatim: `cp ~/git/linux/scripts/bin/claude-status-line ~/.claude/statusline.sh`
+Edit `~/git/linux/scripts/bin/claude-status-line`. `~/.claude/statusline.sh` is a symlink to it (created by `install.sh`), so there is nothing to copy.
 
 ## settings.json wiring
 
@@ -137,4 +130,3 @@ All tools must be on `$PATH`. If missing, the script will error and the statusli
 4. Add content: `ansi-text --text " ${value} " --background "${section_<name>_background_color}" --foreground 0`
 5. Add separator before: `ansi-text --text "${sep}" --background "${section_<name>_background_color}" --foreground "${section_<prev>_background_color}"`
 6. Add separator after: `ansi-text --text "${sep}" --background "${section_<next>_background_color}" --foreground "${section_<name>_background_color}"`
-7. Sync both files (see File locations & sync)

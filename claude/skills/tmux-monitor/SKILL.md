@@ -11,7 +11,7 @@ $ARGUMENTS — `[interval=10] [pane=0:0.1]`
 ## How it works
 
 Each iteration:
-1. Run `sleep <interval> && tmux capture-pane -p -t <pane> -S -60` as a single Bash call (timeout: `<interval> + 20` seconds)
+1. Wait `<interval>` seconds with the Monitor tool (foreground `sleep` is blocked), then run `tmux capture-pane -p -t <pane> -S -60`
 2. Compare output to the previous capture
 3. If changed: report what happened in plain text — one short sentence per notable event
 4. If unchanged: say nothing, go to next iteration

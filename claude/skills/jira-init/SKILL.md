@@ -5,7 +5,7 @@ description: Initialize Jira project config for the current repository, generati
 
 Use the `jira-workflow` skill for MCP operations.
 
-All user-facing messages must use the language specified in the user's CLAUDE.md (e.g. `Always respond in pt-BR`). If no language is specified there, fall back to the system default.
+Write user-facing messages in the session's response language.
 
 <JIRA_FOLDER> is the folder where config.md and task files will be stored. It can be version-controlled (e.g. `/jira`) or local (e.g. `.jira/`). The default value is `.jira/`.
 
@@ -90,7 +90,7 @@ In parallel:
 Call `getVisibleJiraProjects`. If the response is saved to a file (tool output too large), run:
 
 ```bash
-python3 scripts/parse_projects.py <path-to-tool-output-file>
+python3 "$(readlink -f ~/.claude/skills/jira-init)/scripts/parse_projects.py" <path-to-tool-output-file>
 ```
 
 This prints `KEY | Name | projectTypeKey` per project. Show the list and ask the user to choose.
@@ -103,7 +103,7 @@ If provided:
 1. Call `getJiraIssueTypeMetaWithFields` for the Story issue type to discover all custom field IDs.
    If the response is saved to a file, run:
    ```bash
-   python3 scripts/parse_fields.py <path-to-tool-output-file>
+   python3 "$(readlink -f ~/.claude/skills/jira-init)/scripts/parse_fields.py" <path-to-tool-output-file>
    ```
    The output now includes `schema.type` and `operations`. Collect:
    - All `customfield_XXXXX` IDs that appear here → these are the **writable fields** (they exist on the create screen).
@@ -134,7 +134,7 @@ For Story and Task issue types: `getJiraIssueTypeMetaWithFields`.
 If the response is saved to a file, run:
 
 ```bash
-python3 scripts/parse_fields.py <path-to-tool-output-file>
+python3 "$(readlink -f ~/.claude/skills/jira-init)/scripts/parse_fields.py" <path-to-tool-output-file>
 ```
 
 This prints `REQUIRED/optional | fieldId | name | allowed values`.

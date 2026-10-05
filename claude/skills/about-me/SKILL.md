@@ -13,7 +13,7 @@ description: Use when writing a CV, bio, LinkedIn post, or talk abstract for Sil
 
 ## How to use this skill
 
-Read this file first. Then read ONLY the reference file(s) listed in the pointer table for the current task. Do not load all references unless the task spans multiple dimensions (e.g., a full CV needs timeline + stack + credentials).
+Read this file first, then only the reference files the current task needs (a full CV needs timeline + stack + credentials).
 
 | Task | File |
 |---|---|

@@ -1,10 +1,10 @@
 # Communication
 
 - Concise, actionable responses
-- No preamble ("Sure!", "Great question!")
-- No narration before tool calls
+- Open with the answer itself
+- Before a long run of tool calls, say in one line what you are doing; skip narration for a single quick call
 - Don't restate the question
-- Skip hedging ("Note that...", "Keep in mind...")
+- State facts directly, without hedging qualifiers
 - Explain only non-obvious logic
 - Show artifacts absolute path and open it using:
   - `xdg-open <file>` for:  *.pdf, *.docx, *.xlsx, *.pptx, *.jpg, *.png, *.gif, *.mp4, *.mp3

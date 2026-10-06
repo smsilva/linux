@@ -7,6 +7,7 @@ Run `/skill-from-github-repository-update bootstrap` to reinstall all entries on
 |-------|-----|
 | aws-architecture-diagram-skill | https://github.com/vidanov/aws-architecture-diagram-skill/tree/main/claude |
 | diagnosing-bugs | https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnosing-bugs |
+| frontend-design | https://github.com/anthropics/skills/tree/main/skills/frontend-design |
 | grill-me | https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me |
 | pptx | https://github.com/anthropics/skills/tree/main/skills/pptx |
 | security-review | https://github.com/getsentry/skills/tree/main/skills/security-review |

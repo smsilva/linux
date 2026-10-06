@@ -1,6 +1,6 @@
 ---
 name: note-user
-description: Appends a note directly to the user's global CLAUDE.md file (~/.claude/CLAUDE.md)
+description: Appends a user-wide note to the matching rule file in ~/.claude/rules/ (global instructions live there, not in ~/.claude/CLAUDE.md)
 ---
 
-Invoke the `note` skill with target `~/.claude/CLAUDE.md` and `<command-args>` as the note text.
+Pick the `~/.claude/rules/<topic>.md` file whose topic matches the note (create one if none fits), then invoke the `note` skill with that target and `<command-args>` as the note text.

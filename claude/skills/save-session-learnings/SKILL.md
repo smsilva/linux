@@ -30,7 +30,7 @@ Look for:
 |---|---|
 | Shared project knowledge (team-wide) | `CLAUDE.md` in the nearest relevant directory |
 | Personal setup, local paths, dev preferences | `CLAUDE.local.md` in the project root |
-| User-wide preferences across all projects | `~/.claude/CLAUDE.md` |
+| User-wide preferences across all projects | `~/.claude/rules/<topic>.md` |
 
 When in doubt, use the `CLAUDE.md` closest to the code the learning refers to. A learning about a specific subdirectory belongs in that subdirectory's `CLAUDE.md`, not the root.
 

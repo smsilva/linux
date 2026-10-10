@@ -24,11 +24,13 @@ fi
 # whisper.cpp runs slower with hyperthreads; use physical cores only.
 physical_cores="$(lscpu --parse=core | grep --invert-match '^#' | sort --unique | wc --lines)"
 
+# xclip and wl-copy stay in the background serving the selection; they must
+# not inherit the lock, or every later press would see "still transcribing".
 copy_to_clipboard() {
   if [[ "${XDG_SESSION_TYPE}" == "wayland" ]]; then
-    wl-copy
+    wl-copy 9>&-
   else
-    xclip -selection clipboard
+    xclip -selection clipboard 9>&-
   fi
 }
 

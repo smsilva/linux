@@ -11,7 +11,6 @@ sudo apt-get install --yes -q \
   curl \
   fd-find \
   ffmpeg \
-  flameshot \
   fonts-firacode \
   fonts-jetbrains-mono \
   fortune \

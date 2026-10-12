@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+# Make closing the laptop lid do nothing (no suspend), on battery, AC and docked.
+
+sudo mkdir --parents /etc/systemd/logind.conf.d
+
+sudo tee /etc/systemd/logind.conf.d/lid.conf > /dev/null <<'CONF'
+[Login]
+HandleLidSwitch=ignore
+HandleLidSwitchExternalPower=ignore
+HandleLidSwitchDocked=ignore
+CONF
+
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-ac-action 'nothing'
+gsettings set org.gnome.settings-daemon.plugins.power lid-close-battery-action 'nothing'
+
+# Reload logind without killing the graphical session (never restart it)
+sudo systemctl kill --signal=HUP systemd-logind
+
+echo "logind:"
+systemd-analyze cat-config systemd/logind.conf | grep '^HandleLid'
+
+echo "gnome:"
+gsettings list-recursively org.gnome.settings-daemon.plugins.power | grep 'lid-close-.*-action'

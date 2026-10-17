@@ -1,0 +1,132 @@
+#!/bin/bash
+set -e
+
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Clone a GitHub repository over SSH using a specific key, and pin that key in the clone (core.sshCommand)
+
+    Options:
+
+      -h,  --help         Show this help
+      -o,  --org          GitHub organization or user
+      -r,  --repo         Repository name
+      -k,  --key          SSH private key (default: ~/.ssh/id_ed25519)
+      -d,  --destination  Parent directory of the clone (default: ~/git/<org>)
+      -dr, --dry-run      Dry Run (default: false)
+
+    Examples:
+
+      ${this_script_name} \\
+        --org wasp-foundry \\
+        --repo platform-api
+
+      ${this_script_name} \\
+        --org wasp-foundry \\
+        --repo platform-api \\
+        --key ~/.ssh/id_ed25519 \\
+        --destination ~/git/wasp-foundry
+
+EOF
+}
+
+while [[ "${1}" =~ ^- ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -o | --org )
+      shift
+      org="${1}"
+      ;;
+
+    -r | --repo )
+      shift
+      repo="${1}"
+      ;;
+
+    -k | --key )
+      shift
+      key="${1}"
+      ;;
+
+    -d | --destination )
+      shift
+      destination="${1}"
+      ;;
+
+    -dr | --dry-run )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        dry_run="${2}"
+        shift
+      else
+        dry_run=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ -n "${1}" ]]; then
+  echo "Unexpected argument: ${1}"
+  show_usage
+  exit 1
+fi
+
+repo="${repo%.git}"
+key="${key:-${HOME}/.ssh/id_ed25519}"
+destination="${destination:-${HOME}/git/${org}}"
+dry_run="${dry_run:-false}"
+
+if [[ -z "${org}" || -z "${repo}" ]]; then
+  echo "Missing --org and/or --repo"
+  show_usage
+  exit 1
+fi
+
+if [[ ! -f "${key}" ]]; then
+  echo "SSH key not found: ${key}"
+  exit 1
+fi
+
+url="git@github.com:${org}/${repo}.git"
+target="${destination}/${repo}"
+ssh_command="ssh -i '${key}' -o IdentitiesOnly=yes"
+
+if [[ -e "${target}" ]]; then
+  echo "Destination already exists: ${target}"
+  exit 1
+fi
+
+echo "url: ${url}"
+echo "key: ${key}"
+echo "target: ${target}"
+
+if [[ "${dry_run}" == "true" ]]; then
+  echo "[dry-run] GIT_SSH_COMMAND=\"${ssh_command}\" git clone ${url} ${target}"
+  exit 0
+fi
+
+mkdir --parents "${destination}"
+
+GIT_SSH_COMMAND="${ssh_command}" git clone "${url}" "${target}"
+
+git -C "${target}" config core.sshCommand "${ssh_command}"
+
+echo ""
+echo "${target}"

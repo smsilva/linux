@@ -68,7 +68,7 @@
     "defaultEnvironmentId": "env_01CotcYiVnddBdypZaRN2J6p"
   },
   "voice": {
-    "enabled": false,
+    "enabled": true,
     "mode": "hold"
   },
   "autoMemoryEnabled": false,
@@ -121,5 +121,5 @@
       "routine under aws/terraform/* and aws/eks/* prefixes: terraform fmt/validate/init(-backend=false)/plan-type read operations are routine for this project"
     ]
   },
-  "voiceEnabled": false
+  "voiceEnabled": true
 }

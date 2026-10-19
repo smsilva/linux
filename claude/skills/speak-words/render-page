@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Render the speak-words page for the visual companion from a JSON file of spellings per word."""
+import argparse
+import json
+import pathlib
+
+TEMPLATE = pathlib.Path(__file__).resolve().with_name("page-template.html")
+
+
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--data", type=pathlib.Path, required=True)
+  parser.add_argument("--out", type=pathlib.Path, required=True)
+  args = parser.parse_args()
+  words = json.loads(args.data.read_text())
+  discarded = words.pop("_discarded", {})
+  reset = words.pop("_reset", {})
+  labels = words.pop("_labels", {})
+  page = (TEMPLATE.read_text()
+          .replace("__WORDS__", json.dumps(words, ensure_ascii=False))
+          .replace("__DISCARDED__", json.dumps(discarded, ensure_ascii=False))
+          .replace("__RESET__", json.dumps(reset))
+          .replace("__LABELS__", json.dumps(labels, ensure_ascii=False)))
+  args.out.write_text(page)
+
+
+main()

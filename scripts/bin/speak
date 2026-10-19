@@ -19,10 +19,15 @@ Environment:
   PIPER_NOISE_SCALE        Timbre variation: higher is more expressive (default: the model's)
   PIPER_NOISE_W_SCALE      Rhythm variation: lower is more regular (default: the model's)
   PIPER_SENTENCE_SILENCE   Seconds of silence between sentences (default: the model's)
+
+Pronunciation: ${words_file} lists words to respell before speaking,
+one word=respelling per line (case-insensitive, whole words), so English
+terms sound closer to English in a Portuguese voice (request=ríkuéchte).
 EOF2
 }
 
 config_file="${XDG_CONFIG_HOME:-${HOME}/.config}/speak/config"
+words_file="${XDG_CONFIG_HOME:-${HOME}/.config}/speak/words"
 
 if [[ "${1}" == "--help" ]]; then
   show_usage
@@ -54,6 +59,14 @@ if [[ -n "${1}" ]]; then
   text="${1}"
 else
   text="$(cat /dev/stdin)"
+fi
+
+if [[ -f "${words_file}" ]]; then
+  while IFS='=' read -r word respelling; do
+    if [[ "${word}" =~ ^[[:alpha:]][[:alpha:]\ -]*$ ]] && [[ -n "${respelling}" ]]; then
+      text="$(sed --regexp-extended "s/\b${word}\b/${respelling//\//}/gI" <<< "${text}")"
+    fi
+  done < "${words_file}"
 fi
 
 echo "${text}" | piper \

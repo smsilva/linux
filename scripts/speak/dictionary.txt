@@ -1,0 +1,36 @@
+# Pronunciation dictionary for scripts/bin/speak: term = spoken form, one per line.
+# Write the spoken form in Portuguese spelling, with an accent on the stressed syllable.
+# Terms may contain spaces; matching is case-sensitive and whole-word, longer terms win.
+
+# Shortcuts
+Ctrl+C = control cê
+Ctrl+D = control dê
+Ctrl+Z = control zê
+Ctrl+R = control érre
+Ctrl = control
+
+# Acronyms
+API = á pê í
+CLI = cê éle í
+PR = pê érre
+PRs = pê érres
+URL = u érre éle
+SSH = ésse ésse agá
+JSON = jêison
+YAML = iâmel
+ADR = á dê érre
+
+# Tools
+Piper = páiper
+Claude = clód
+GitHub = guitrráb
+Kubernetes = cubernêtis
+kubectl = cube control
+Azure = ájur
+AWS = á dáblio ésse
+Terraform = térraform
+Docker = dóker
+Helm = rélm
+Jira = djíra
+Argo CD = árgo cê dê
+Tailscale = têilskeil

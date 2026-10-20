@@ -2,6 +2,8 @@
 
 # Speak text aloud in Brazilian Portuguese with Piper.
 # Usage: speak "text"  |  echo "text" | speak
+this_script_path="$(realpath "${0}")"
+this_script_directory="${this_script_path%/*}"
 
 show_usage() {
   cat <<EOF2
@@ -19,10 +21,13 @@ Environment:
   PIPER_NOISE_SCALE        Timbre variation: higher is more expressive (default: the model's)
   PIPER_NOISE_W_SCALE      Rhythm variation: lower is more regular (default: the model's)
   PIPER_SENTENCE_SILENCE   Seconds of silence between sentences (default: the model's)
+  SPEAK_DICTIONARY         Pronunciation dictionary, one "term = spoken form" per line
+                           (default: scripts/speak/dictionary.txt in this repository)
 
 Pronunciation: ${words_file} lists words to respell before speaking,
 one word=respelling per line (case-insensitive, whole words), so English
 terms sound closer to English in a Portuguese voice (request=ríkuéchte).
+These personal respellings run first, then the shared dictionary.
 EOF2
 }
 
@@ -46,6 +51,7 @@ fi
 model="${PIPER_MODEL:-${HOME}/.local/share/piper/pt_BR-cadu-medium.onnx}"
 model="${model/#\~/${HOME}}"
 volume="${PIPER_VOLUME:-3.0}"
+dictionary="${SPEAK_DICTIONARY:-${this_script_directory}/../speak/dictionary.txt}"
 output_file="$(mktemp --suffix .wav)"
 trap 'rm -f "${output_file}"' EXIT
 
@@ -67,6 +73,26 @@ if [[ -f "${words_file}" ]]; then
       text="$(sed --regexp-extended "s/\b${word}\b/${respelling//\//}/gI" <<< "${text}")"
     fi
   done < "${words_file}"
+fi
+
+# Replace terms the pt-BR voice mispronounces (e.g. "Piper" -> "páiper")
+if [[ -f "${dictionary}" ]]; then
+  text="$(printf '%s' "${text}" | python3 -I -c '
+import re, sys
+terms = {}
+with open(sys.argv[1], encoding="utf-8") as dictionary:
+    for line in dictionary:
+        if line.startswith("#") or " = " not in line:
+            continue
+        term, spoken = (part.strip() for part in line.split(" = ", 1))
+        if term and spoken:
+            terms[term] = spoken
+text = sys.stdin.read()
+if terms:
+    pattern = "|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True))
+    text = re.sub(r"(?<![\w+])(?:" + pattern + r")(?![\w+])", lambda match: terms[match.group(0)], text)
+print(text, end="")
+' "${dictionary}")"
 fi
 
 echo "${text}" | piper \

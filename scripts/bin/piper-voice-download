@@ -1,0 +1,100 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Download a Piper voice model (.onnx and .onnx.json) from Hugging Face
+
+    Options:
+
+      -h,  --help       Show this help
+      -d,  --directory  Directory to save the voice (default: ~/.local/share/piper)
+      -f,  --force      Download again even when the files already exist (default: false)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} pt_BR-faber-medium
+
+      ${this_script_name} --force en_US-lessac-high
+
+    Voices: https://huggingface.co/rhasspy/piper-voices
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -d | --directory )
+      shift
+      voice_directory="${1}"
+      ;;
+
+    -f | --force )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        force="${2}"
+        shift
+      else
+        force=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+voice="${1:-pt_BR-cadu-medium}"
+voice_directory="${voice_directory:-${HOME}/.local/share/piper}"
+force="${force:-false}"
+
+# Voice name format: <language>_<region>-<name>-<quality>, e.g. pt_BR-cadu-medium
+if [[ ! "${voice}" =~ ^[a-z]+_[A-Z]+-[^-]+-[a-z_]+$ ]]; then
+  echo "Invalid voice name: ${voice} (expected <language>_<region>-<name>-<quality>)" >&2
+  exit 1
+fi
+
+voice_locale="${voice%%-*}"
+voice_language="${voice_locale%%_*}"
+voice_name_quality="${voice#*-}"
+voice_name="${voice_name_quality%-*}"
+voice_quality="${voice_name_quality##*-}"
+voice_url="https://huggingface.co/rhasspy/piper-voices/resolve/main/${voice_language}/${voice_locale}/${voice_name}/${voice_quality}"
+
+mkdir --parents "${voice_directory}"
+
+for voice_file in "${voice}.onnx" "${voice}.onnx.json"; do
+  if [[ -e "${voice_directory}/${voice_file}" && "${force}" == "false" ]]; then
+    echo "exists.: ${voice_directory}/${voice_file}"
+    continue
+  fi
+
+  if ! curl \
+    --silent \
+    --show-error \
+    --location \
+    --fail \
+    --output "${voice_directory}/${voice_file}.part" \
+    "${voice_url}/${voice_file}"; then
+    rm --force "${voice_directory}/${voice_file}.part"
+    echo "Failed to download ${voice_url}/${voice_file}" >&2
+    exit 1
+  fi
+
+  mv "${voice_directory}/${voice_file}.part" "${voice_directory}/${voice_file}"
+  echo "saved..: ${voice_directory}/${voice_file}"
+done

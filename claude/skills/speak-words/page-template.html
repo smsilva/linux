@@ -1,0 +1,135 @@
+<style>
+  nav.jump { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
+  nav.jump a { font-size: 14px; padding: 3px 10px; border-radius: 12px; border: 1px solid rgba(127,127,127,.35); text-decoration: none; color: inherit; cursor: pointer; }
+  nav.jump a.done { border-color: #e5c07b; color: #e5c07b; }
+  nav.jump a.open { background: #4a9ef4; border-color: #4a9ef4; color: #fff; }
+  .word { display: none; }
+  .word.open { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,.25); }
+  .word .name { font-weight: 700; font-size: 16px; padding-top: 5px; }
+  .word.done .name { color: #e5c07b; }
+  .word.done .name::after { content: ' ★'; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip, .more { min-height: 32px; box-sizing: border-box; }
+  .chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid rgba(127,127,127,.4); border-radius: 16px; padding: 2px 4px 2px 10px; }
+  .chip.on { border-color: #e5c07b; background: rgba(229,192,123,.15); }
+  .chip .text { font-size: 15px; outline: none; min-width: 2ch; padding: 2px 2px; }
+  .chip .text:focus { border-bottom: 1px dashed #4a9ef4; }
+  .chip button, .more { border: none; background: none; color: inherit; cursor: pointer; font-size: 13px; padding: 3px 5px; border-radius: 10px; }
+  .chip button:hover, .more:hover { background: rgba(127,127,127,.2); }
+  .chip.on .like { color: #e5c07b; }
+  .chip.near { border-color: #7ec699; }
+  .chip.near .near { color: #7ec699; }
+  .gone span.far { color: #e06c75; }
+  .gone span.close { color: #7ec699; }
+  .chip .label { font-size: 10px; opacity: .55; margin: 0 4px; }
+  .chip .text { font-family: 'DejaVu Sans', system-ui, sans-serif; }
+  .more { border: 1px dashed rgba(127,127,127,.5); border-radius: 16px; padding: 2px 10px; font-size: 15px; line-height: inherit; min-height: 32px; box-sizing: border-box; }
+  .generating { padding: 10px 14px; border: 1px dashed #4a9ef4; border-radius: 10px; color: #4a9ef4; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .gone { grid-column: 2; font-size: 12px; opacity: .55; }
+  .gone span { text-decoration: line-through; margin-right: 8px; }
+</style>
+<h2>Vocabulário</h2>
+<p class="subtitle">Clique numa palavra da lista para trabalhar nela. ▶ fala aí no computador; clique no texto para editar (Enter toca). ★ escolhe. ≈ marca "na direção certa" (fica, e guia as próximas). ✕ descarta como "muito diferente". <b>nenhuma serve</b> descarta todas as atuais e pede mais 10: a página recarrega com elas, mantendo escolhas e descartes.</p>
+<nav class="jump" id="jump"></nav>
+<div id="words"></div>
+<script>
+  const words = __WORDS__;
+  const discardedByServer = __DISCARDED__;
+  const STORE = 'speak-words';
+  let state = { chosen: {}, discarded: {}, near: {} };
+  try { state = Object.assign(state, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch (error) { /* memory only */ }
+  // A word in RESET starts over once per token: its choices, discards and marks are cleared.
+  const RESET = __RESET__;
+  const LABELS = __LABELS__;
+  state.reset = state.reset || {};
+  Object.entries(RESET).forEach(([word, token]) => {
+    if (state.reset[word] === token) return;
+    delete state.chosen[word]; delete state.discarded[word]; delete state.near[word];
+    state.reset[word] = token;
+  });
+  try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (error) { /* memory only */ }
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (error) { /* memory only */ } };
+  const send = (event) => window.brainstorm.send(event);
+  const box = document.getElementById('words');
+  const jump = document.getElementById('jump');
+  const lines = {};
+  Object.entries(words).forEach(([word, spellings]) => {
+    const gone = new Set([...(discardedByServer[word] || []), ...(state.discarded[word] || [])]);
+    const line = document.createElement('div'); line.className = 'word';
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = word;
+    const chips = document.createElement('div'); chips.className = 'chips';
+    const goneLine = document.createElement('div'); goneLine.className = 'gone';
+    line.append(name, chips, goneLine);
+    const link = document.createElement('a'); link.textContent = word; jump.appendChild(link);
+    link.onclick = () => open(word);
+    new MutationObserver(() => link.classList.toggle('done', line.classList.contains('done'))).observe(line, { attributes: true, attributeFilter: ['class'] });
+    const renderGone = () => {
+      goneLine.innerHTML = '';
+      if (gone.size) goneLine.append('descartadas: ');
+      gone.forEach((g) => { const s = document.createElement('span'); s.textContent = g; if ((state.near[word] || []).includes(g)) s.className = 'close'; goneLine.append(s); });
+    };
+    const discard = (value) => {
+      gone.add(value);
+      state.discarded[word] = [...new Set([...(state.discarded[word] || []), value])];
+      if (state.chosen[word] === value) delete state.chosen[word];
+      save(); renderGone(); line.classList.toggle('done', !!state.chosen[word]);
+    };
+    const chipsOf = () => Array.from(chips.querySelectorAll('.chip'));
+    spellings.filter((s) => !gone.has(s)).forEach((spelling) => {
+      const chip = document.createElement('span'); chip.className = 'chip';
+      chip.innerHTML = "<span class='text' contenteditable='true' spellcheck='false'></span><button class='play' title='tocar'>▶</button><button class='like' title='escolher'>★</button><button class='near' title='na direção certa'>≈</button><button class='drop' title='muito diferente'>✕</button>";
+      const text = chip.querySelector('.text'); text.textContent = spelling;
+      const label = (LABELS[word] || {})[spelling];
+      if (label) { const small = document.createElement('small'); small.className = 'label'; small.textContent = label; chip.insertBefore(small, text.nextSibling); }
+      const value = () => text.textContent.trim();
+      if (state.chosen[word] === spelling) { chip.classList.add('on'); line.classList.add('done'); }
+      const play = () => send({ type: 'say', choice: 'say', key: word, word: value() });
+      chip.querySelector('.play').onclick = play;
+      text.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); play(); } });
+      chip.querySelector('.like').onclick = () => {
+        const on = !chip.classList.contains('on');
+        chipsOf().forEach((c) => c.classList.remove('on'));
+        chip.classList.toggle('on', on);
+        if (on) state.chosen[word] = value(); else delete state.chosen[word];
+        save(); line.classList.toggle('done', on);
+        send({ type: 'like', choice: on ? 'like' : 'unlike', key: word, word: value() });
+      };
+      if ((state.near[word] || []).includes(spelling)) chip.classList.add('near');
+      chip.querySelector('.near').onclick = () => {
+        const on = chip.classList.toggle('near');
+        const list = new Set(state.near[word] || []);
+        if (on) list.add(value()); else list.delete(value());
+        state.near[word] = [...list]; save();
+        send({ type: 'near', choice: on ? 'near' : 'unnear', key: word, word: value() });
+      };
+      chip.querySelector('.drop').onclick = () => {
+        discard(value()); chip.remove();
+        send({ type: 'discard', choice: 'discard', key: word, word: value() });
+      };
+      chips.appendChild(chip);
+    });
+    const more = document.createElement('button'); more.className = 'more'; more.textContent = 'nenhuma serve: +10';
+    more.onclick = () => {
+      const current = chipsOf().map((c) => c.querySelector('.text').textContent.trim());
+      current.forEach(discard);
+      chips.innerHTML = '';
+      const wait = document.createElement('div'); wait.className = 'generating'; wait.textContent = 'Gerando novas sugestões para ' + word + '…';
+      chips.appendChild(wait);
+      line.classList.add('waiting');
+      send({ type: 'more', choice: 'more', key: word, discarded: current });
+    };
+    chips.appendChild(more);
+    renderGone();
+    box.appendChild(line);
+    lines[word] = [line, link];
+    link.classList.toggle('done', line.classList.contains('done'));
+  });
+  function open(word) {
+    Object.entries(lines).forEach(([w, [l, a]]) => { l.classList.toggle('open', w === word); a.classList.toggle('open', w === word); });
+    try { localStorage.setItem(STORE + '-open', word); } catch (error) { /* memory only */ }
+  }
+  let first = null;
+  try { first = localStorage.getItem(STORE + '-open'); } catch (error) { first = null; }
+  open(first && lines[first] ? first : Object.keys(lines)[0]);
+</script>

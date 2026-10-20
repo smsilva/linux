@@ -4,26 +4,56 @@
 # Usage: speak "text"  |  echo "text" | speak
 
 show_usage() {
-  cat <<EOF
+  cat <<EOF2
 Usage: speak [text]
 
 Reads the text from the first argument, or from stdin when no argument is given.
 
+Settings come from the environment, else from ${config_file}
+(one VAR=value per line), else from the defaults below.
+
 Environment:
-  PIPER_MODEL    Piper voice model (default: ~/.local/share/piper/pt_BR-cadu-medium.onnx)
-  PIPER_VOLUME   Piper volume multiplier (default: 3.0)
-EOF
+  PIPER_MODEL              Piper voice model (default: ~/.local/share/piper/pt_BR-cadu-medium.onnx)
+  PIPER_VOLUME             Piper volume multiplier (default: 3.0)
+  PIPER_LENGTH_SCALE       Speed: above 1 slower, below 1 faster (default: the model's)
+  PIPER_NOISE_SCALE        Timbre variation: higher is more expressive (default: the model's)
+  PIPER_NOISE_W_SCALE      Rhythm variation: lower is more regular (default: the model's)
+  PIPER_SENTENCE_SILENCE   Seconds of silence between sentences (default: the model's)
+
+Pronunciation: ${words_file} lists words to respell before speaking,
+one word=respelling per line (case-insensitive, whole words), so English
+terms sound closer to English in a Portuguese voice (request=ríkuéchte).
+EOF2
 }
+
+config_file="${XDG_CONFIG_HOME:-${HOME}/.config}/speak/config"
+words_file="${XDG_CONFIG_HOME:-${HOME}/.config}/speak/words"
 
 if [[ "${1}" == "--help" ]]; then
   show_usage
   exit 0
 fi
 
+# Variables already set in the environment win over the config file.
+if [[ -f "${config_file}" ]]; then
+  while IFS='=' read -r name value; do
+    if [[ "${name}" =~ ^PIPER_[A-Z_]+$ ]] && [[ -z "${!name}" ]]; then
+      export "${name}=${value}"
+    fi
+  done < "${config_file}"
+fi
+
 model="${PIPER_MODEL:-${HOME}/.local/share/piper/pt_BR-cadu-medium.onnx}"
+model="${model/#\~/${HOME}}"
 volume="${PIPER_VOLUME:-3.0}"
 output_file="$(mktemp --suffix .wav)"
 trap 'rm -f "${output_file}"' EXIT
+
+options=()
+[[ -n "${PIPER_LENGTH_SCALE}" ]] && options+=(--length-scale "${PIPER_LENGTH_SCALE}")
+[[ -n "${PIPER_NOISE_SCALE}" ]] && options+=(--noise-scale "${PIPER_NOISE_SCALE}")
+[[ -n "${PIPER_NOISE_W_SCALE}" ]] && options+=(--noise-w-scale "${PIPER_NOISE_W_SCALE}")
+[[ -n "${PIPER_SENTENCE_SILENCE}" ]] && options+=(--sentence-silence "${PIPER_SENTENCE_SILENCE}")
 
 if [[ -n "${1}" ]]; then
   text="${1}"
@@ -31,9 +61,18 @@ else
   text="$(cat /dev/stdin)"
 fi
 
+if [[ -f "${words_file}" ]]; then
+  while IFS='=' read -r word respelling; do
+    if [[ "${word}" =~ ^[[:alpha:]][[:alpha:]\ -]*$ ]] && [[ -n "${respelling}" ]]; then
+      text="$(sed --regexp-extended "s/\b${word}\b/${respelling//\//}/gI" <<< "${text}")"
+    fi
+  done < "${words_file}"
+fi
+
 echo "${text}" | piper \
   --model "${model}" \
   --volume "${volume}" \
+  "${options[@]}" \
   --output_file "${output_file}" >/dev/null 2>&1
 
 pw-play \

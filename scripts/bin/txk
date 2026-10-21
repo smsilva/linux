@@ -25,6 +25,17 @@ EOF
 
 target_session=""
 
+# Renames the current session to "0" when it is the only one left.
+# Named sessions (non-numeric) keep their name.
+rename_last_session() {
+  [[ -z "${TMUX}" ]] && return
+  [[ "$(tmux list-sessions 2>/dev/null | wc -l)" -ne 1 ]] && return
+  local current
+  current=$(tmux display-message -p '#S')
+  [[ "${current}" =~ ^[0-9]+$ && "${current}" != "0" ]] || return
+  tmux rename-session -t "${current}" 0
+}
+
 while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
   case "${1}" in
     -t | --target )
@@ -50,6 +61,7 @@ if [[ -n "${target_session}" ]]; then
     exit 0
   fi
   tmux kill-session -t "${target_session}"
+  rename_last_session
   exit 0
 fi
 
@@ -64,6 +76,7 @@ session_count=$(tmux list-sessions | wc -l)
 
 if [[ "${session_count}" -lt 2 ]]; then
   echo "Only one session."
+  rename_last_session
   exit 0
 fi
 
@@ -83,6 +96,7 @@ other_sessions() {
 if [[ "${in_tmux}" == "true" && "${session_count}" -eq 2 ]]; then
   target=$(tmux list-sessions -F "#{session_name}" | grep -v "^${current_session}$")
   tmux kill-session -t "${target}"
+  rename_last_session
   exit 0
 fi
 
@@ -92,3 +106,4 @@ selected=$(other_sessions | fzf --prompt="Kill session: " --no-sort)
 
 target="${selected%%:*}"
 tmux kill-session -t "${target}"
+rename_last_session

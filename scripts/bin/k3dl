@@ -1,0 +1,10 @@
+#!/bin/bash
+cluster_name="${1}"
+
+# "*" works as a wildcard; the pattern always matches from the start of the name
+pattern="^${cluster_name//\*/.*}"
+
+k3d cluster list \
+  | awk \
+    --assign pattern="${pattern}" \
+    'NR == 1 || $1 ~ pattern'

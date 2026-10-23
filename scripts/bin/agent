@@ -1,0 +1,47 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+# Show the tips on 1 of every AGENT_TIP_CHANCE calls (0 turns the random tip off)
+tip_chance="${AGENT_TIP_CHANCE:-5}"
+
+show_tips() {
+  cat >&2 <<EOF
+
+  Tip: ${this_script_name} opens Claude Code with --permission-mode bypassPermissions ;)
+
+      ${this_script_name}                 start a new session
+      ${this_script_name} -c              continue the latest session in this folder
+      ${this_script_name} -r              pick a session to resume from a list
+      ${this_script_name} -r <name-or-id> resume that session
+      ${this_script_name} "<prompt>"      start a new session with a first prompt
+
+EOF
+}
+
+# Bare words that look like a mistyped option, not a first prompt
+if [[ $# -eq 1 && "${1}" =~ ^(r|c|-resume|-continue|--r|--c|resume|continue|h|help|-h|--help)$ ]]; then
+  if [[ "${1}" =~ ^(h|help|-h|--help)$ ]]; then
+    show_tips
+    exit 0
+  fi
+  echo "Did you mean an option? \"${1}\" would start a session with it as the prompt." >&2
+  show_tips
+  exit 1
+fi
+
+if [[ "${tip_chance}" -gt 0 && $(( RANDOM % tip_chance )) -eq 0 ]]; then
+  show_tips
+fi
+
+claude \
+  --permission-mode bypassPermissions \
+  "${@}"
+exit_code="${?}"
+
+# A non-zero exit right away usually means claude rejected the arguments
+if [[ "${exit_code}" -ne 0 && "${SECONDS}" -lt 5 ]]; then
+  show_tips
+fi
+
+exit "${exit_code}"

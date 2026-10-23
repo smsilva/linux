@@ -89,6 +89,31 @@ Host ssh.dev.azure.com
     IdentityFile ~/.ssh/id_ed25519
 ```
 
+## Alias curto para a conta pessoal (proposta)
+
+Em vez de `github.com-personal`, usar um alias curto como `gh`. O `IdentitiesOnly yes` impede que o ssh-agent ofereça outra chave antes (o que autenticaria na conta errada), dispensando `GIT_SSH_COMMAND` e `core.sshCommand`:
+
+```bash
+Host gh
+    HostName github.com
+    IdentityFile ~/.ssh/id_rsa_personal
+    IdentitiesOnly yes
+```
+
+Como o `Host *` já define `User git`, o clone fica:
+
+```bash
+git clone gh:wasp-foundry/agent-coordinator.git
+```
+
+Para migrar um repositório já clonado:
+
+```bash
+git remote set-url origin gh:wasp-foundry/agent-coordinator.git
+```
+
+Outras opções de nome: `me`, `pessoal`, `smsilva`. Para a conta do trabalho, algo como `gh-work`.
+
 ## Configurando o repositório para usar a chave correta
 
 ```bash

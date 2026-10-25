@@ -55,9 +55,11 @@
   },
   "enabledPlugins": {
     "azure@claude-plugins-official": false,
-    "chrome-devtools-mcp@claude-plugins-official": false,
+    "chrome-devtools-mcp@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": false,
+    "docs@flow-cloud-hub": false,
     "hostinger@claude-plugins-official": false,
+    "planning@flow-cloud-hub": true,
     "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true

@@ -10,6 +10,7 @@ alias armu='. arm-unset'
 alias awsp='aws-profile'
 alias awsps='aws-profile-selection'
 alias azc='[ -e "${CREDENTIALS_DIRECTORY}" ] && code "${CREDENTIALS_DIRECTORY}/azure/${ARM_SUBSCRIPTION_ID}"'
+alias azp='AZURE_CONFIG_DIR="${HOME}/.azure-personal" az'
 alias brc="source ~/.bashrc"
 alias c='clear'
 alias cat='batcat -p'

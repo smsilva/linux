@@ -1,0 +1,131 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Watch a request file on the Google Drive bridge and notify a tmux target when its content changes
+
+    Polls with stat (mtime + size) and hashes only when they change: inotify does not see
+    remote changes on an rclone FUSE mount. The first read on start is the baseline, and
+    content already sent is never sent again.
+
+    Options:
+
+      -h, --help       Show this help
+      -d, --directory  Bridge folder holding pedido.md (default: ~/gdrive/dump-mental-prompts/ponte)
+      -t, --target     tmux target for send-keys (default: mind)
+      -i, --interval   Seconds between checks (default: 10)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --target mind:0.0 --interval 5
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -d | --directory )
+      shift
+      directory="${1}"
+      ;;
+
+    -t | --target )
+      shift
+      target="${1}"
+      ;;
+
+    -i | --interval )
+      shift
+      interval="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+directory="${directory:-${HOME}/gdrive/dump-mental-prompts/ponte}"
+target="${target:-mind}"
+interval="${interval:-10}"
+
+request_file="${directory}/pedido.md"
+message="Leia pedido.md na pasta da ponte (${directory}), execute e responda em answers.md"
+
+state_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/${this_script_name}"
+log_file="${state_directory}/watch.log"
+sent_file="${state_directory}/sent.sha256"
+
+mkdir --parents "${state_directory}"
+touch "${sent_file}"
+
+log() {
+  echo "$(date --iso-8601=seconds) ${1}" | tee --append "${log_file}"
+}
+
+file_stat() {
+  stat --format '%Y %s' "${request_file}" 2> /dev/null
+}
+
+file_hash() {
+  sha256sum "${request_file}" 2> /dev/null | cut --delimiter ' ' --fields 1
+}
+
+notify() {
+  if ! tmux has-session -t "${target%%:*}" 2> /dev/null; then
+    log "error: tmux session '${target%%:*}' not found, request not sent"
+    return 1
+  fi
+
+  tmux send-keys -t "${target}" -l "${message}"
+  sleep 0.5
+  tmux send-keys -t "${target}" Enter
+}
+
+last_stat="$(file_stat)"
+last_hash="$(file_hash)"
+
+log "start: file=${request_file} target=${target} interval=${interval}s baseline=${last_hash:0:12}"
+
+while true; do
+  sleep "${interval}"
+
+  current_stat="$(file_stat)"
+
+  [[ "${current_stat}" == "${last_stat}" ]] && continue
+
+  last_stat="${current_stat}"
+  current_hash="$(file_hash)"
+
+  if [[ -z "${current_hash}" || "${current_hash}" == "${last_hash}" ]]; then
+    continue
+  fi
+
+  if grep --quiet --line-regexp "${current_hash}" "${sent_file}"; then
+    last_hash="${current_hash}"
+    log "skip: content ${current_hash:0:12} already sent"
+    continue
+  fi
+
+  if notify; then
+    last_hash="${current_hash}"
+    echo "${current_hash}" >> "${sent_file}"
+    log "sent: content ${current_hash:0:12} to ${target}"
+  else
+    # Retry on the next check
+    last_stat=""
+  fi
+done

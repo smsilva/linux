@@ -1,0 +1,105 @@
+#!/bin/bash
+set -e
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Mount a Google Drive folder with rclone + fuse3 through a systemd user service (idempotent)
+
+    Options:
+
+      -h, --help     Show this help
+      -r, --remote   rclone remote name (default: gdrive)
+      -f, --folder   Google Drive folder, also the name under ~/gdrive (default: dump-mental-prompts)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --folder another-folder
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -r | --remote )
+      shift
+      remote="${1}"
+      ;;
+
+    -f | --folder )
+      shift
+      folder="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+remote="${remote:-gdrive}"
+folder="${folder:-dump-mental-prompts}"
+
+mount_point="${HOME}/gdrive/${folder}"
+service_name="rclone-${folder}.service"
+service_file="${HOME}/.config/systemd/user/${service_name}"
+
+if ! which rclone > /dev/null || ! which fusermount3 > /dev/null; then
+  sudo apt-get install --yes -q rclone fuse3
+fi
+
+if ! rclone listremotes | grep --quiet --line-regexp "${remote}:"; then
+  echo "rclone remote '${remote}' not found: creating it (Google Drive OAuth opens in the browser)"
+  rclone config create "${remote}" drive scope=drive
+fi
+
+rclone mkdir "${remote}:${folder}"
+
+mkdir --parents "${mount_point}" "${service_file%/*}"
+
+service_content="$(cat <<EOF
+[Unit]
+Description=rclone mount - Google Drive ${folder}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mkdir -p %h/gdrive/${folder}
+ExecStart=$(which rclone) mount ${remote}:${folder} %h/gdrive/${folder} --vfs-cache-mode writes --poll-interval 15s
+ExecStop=$(which fusermount3) -u %h/gdrive/${folder}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+)"
+
+if [[ "$(cat "${service_file}" 2> /dev/null)" != "${service_content}" ]]; then
+  echo "${service_content}" > "${service_file}"
+  service_changed=true
+fi
+
+systemctl --user daemon-reload
+systemctl --user enable --now "${service_name}"
+
+if [[ "${service_changed}" == "true" ]]; then
+  systemctl --user restart "${service_name}"
+fi
+
+echo "service.....: ${service_name}"
+echo "status......: $(systemctl --user is-active "${service_name}")"
+echo "mount point.: ${mount_point}"

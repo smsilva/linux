@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
 json_input=$(cat)
 
@@ -11,6 +11,12 @@ section_branch_background_color=236  # #303030
 section_turns_background_color=235   # #262626, dark gray
 section_model_background_color=238   # #444444
 section_tokens_background_color=244  # #808080, lighter than model
+section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
+section_limits_seven_day_background_color=239  # #4e4e4e, 7-day usage limit
+
+# Account usage limit thresholds (percentage)
+limits_threshold_critical=${CLAUDE_LIMITS_THRESHOLD_CRITICAL:-80}
+limits_threshold_warning=${CLAUDE_LIMITS_THRESHOLD_WARNING:-50}
 
 # Context window thresholds (percentage)
 context_threshold_critical=${CLAUDE_CONTEXT_THRESHOLD_CRITICAL:-70}
@@ -136,6 +142,34 @@ else
   tokens_display="${total_tokens}"
 fi
 
+# --- Account usage limits (5-hour session window, 7-day window) ---
+# Absent for API-key accounts; the segment is omitted then.
+limit_str() {
+  local label="${1}" window="${2}" reset_format="${3}"
+  local used resets_at color reset_display=""
+
+  used=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
+  [ -z "${used}" ] && return
+  used=$(printf '%.0f' "${used}")
+  resets_at=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.resets_at // empty")
+  [ -n "${resets_at}" ] && reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
+
+  if   [ "${used}" -ge "${limits_threshold_critical}" ]; then color=203  # salmon
+  elif [ "${used}" -ge "${limits_threshold_warning}"  ]; then color=221  # amber
+  else                                                         color=114  # green
+  fi
+
+  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%\033[38;5;247m%s" "${label}" "${used}" "${reset_display}"
+}
+
+# Which segments to show: both, session, weekly or none (set with claude-status-line-limits)
+limits_choice=$(claude-status-line-limits)
+
+limits_five_hour=""
+limits_seven_day=""
+[[ "${limits_choice}" == both || "${limits_choice}" == session ]] && limits_five_hour=$(limit_str "5h" five_hour "%H:%M")
+[[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_seven_day=$(limit_str "7d" seven_day "%a %H:%M")
+
 # Assemble segments with powerline separators
 segment_separator=$'\ue0b0'
 _last_segment_background=""
@@ -175,6 +209,10 @@ if [ -n "${git_branch}" ]; then
 fi
 
 add_segment --text " ≡ ${used_int}% "        --background "${section_context_background_color}" --foreground "${section_context_foreground_color}"
+[ -n "${limits_five_hour}" ] && \
+add_segment --text " ${limits_five_hour} "   --background "${section_limits_five_hour_background_color}"
+[ -n "${limits_seven_day}" ] && \
+add_segment --text " ${limits_seven_day} "   --background "${section_limits_seven_day_background_color}"
 add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
 add_segment --text " ⇌ ${turn_count} "       --background "${section_turns_background_color}"   --foreground 247
 add_segment --text " ✦ ${model} "            --background "${section_model_background_color}"   --foreground 247

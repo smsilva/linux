@@ -1,0 +1,84 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+config_file="${XDG_CONFIG_HOME:-${HOME}/.config}/claude-status-line/limits"
+
+show_usage() {
+  cat <<EOF
+
+  Shows or hides the account usage limit segments of the Claude Code
+  status line (claude-status-line). Takes effect on the next refresh.
+
+  The choice is stored in ${config_file}.
+
+    Options:
+
+      -h,  --help  Show this help
+      -s,  --show  Segments to show:
+                     - both (default)
+                     - session  (5-hour window only)
+                     - weekly   (7-day window only)
+                     - none
+
+    Without options, prints the current choice.
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --show session
+
+      ${this_script_name} --show none
+
+EOF
+}
+
+current_choice() {
+  cat "${config_file}" 2>/dev/null || echo "both"
+}
+
+if [ $# -eq 0 ]; then
+  current_choice
+  exit 0
+fi
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -s | --show )
+      shift
+      choice="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+case "${choice}" in
+  both | session | weekly | none ) ;;
+  * )
+    echo "Invalid value for --show: ${choice}"
+    show_usage
+    exit 1
+    ;;
+esac
+
+mkdir -p "${config_file%/*}"
+echo "${choice}" > "${config_file}"
+current_choice

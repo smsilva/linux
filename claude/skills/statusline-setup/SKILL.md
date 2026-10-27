@@ -35,8 +35,24 @@ The script reads a JSON payload from stdin. Fields used, with their fallback def
 | `.context_window.total_input_tokens` | `0` | total tokens segment (input side) |
 | `.context_window.total_output_tokens` | `0` | total tokens segment (output side) |
 | `.model.display_name` | `"N/A"` | model segment |
+| `.rate_limits.five_hour.used_percentage` / `.resets_at` | empty | 5-hour session limit % and reset time (epoch seconds); segment omitted when absent (API-key accounts) |
+| `.rate_limits.seven_day.used_percentage` / `.resets_at` | empty | weekly limit % and reset time |
 
 If `.workspace.project_dir` is empty (no git repo), `repo_name` falls back to `basename current_dir` and the branch segment is suppressed.
+
+## Usage limit segments: show or hide
+
+When the owner asks to show or hide the session (5h) or weekly (7d) limit ("deixa só o limite da sessão", "só o semanal", "mostra os dois", "tira os limites"), run the helper; no script edit, takes effect on the next refresh:
+
+| Request | Command |
+|---------|---------|
+| session only | `claude-status-line-limits --show session` |
+| weekly only | `claude-status-line-limits --show weekly` |
+| both (default) | `claude-status-line-limits --show both` |
+| none | `claude-status-line-limits --show none` |
+| current choice | `claude-status-line-limits` |
+
+The choice lives in `${XDG_CONFIG_HOME:-~/.config}/claude-status-line/limits`.
 
 ## Segment layout
 

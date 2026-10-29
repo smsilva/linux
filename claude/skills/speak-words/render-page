@@ -7,6 +7,14 @@ import pathlib
 TEMPLATE = pathlib.Path(__file__).resolve().with_name("page-template.html")
 
 
+def to_script_literal(value):
+  # Escape characters that could close the <script> element or break JavaScript parsing.
+  text = json.dumps(value, ensure_ascii=False)
+  for char, escaped in (("<", "\\u003c"), (">", "\\u003e"), ("&", "\\u0026"), ("\u2028", "\\u2028"), ("\u2029", "\\u2029")):
+    text = text.replace(char, escaped)
+  return text
+
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--data", type=pathlib.Path, required=True)
@@ -17,10 +25,10 @@ def main():
   reset = words.pop("_reset", {})
   labels = words.pop("_labels", {})
   page = (TEMPLATE.read_text()
-          .replace("__WORDS__", json.dumps(words, ensure_ascii=False))
-          .replace("__DISCARDED__", json.dumps(discarded, ensure_ascii=False))
-          .replace("__RESET__", json.dumps(reset))
-          .replace("__LABELS__", json.dumps(labels, ensure_ascii=False)))
+          .replace("__WORDS__", to_script_literal(words))
+          .replace("__DISCARDED__", to_script_literal(discarded))
+          .replace("__RESET__", to_script_literal(reset))
+          .replace("__LABELS__", to_script_literal(labels)))
   args.out.write_text(page)
 
 

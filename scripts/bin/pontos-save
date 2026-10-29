@@ -47,7 +47,7 @@ SECRETS = [
   re.compile(r"\b(ghp|gho|ghs|github_pat|sk-ant|xox[bp])_?[A-Za-z0-9_-]{16,}"),
   re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
   re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-  re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\\\"']*(?!\[REDACTED\])\S"),  # with a value, not redacted
+  re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\\\"']*(?![\\\"']*\[REDACTED)\S"),  # with a value, not redacted (escaped or not)
   re.compile(r"AccountKey=[A-Za-z0-9+/=]{20,}"),
   re.compile(r"(client-key-data|client-certificate-data|certificate-authority-data):\s*[A-Za-z0-9+/=]{40,}"),
   re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"),  # CPF

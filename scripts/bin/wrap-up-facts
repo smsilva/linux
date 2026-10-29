@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""The facts of a repository at the end of a session, for the wrap-up skill: what is left uncommitted, unpushed,
+unmerged or blocked. It reads only and changes nothing.
+
+Sources: git (the working tree, the worktrees, the local branches and how far they are on origin), gh (the pull
+requests of those branches), the project's board (`scripts/board/queue`, when the repository has one), the project's
+own skills (`issue`, `handoff`) and Pontos (`pontos-save status`). Each source fails on its own and reads
+`unavailable: <reason>`; the script exits 0 whenever it printed facts.
+"""
+import argparse
+import json
+import pathlib
+import shutil
+import subprocess
+
+TRUNKS = {"main", "master"}
+# The board script lives in the repository, so it runs only where origin belongs to the owner (as Pontos's opt-in).
+TRUSTED_OWNERS = {"smsilva", "getnereus", "wasp-foundry"}
+
+
+class Unavailable(Exception):
+  pass
+
+
+def run(*command, cwd, timeout=60):
+  try:
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+  except (OSError, subprocess.TimeoutExpired) as error:
+    raise Unavailable(f"{command[0]}: {error.__class__.__name__}") from error
+  if result.returncode != 0:
+    last = (result.stderr or result.stdout).strip().splitlines()
+    raise Unavailable(f"{' '.join(command[:3])}: {last[-1] if last else 'failed'}")
+  return result.stdout
+
+
+def git(*args, cwd):
+  return run("git", *args, cwd=cwd)
+
+
+def changes(path):
+  """How many files differ from HEAD in a checkout (staged, unstaged or untracked)."""
+  return len([line for line in git("status", "--porcelain", cwd=path).splitlines() if line.strip()])
+
+
+def merged(repo, branch):
+  """True when every commit of the branch is on origin's trunk (rebase merges rewrite SHAs, so git cherry)."""
+  trunk = default_trunk(repo)
+  return not any(line.startswith("+") for line in git("cherry", f"origin/{trunk}", branch, cwd=repo).splitlines())
+
+
+def default_trunk(repo):
+  try:
+    return git("symbolic-ref", "--short", "refs/remotes/origin/HEAD", cwd=repo).strip().removeprefix("origin/")
+  except Unavailable:
+    return "main"
+
+
+def repository(repo):
+  top = pathlib.Path(git("rev-parse", "--show-toplevel", cwd=repo).strip())
+  common = pathlib.Path(git("rev-parse", "--path-format=absolute", "--git-common-dir", cwd=repo).strip())
+  return {
+    "name": common.parent.name,
+    "path": str(top),
+    "branch": git("branch", "--show-current", cwd=repo).strip() or "(detached)",
+    "changes": changes(top),
+    "trunk": default_trunk(repo),
+  }
+
+
+def worktrees(repo):
+  found, current = [], {}
+  for line in git("worktree", "list", "--porcelain", cwd=repo).splitlines() + [""]:
+    if line.startswith("worktree "):
+      current = {"path": line.split(" ", 1)[1]}
+    elif line.startswith("branch "):
+      current["branch"] = line.split(" ", 1)[1].removeprefix("refs/heads/")
+    elif not line and current:
+      found.append(current)
+      current = {}
+  for tree in found[1:]:  # the first one is the main clone
+    tree["changes"] = changes(tree["path"]) if pathlib.Path(tree["path"]).exists() else None
+    branch = tree.get("branch")
+    tree["merged"] = bool(branch) and branch not in TRUNKS and merged(repo, branch)
+  return found[1:]
+
+
+def branches(repo):
+  found = []
+  out = git("for-each-ref", "--format=%(refname:short)\t%(upstream:short)\t%(upstream:track)", "refs/heads", cwd=repo)
+  for line in out.splitlines():
+    name, upstream, track = (line.split("\t") + ["", ""])[:3]
+    if name in TRUNKS or name.startswith("backup/"):
+      continue
+    if not upstream:
+      state = "not pushed"
+    elif "gone" in track:
+      state = "upstream gone"
+    elif "ahead" in track:
+      state = f"pushed, {track.strip('[]')}"
+    else:
+      state = "pushed"
+    found.append({"name": name, "state": state, "merged": merged(repo, name)})
+  return found
+
+
+def pull_requests(repo, names):
+  if not names or not shutil.which("gh"):
+    raise Unavailable("no branches" if not names else "gh not installed")
+  out = run("gh", "pr", "list", "--state", "all", "--limit", "200",
+            "--json", "number,title,state,headRefName", cwd=repo)
+  latest = {}
+  for pr in json.loads(out):
+    if pr["headRefName"] in names and pr["headRefName"] not in latest:
+      latest[pr["headRefName"]] = {"number": pr["number"], "title": pr["title"], "state": pr["state"]}
+  return latest
+
+
+def origin_owner(repo):
+  """The owner in origin's URL (git@github.com:<owner>/<repo>.git or https://github.com/<owner>/<repo>)."""
+  try:
+    url = git("remote", "get-url", "origin", cwd=repo).strip()
+  except Unavailable:
+    return None
+  parts = url.replace(":", "/").rstrip("/").split("/")
+  return parts[-2] if len(parts) >= 2 else None
+
+
+def board(repo):
+  queue = pathlib.Path(repo) / "scripts/board/queue"
+  if not queue.exists():
+    raise Unavailable("no board (scripts/board/queue)")
+  if origin_owner(repo) not in TRUSTED_OWNERS:
+    raise Unavailable("board not trusted (origin is not one of the owner's)")
+  return [line.strip() for line in run(str(queue), "mine", cwd=repo).splitlines() if line.strip()]
+
+
+def skills(repo):
+  folder = pathlib.Path(repo) / ".claude/skills"
+  return {name: "project" if (folder / name / "SKILL.md").exists() else "global" for name in ("issue", "handoff")}
+
+
+def pontos(repo):
+  """The sessions whose raw log is not on Drive, each with its details (what the check flagged)."""
+  if not shutil.which("pontos-save"):
+    raise Unavailable("pontos-save not installed")
+  problems = []
+  for line in run("pontos-save", "status", "--limit", "10", cwd=repo).splitlines():
+    if not line.startswith(" "):
+      problems.append(" ".join(line.split()) if "on Drive" not in line else None)
+    elif problems and problems[-1]:
+      problems[-1] += f"; {line.strip()}"
+  return [problem for problem in problems if problem]
+
+
+def facts(repo):
+  report = {}
+
+  def gather(key, source, *args):
+    try:
+      report[key] = source(*args)
+    except Unavailable as error:
+      report[key] = {"unavailable": str(error)}
+
+  gather("repository", repository, repo)
+  if "unavailable" in report["repository"]:
+    return report
+  top = report["repository"]["path"]
+  gather("worktrees", worktrees, top)
+  gather("branches", branches, top)
+  names = [branch["name"] for branch in report["branches"]] if isinstance(report["branches"], list) else []
+  gather("pull_requests", pull_requests, top, names)
+  gather("board", board, top)
+  gather("skills", skills, top)
+  gather("pontos", pontos, top)
+  return report
+
+
+def text(report):
+  def unavailable(value):
+    return isinstance(value, dict) and "unavailable" in value
+
+  lines = []
+  repo = report["repository"]
+  if unavailable(repo):
+    return f"repository: unavailable: {repo['unavailable']}"
+  lines.append(f"repository: {repo['name']} ({repo['path']}), on {repo['branch']}, "
+               f"{repo['changes'] or 'no'} uncommitted change(s)")
+  for key, label in (("worktrees", "worktrees"), ("branches", "branches"), ("pull_requests", "pull requests"),
+                     ("board", "board, mine"), ("pontos", "pontos")):
+    value = report[key]
+    if unavailable(value):
+      lines.append(f"{label}: unavailable: {value['unavailable']}")
+      continue
+    lines.append(f"{label}: {len(value) or 'none'}")
+    if key == "worktrees":
+      for tree in value:
+        flags = [f"{tree['changes']} uncommitted" if tree["changes"] else "clean"]
+        flags += ["merged on the trunk"] if tree["merged"] else []
+        lines.append(f"  {tree['path']} [{tree.get('branch', 'detached')}] {', '.join(flags)}")
+    elif key == "branches":
+      for branch in value:
+        lines.append(f"  {branch['name']}: {branch['state']}{', merged on the trunk' if branch['merged'] else ''}")
+    elif key == "pull_requests":
+      for name, pr in value.items():
+        lines.append(f"  {name}: #{pr['number']} {pr['state']} ({pr['title']})")
+    else:
+      lines.extend(f"  {line}" for line in value)
+  skill = report["skills"]
+  lines.append("skills: " + ", ".join(f"{name} {where}" for name, where in skill.items()))
+  return "\n".join(lines)
+
+
+def main():
+  parser = argparse.ArgumentParser(description="The facts of a repository at the end of a session (read only).")
+  parser.add_argument("--repo", default=".", help="A path inside the repository (default: the current folder).")
+  parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+  args = parser.parse_args()
+  report = facts(str(pathlib.Path(args.repo).resolve()))
+  print(json.dumps(report, indent=2) if args.json else text(report))
+
+
+if __name__ == "__main__":
+  main()

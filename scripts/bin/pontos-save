@@ -47,7 +47,7 @@ SECRETS = [
   re.compile(r"\b(ghp|gho|ghs|github_pat|sk-ant|xox[bp])_?[A-Za-z0-9_-]{16,}"),
   re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
   re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
-  re.compile(r"(?i)aws_secret_access_key\s*[:=]"),
+  re.compile(r"(?i)aws_secret_access_key\s*[:=]\s*[\\\"']*(?!\[REDACTED\])\S"),  # with a value, not redacted
   re.compile(r"AccountKey=[A-Za-z0-9+/=]{20,}"),
   re.compile(r"(client-key-data|client-certificate-data|certificate-authority-data):\s*[A-Za-z0-9+/=]{40,}"),
   re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"),  # CPF
@@ -64,7 +64,7 @@ SECRET_LABEL = re.compile(r"^[^:=\s]*[:=\s]+[\"'\\]*")
 # after a match that is only a label, the spaces and quote before its value
 SECRET_AFTER_LABEL = re.compile(r"\s*[\\\"']*")
 # the rest of a token after the match, hidden too
-SECRET_REST = re.compile(r"[^\s\"'`()\[\]{}<>,;]*")
+SECRET_REST = re.compile(r"\S*")
 # a private key's whole block, not only its first line
 PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
 REDACTED = "[REDACTED]"
@@ -500,18 +500,19 @@ def redact(text, own_emails=()):
     count += 1
     return REDACTED
 
-  text = PRIVATE_KEY_BLOCK.sub(whole, text)
-  for pattern in SECRETS:
-    text, found = hide(pattern, text)
-    count += found
-  own = {email.lower() for email in own_emails}
-  text = EMAIL.sub(lambda match: match.group(0) if EMAIL_ALLOWED.search(match.group(0)) or match.group(0).lower() in own else whole(match), text)
+  # the live values and names first, whole, before a pattern can cut one in two
   for name, live in os.environ.items():
     if SECRET_ENV.search(name) and len(live) >= 12 and live in text:
       count += text.count(live)
       text = text.replace(live, REDACTED)
   for word in denied():
     text = re.sub(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", whole, text)
+  text = PRIVATE_KEY_BLOCK.sub(whole, text)
+  for pattern in SECRETS:
+    text, found = hide(pattern, text)
+    count += found
+  own = {email.lower() for email in own_emails}
+  text = EMAIL.sub(lambda match: match.group(0) if EMAIL_ALLOWED.search(match.group(0)) or match.group(0).lower() in own else whole(match), text)
   return text, count
 
 
@@ -535,15 +536,18 @@ def write_spool(session, built, own_emails):
     path = out / day / name
     path.parent.mkdir(exist_ok=True)
     path.write_text(text)
-    problems = check(text, own_emails)
-    uploaded = state.get("files", {}).get(f"{day}/{name}", {})
-    if turns(text) < uploaded.get("turns", 0):
-      problems.append(f"the log shrank: {turns(text)} turns, {uploaded['turns']} uploaded before")
+    problems = check(text, own_emails) + shrank(text, state.get("files", {}).get(f"{day}/{name}", {}))
     if problems:
       blocked[f"{day}/{name}"] = problems
   state["blocked"] = blocked
   save(folder / "state.json", state)
   return blocked
+
+
+def shrank(text, uploaded):
+  if turns(text) < uploaded.get("turns", 0):
+    return [f"the log shrank: {turns(text)} turns, {uploaded['turns']} uploaded before"]
+  return []
 
 
 def load(path):
@@ -700,9 +704,13 @@ def command_retry(args):
 
 
 def command_redact(args):
-  """Redacts what the check refused in the blocked files, checks them again, and uploads the ones that pass.
-  The session is marked to be redacted on every later build too, since an open session rebuilds its log each turn."""
-  folders = sorted((STATE / "sessions").glob(f"{args.session or ''}*")) if (STATE / "sessions").is_dir() else []
+  """Redacts what the check refused in one session's blocked files, checks them again, and uploads the ones that pass.
+  Run it only on the owner's word, one session at a time. The session is marked to be redacted on every later build
+  too, since an open session rebuilds its log each turn."""
+  folders = sorted((STATE / "sessions").glob(f"{args.session}*")) if (STATE / "sessions").is_dir() else []
+  if len(folders) != 1:
+    print(f"{args.session}: {len(folders)} sessions match, name exactly one", file=sys.stderr)
+    return 1
   for folder in folders:
     state = load(folder / "state.json")
     if not state.get("blocked"):
@@ -711,7 +719,7 @@ def command_redact(args):
     for key in list(state["blocked"]):
       path = folder / "out" / key
       text, count = redact(path.read_text(), emails)
-      problems = check(text, emails)
+      problems = check(text, emails) + shrank(text, state.get("files", {}).get(key, {}))
       if args.dry_run:
         print(f"{key}: {count} place(s) to redact" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
         continue
@@ -798,7 +806,7 @@ def main():
   uploading.set_defaults(run=command_upload)
   commands.add_parser("retry", help="upload what any session left pending").set_defaults(run=command_retry)
   redacting = commands.add_parser("redact", help="replace what the check blocked with [REDACTED], then upload")
-  redacting.add_argument("--session", help="a session id or its first characters; every blocked session when absent")
+  redacting.add_argument("--session", required=True, help="a session id or its first characters, matching one session")
   redacting.add_argument("--dry-run", action="store_true", help="count what would be redacted, change nothing")
   redacting.set_defaults(run=command_redact)
   noting = commands.add_parser("note", help="add the agent's title, summary (with Radar: lines) or decisions")

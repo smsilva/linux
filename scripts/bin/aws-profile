@@ -43,7 +43,7 @@ try:
 
 or:
 
-  aws sso login --use-device-code
+  aws sso login --use-device-code (aws-sso-login)
 
 EOF
 

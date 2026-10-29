@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
 json_input=$(cat)
 
@@ -7,6 +7,7 @@ json_input=$(cat)
 
 # Fixed segment backgrounds (256-color)
 section_location_background_color=31 # dark blue
+section_pontos_background_color=160   # red: a raw log is not on Drive (pontos-save status)
 section_branch_background_color=236  # #303030
 section_turns_background_color=235   # #262626, dark gray
 section_model_background_color=238   # #444444
@@ -198,6 +199,10 @@ add_segment() {
 end_segments() {
   printf "\033[0m\033[38;5;${_last_segment_background}m%s\033[0m" "${segment_separator}"
 }
+
+# Pontos (~/.claude/rules/pontos.md) raises this file when a raw log is blocked by its check or its upload failed
+[ -f "${HOME}/.local/state/pontos/alert" ] && \
+add_segment --text " ⚠ pontos " --background "${section_pontos_background_color}" --foreground 15 --bold
 
 add_segment --text " ${location} " --background "${section_location_background_color}" --foreground 0 --bold
 

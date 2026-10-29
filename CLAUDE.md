@@ -41,3 +41,13 @@ On shell start: `.bashrc` → `scripts/bash_config` → `scripts/bash_functions`
 - enableAllProjectMcpServers
 - enabledMcpjsonServers
 - enabledPlugins
+
+## Next work
+
+Move the per-tool installers from `scripts/utilities/` into `apps/<app>/`, tracked in #34. `apps/<app>/install` is a symlink to the old installer until then. Order:
+
+1. Merge PR #33 (`apps/` structure, OBS Studio config snapshot, installer symlinks).
+2. #69: test installers in Multipass VMs (24.04 and 26.04), starting by hand with `kubectl`, `tmux` and `obs-studio` on a 26.04 VM.
+3. #34 task 3: make the bulk installer loop read `apps/*/install`, with a way to skip GUI-only or credential-bound apps.
+4. One sub-issue per app, #35 to #68 (#68 creates the `obs-studio` installer).
+5. #34 task 5: remove `scripts/utilities/`, update this file and `apps/README.md`.

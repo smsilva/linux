@@ -6,7 +6,7 @@ The raw log of every Claude Code session in the owner's repositories, on Google 
 
 | Piece | What it does |
 |---|---|
-| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `status`, `retry`, `upload`, `build` (one session by hand) |
+| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `status`, `retry`, `redact` (hides what the check blocked behind `[REDACTED]`, then uploads), `upload`, `build` (one session by hand) |
 | `scripts/bin/claude-guard-main-clone` | the `PreToolUse` hook that refuses commits and file edits in a main clone (`claude/rules/workflow.md`) |
 | `scripts/bin/claude-status-line` | shows `⚠ pontos` while a raw log is not on Drive |
 | `claude/pontos/allow-list` | repositories saved besides the owner's own (public names only) |
@@ -14,7 +14,7 @@ The raw log of every Claude Code session in the owner's repositories, on Google 
 
 ## Local files
 
-- `~/.local/state/pontos/sessions/<session id>/`: `identity.json` (read once when the session starts), `notes/`, `out/<day>/<file>.md` (the last build), `state.json` (what was uploaded, what the check blocked, the last upload error).
+- `~/.local/state/pontos/sessions/<session id>/`: `identity.json` (read once when the session starts), `notes/`, `out/<day>/<file>.md` (the last build), `state.json` (what was uploaded, what the check blocked, the last upload error, `redact` once the owner redacted the session).
 - `~/.local/state/pontos/alert`: present while a log is blocked or failing; the status line reads it.
 - `~/.local/state/pontos/upload.log`: the background uploads' output.
 - `~/.config/pontos/deny-list` and `~/.config/pontos/allow-list`: local, never in a repository.

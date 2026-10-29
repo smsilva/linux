@@ -173,6 +173,39 @@ class Pontos(unittest.TestCase):
     self.assertTrue(self.pontos.alert())
     self.assertTrue((self.root / "state/alert").exists())
 
+  def test_redact_keeps_the_words_around_the_value_and_passes_the_check(self):
+    (self.root / "config").mkdir(exist_ok=True)
+    (self.root / "config/deny-list").write_text("Acme Corp\n")
+    text = ("WWW-Authenticate: Bearer resource_metadata_location=\"https://x\"\n  token = os.environ.get(\"X\")\n"
+            "write to someone@company.io or agent@example.com at Acme Corp")
+    redacted, count = self.pontos.redact(text)
+    self.assertEqual(count, 4)
+    self.assertIn("Bearer [REDACTED]", redacted)
+    self.assertIn("token = [REDACTED](\"X\")", redacted)
+    self.assertIn("write to [REDACTED] or agent@example.com at [REDACTED]", redacted)
+    self.assertEqual(self.pontos.check(redacted), [])
+
+  def test_redact_leaves_nothing_of_the_secret_behind(self):
+    for text, kept in (("password=abcdefghijklmnop$qrs!tuv end", "password=[REDACTED] end"),
+                       ("aws_secret_access_key = wJalrXUtnFEMI/K7MDENG end", "aws_secret_access_key = [REDACTED] end"),
+                       ("-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nbody\n-----END RSA PRIVATE KEY-----\nend", "[REDACTED]\nend")):
+      redacted, _ = self.pontos.redact(text)
+      self.assertEqual(redacted, kept)
+    # the label alone still fails the check: the file stays blocked for the owner to look at
+    self.assertTrue(self.pontos.check("aws_secret_access_key = [REDACTED]"))
+
+  def test_the_redact_command_unblocks_the_file_and_uploads_it(self):
+    self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Authorization: Bearer abcdefghijklmnopqrstuvwxyz")], set())
+    self.pontos.REMOTE = str(self.root / "drive")
+    args = type("Args", (), {"session": self.session[:8], "dry_run": False})
+    self.assertEqual(self.pontos.command_redact(args), 0)
+    state = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
+    self.assertEqual(state["blocked"], {})
+    self.assertEqual((self.root / "drive/raw/2026-10-29/x.md").read_text(), "Authorization: Bearer [REDACTED]")
+    self.assertFalse((self.root / "state/alert").exists())
+    # an open session rebuilds its log each turn: the next build is redacted too, not blocked again
+    self.assertEqual(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Bearer abcdefghijklmnopqrstuvwxyz, then more")], set()), {})
+
   def test_another_owner_s_repository_is_not_opted_in_unless_listed(self):
     self.assertTrue(self.pontos.opted_in("getnereus/nereus"))
     self.assertFalse(self.pontos.opted_in("client/app"))

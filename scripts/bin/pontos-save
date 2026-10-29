@@ -59,6 +59,15 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|users\.noreply\.github\.com)$")
 # environment variables whose live value must never reach Drive
 SECRET_ENV = re.compile(r"(?i)token|secret|password|passwd|key|credential")
+# what redact keeps of a secret's match: the words up to its first separator (`Bearer `, `token = `, `api_key": "`)
+SECRET_LABEL = re.compile(r"^[^:=\s]*[:=\s]+[\"'\\]*")
+# after a match that is only a label, the spaces and quote before its value
+SECRET_AFTER_LABEL = re.compile(r"\s*[\\\"']*")
+# the rest of a token after the match, hidden too
+SECRET_REST = re.compile(r"[^\s\"'`()\[\]{}<>,;]*")
+# a private key's whole block, not only its first line
+PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
+REDACTED = "[REDACTED]"
 
 
 def run(*command, cwd=None):
@@ -445,11 +454,65 @@ def check(text, own_emails=()):
   for name, value in os.environ.items():
     if SECRET_ENV.search(name) and len(value) >= 12 and value in text:
       problems.append(f"the live value of ${name}")
-  if DENY_LIST.is_file():
-    for word in (line.split("#")[0].strip() for line in DENY_LIST.read_text().splitlines()):
-      if word and re.search(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", text):
-        problems.append(f"a name of the deny-list: {word[:3]}...")
+  for word in denied():
+    if re.search(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", text):
+      problems.append(f"a name of the deny-list: {word[:3]}...")
   return sorted(set(problems))
+
+
+def denied():
+  if not DENY_LIST.is_file():
+    return []
+  return [word for word in (line.split("#")[0].strip() for line in DENY_LIST.read_text().splitlines()) if word]
+
+
+def hide(pattern, text):
+  """Replaces each match of a secret's pattern from its first separator on, and the rest of the token after the
+  match too: a secret longer than the pattern's charset (`password=abc$def...`) leaves nothing behind. A match
+  that is only a label (`aws_secret_access_key =`) hides the value that follows it."""
+  parts, last, count = [], 0, 0
+  for match in pattern.finditer(text):
+    if match.start() < last:
+      continue
+    found, end = match.group(0), match.end()
+    label = SECRET_LABEL.match(found)
+    keep = label.group(0) if label else ""
+    if label and label.end() == len(found):
+      after = SECRET_AFTER_LABEL.match(text, end)
+      if text.startswith(REDACTED, after.end()):  # another pattern already hid this value
+        continue
+      keep, end = found + after.group(0), after.end()
+    end = SECRET_REST.match(text, end).end()
+    parts += [text[last:match.start()], keep, REDACTED]
+    last, count = end, count + 1
+  parts.append(text[last:])
+  return "".join(parts), count
+
+
+def redact(text, own_emails=()):
+  """Replaces what the check refuses with [REDACTED], keeping the words around it: the value of a secret
+  (`Bearer [REDACTED]`, `token = [REDACTED]`), a private key's whole block, a foreign e-mail, a live secret,
+  a name of the deny-list. Returns the text and how many places changed."""
+  count = 0
+
+  def whole(match):
+    nonlocal count
+    count += 1
+    return REDACTED
+
+  text = PRIVATE_KEY_BLOCK.sub(whole, text)
+  for pattern in SECRETS:
+    text, found = hide(pattern, text)
+    count += found
+  own = {email.lower() for email in own_emails}
+  text = EMAIL.sub(lambda match: match.group(0) if EMAIL_ALLOWED.search(match.group(0)) or match.group(0).lower() in own else whole(match), text)
+  for name, live in os.environ.items():
+    if SECRET_ENV.search(name) and len(live) >= 12 and live in text:
+      count += text.count(live)
+      text = text.replace(live, REDACTED)
+  for word in denied():
+    text = re.sub(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", whole, text)
+  return text, count
 
 
 def turns(text):
@@ -457,13 +520,18 @@ def turns(text):
 
 
 def write_spool(session, built, own_emails):
-  """Writes each file locally and records its check; returns the names with problems."""
+  """Writes each file locally and records its check; returns the names with problems.
+  A session the owner redacted once (`pontos-save redact`) is redacted again on every build."""
   folder = STATE / "sessions" / session
   out = folder / "out"
   out.mkdir(parents=True, exist_ok=True)
   state = load(folder / "state.json")
   blocked = {}
   for day, name, text in built:
+    if state.get("redact"):
+      text, count = redact(text, own_emails)
+      if count:  # never silent: status lists what a later build hid
+        state.setdefault("redacted", {})[f"{day}/{name}"] = count
     path = out / day / name
     path.parent.mkdir(exist_ok=True)
     path.write_text(text)
@@ -631,6 +699,38 @@ def command_retry(args):
   return 0
 
 
+def command_redact(args):
+  """Redacts what the check refused in the blocked files, checks them again, and uploads the ones that pass.
+  The session is marked to be redacted on every later build too, since an open session rebuilds its log each turn."""
+  folders = sorted((STATE / "sessions").glob(f"{args.session or ''}*")) if (STATE / "sessions").is_dir() else []
+  for folder in folders:
+    state = load(folder / "state.json")
+    if not state.get("blocked"):
+      continue
+    emails = own_emails(load(folder / "identity.json"))
+    for key in list(state["blocked"]):
+      path = folder / "out" / key
+      text, count = redact(path.read_text(), emails)
+      problems = check(text, emails)
+      if args.dry_run:
+        print(f"{key}: {count} place(s) to redact" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
+        continue
+      path.write_text(text)
+      state.setdefault("redacted", {})[key] = count
+      if problems:
+        state["blocked"][key] = problems
+        print(f"{key}: {count} place(s) redacted, still blocked: {'; '.join(problems)}")
+      else:
+        del state["blocked"][key]
+        print(f"{key}: {count} place(s) redacted")
+    if not args.dry_run:
+      state["redact"] = True
+      save(folder / "state.json", state)
+      upload(folder.name)
+  alert()
+  return 0
+
+
 def command_note(args):
   """The agent's part: a title, a summary (with Radar: lines) or the decisions, from a file or stdin."""
   session = args.session or os.environ.get("CLAUDE_CODE_SESSION_ID")
@@ -661,6 +761,8 @@ def command_status(args):
     print(f"{folder.name[:8]}  {me.get('agent', '?'):<40} {mark:<24} {len(files)} file(s) uploaded")
     for key, problems in state.get("blocked", {}).items():
       print(f"  {key}:", *problems, sep="\n    ")
+    for key, count in state.get("redacted", {}).items():
+      print(f"  {key}: {count} place(s) redacted")
     if state.get("error"):
       print(f"  {state['error']}")
   return 0
@@ -695,6 +797,10 @@ def main():
   uploading.add_argument("--session", required=True)
   uploading.set_defaults(run=command_upload)
   commands.add_parser("retry", help="upload what any session left pending").set_defaults(run=command_retry)
+  redacting = commands.add_parser("redact", help="replace what the check blocked with [REDACTED], then upload")
+  redacting.add_argument("--session", help="a session id or its first characters; every blocked session when absent")
+  redacting.add_argument("--dry-run", action="store_true", help="count what would be redacted, change nothing")
+  redacting.set_defaults(run=command_redact)
   noting = commands.add_parser("note", help="add the agent's title, summary (with Radar: lines) or decisions")
   noting.add_argument("kind", choices=NOTES)
   noting.add_argument("--file", help="the note's Markdown; stdin when absent")

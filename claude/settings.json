@@ -21,6 +21,11 @@
             "type": "command",
             "command": "play service-logout",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/pontos-save\" hook",
+            "async": true
           }
         ]
       }
@@ -32,6 +37,51 @@
             "type": "command",
             "command": "play service-login",
             "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/pontos-save\" hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/pontos-save\" hook",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/pontos-save\" hook",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/claude-guard-main-clone\"",
+            "timeout": 10
           }
         ]
       }

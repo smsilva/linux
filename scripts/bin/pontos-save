@@ -1,0 +1,717 @@
+#!/usr/bin/env python3
+"""Pontos: the raw log of every Claude Code session, on Google Drive.
+
+Pontos is the raw data layer (in Hesiod's Theogony, the primordial sea, father of Nereus). The Claude Code hooks call
+`pontos-save hook`: it builds a Markdown raw log from the session's JSONL transcript, one file per session and one per
+subagent, in a local spool first, checks it for secrets, and uploads it in the background to
+`#pontos/raw/<YYYY-MM-DD>/HHMM-<agent>.md`. The agent adds only what needs judgement (title, summary, decisions,
+Radar lines) with `pontos-save note`. Only the owner's own repositories are saved (opt-in).
+
+Rule: ~/.claude/rules/pontos.md. Local spool: ~/.local/state/pontos/.
+"""
+import argparse
+import datetime
+import fcntl
+import hashlib
+import json
+import os
+import pathlib
+import re
+import socket
+import subprocess
+import sys
+import time
+
+FORMAT = 1
+STATE = pathlib.Path(os.environ.get("PONTOS_STATE", pathlib.Path.home() / ".local/state/pontos"))
+CONFIG = pathlib.Path(os.environ.get("PONTOS_CONFIG", pathlib.Path.home() / ".config/pontos"))
+REMOTE = os.environ.get("PONTOS_REMOTE", "gdrive:#pontos")
+ALERT = STATE / "alert"
+# the owners whose repositories are saved; others only when listed in an allow-list
+OWNERS = {"smsilva", "getnereus", "wasp-foundry"}
+ALLOW_LISTS = [pathlib.Path(__file__).resolve().parents[2] / "claude/pontos/allow-list", CONFIG / "allow-list"]
+# names that must never reach Drive (the employer's, clients'), one per line, kept out of any repository
+DENY_LIST = CONFIG / "deny-list"
+# tmux names a window after its command until it is renamed: those are no name
+COMMAND_NAMES = {"bash", "zsh", "sh", "fish", "node", "claude", "python", "python3", "tmux", "vim", "nvim", "ssh", "less", "man"}
+NOTES = ("title", "summary", "decisions")
+LONG_ARGUMENT = 300
+
+SECRETS = [
+  re.compile(r"trycloudflare\.com/[0-9a-f]{16,}"),
+  re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key)(\\?[\"'])?\s*[:=]\s*(\\?[\"'])?[A-Za-z0-9+/_.-]{12,}"),
+  re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9+/_.=-]{20,}"),  # an Authorization header
+  re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),  # a JWT
+  re.compile(r"[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s:@]+@"),  # credentials in a URL
+  re.compile(r"(?:\s|^)(?:-u|--user)\s+[^\s:]+:\S{6,}"),  # curl's user:password
+  re.compile(r"\b(ghp|gho|ghs|github_pat|sk-ant|xox[bp])_?[A-Za-z0-9_-]{16,}"),
+  re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+  re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+  re.compile(r"(?i)aws_secret_access_key\s*[:=]"),
+  re.compile(r"AccountKey=[A-Za-z0-9+/=]{20,}"),
+  re.compile(r"(client-key-data|client-certificate-data|certificate-authority-data):\s*[A-Za-z0-9+/=]{40,}"),
+  re.compile(r"\b\d{3}\.\d{3}\.\d{3}-\d{2}\b"),  # CPF
+  re.compile(r"\+55\s?\(?\d{2}\)?\s?9?\d{4}-?\d{4}\b|\(\d{2}\)\s?9?\d{4}-\d{4}\b"),  # phone number
+  re.compile(r"\b(Rua|Avenida|Av\.|Alameda|Travessa|Rodovia)\s+[A-ZÀ-Ú][^,\n]{2,40},\s*\d{1,5}\b"),  # street address
+]
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# git@<host> is an SSH remote, not a person
+EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|users\.noreply\.github\.com)$")
+# environment variables whose live value must never reach Drive
+SECRET_ENV = re.compile(r"(?i)token|secret|password|passwd|key|credential")
+
+
+def run(*command, cwd=None):
+  try:
+    done = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=10)
+  except (OSError, subprocess.TimeoutExpired):
+    return ""
+  return done.stdout.strip() if done.returncode == 0 else ""
+
+
+def git(directory, *args):
+  return run("git", "--no-optional-locks", "-C", str(directory), *args)
+
+
+def local_time(stamp):
+  return datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone()
+
+
+def iso(moment):
+  return moment.isoformat(timespec="seconds") if moment else None
+
+
+def slug(text):
+  return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def repository_of(remote_url):
+  """owner/repo for a GitHub remote; host/path for any other, so an owner's name on another host never opts it in."""
+  found = re.match(r"^(?:[a-z+]+://)?(?:[^@/]+@)?([^:/]+)[:/](.+?)(?:\.git)?/?$", remote_url or "")
+  if not found:
+    return None
+  host, path = found.group(1).lower(), found.group(2).strip("/")
+  return path if host == "github.com" and path.count("/") == 1 else f"{host}/{path}"
+
+
+def opted_in(repository):
+  if not repository:
+    return False
+  if repository.split("/")[0] in OWNERS:
+    return True
+  for allow in ALLOW_LISTS:
+    if allow.is_file() and repository in {line.split("#")[0].strip() for line in allow.read_text().splitlines()}:
+      return True
+  return False
+
+
+def tmux_window():
+  """The name of the agent's own tmux window, read through its pane (never the window the owner looks at)."""
+  pane = os.environ.get("TMUX_PANE")
+  if not pane:
+    return None
+  found = run("tmux", "display-message", "-p", "-t", pane, "#{automatic-rename}|#W")
+  automatic, _, name = found.partition("|")
+  if not name or automatic == "1" or name in COMMAND_NAMES:
+    return None
+  return name
+
+
+def identity(hook, previous=None):
+  """Who and where: read once when the session starts, kept for the whole session."""
+  if previous:
+    return previous
+  cwd = pathlib.Path(hook.get("cwd") or os.getcwd())
+  toplevel = git(cwd, "rev-parse", "--show-toplevel")
+  dirs = git(cwd, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir").splitlines()
+  repository = repository_of(git(cwd, "remote", "get-url", "origin"))
+  worktree = pathlib.Path(toplevel).name if toplevel else None
+  window = tmux_window()
+  machine = socket.gethostname().split(".")[0].lower()
+  repo_name = repository.split("/")[-1] if repository else None
+  place = window or (worktree if worktree and repo_name and worktree.startswith(repo_name) else "-".join(filter(None, [repo_name, worktree])))
+  session_id = hook["session_id"]
+  return {
+    "agent": "-".join(filter(None, [machine, slug(place or "nowhere"), session_id[:8]])),
+    "session_id": session_id,
+    "machine": machine,
+    "os_user": os.environ.get("USER"),
+    "github_user": run("gh", "config", "get", "-h", "github.com", "user") or None,
+    "git_email": git(cwd, "config", "user.email") or None,
+    "tmux_window": window,
+    "repository": repository,
+    "start_dir": str(cwd),
+    "worktree": worktree,
+    "main_checkout": len(dirs) == 2 and dirs[0] == dirs[1],
+    "branch": git(cwd, "rev-parse", "--abbrev-ref", "HEAD") or None,
+    "source": hook.get("source", "startup" if hook.get("hook_event_name") == "SessionStart" else None),
+    "remote_control_session": os.environ.get("CLAUDE_CODE_BRIDGE_SESSION_ID"),
+    "transcript_path": hook.get("transcript_path"),
+    "opted_in": opted_in(repository),
+  }
+
+
+# --- the transcript ---------------------------------------------------------------------------------------------
+
+
+def entries(path):
+  with open(path, encoding="utf-8") as lines:
+    for line in lines:
+      try:
+        yield json.loads(line)
+      except json.JSONDecodeError:
+        continue
+
+
+def owner_text(entry):
+  """The owner's own words in a user entry, verbatim; None for tool results and what Claude Code adds."""
+  if entry.get("isMeta") or entry.get("isCompactSummary") or entry.get("toolUseResult") is not None:
+    return None
+  content = (entry.get("message") or {}).get("content")
+  if isinstance(content, str):
+    return content
+  if isinstance(content, list) and not any(item.get("type") == "tool_result" for item in content):
+    parts = [item.get("text", "") if item.get("type") == "text" else f"[{item.get('type')}]" for item in content]
+    return "\n".join(part for part in parts if part)
+  return None
+
+
+def compact(value):
+  """A tool's arguments, short: long strings (a file's content, an edit) only by their size."""
+  if isinstance(value, str):
+    return value if len(value) <= LONG_ARGUMENT else f"<{len(value)} chars>"
+  if isinstance(value, dict):
+    return {key: compact(item) for key, item in value.items()}
+  if isinstance(value, list):
+    return [compact(item) for item in value]
+  return value
+
+
+def tool_line(use, result):
+  name, args = use.get("name"), use.get("input") or {}
+  if name == "Bash":
+    shown = args.get("command", "")
+    described = f" ({args['description']})" if args.get("description") else ""
+    call = f"`Bash`{described}:\n\n```bash\n{shown}\n```\n"
+  else:
+    call = f"`{name}` `{json.dumps(compact(args), ensure_ascii=False)}`\n"
+  if result is None:
+    return call + "  → no result\n"
+  size = len(result_text(result))
+  status = "error" if result.get("is_error") else "ok"
+  return call + f"  → {status}, {size} chars of output\n"
+
+
+def result_text(result):
+  content = result.get("content")
+  if isinstance(content, str):
+    return content
+  if isinstance(content, list):
+    return "\n".join(item.get("text", "") for item in content if isinstance(item, dict))
+  return ""
+
+
+def read(path):
+  """The parts of a transcript Pontos keeps: turns in order, tool results by id, and what the header needs."""
+  items, results, facts = [], {}, {"models": [], "versions": [], "cwds": [], "first": None, "last": None}
+  for entry in entries(path):
+    stamp = entry.get("timestamp")
+    if stamp:
+      facts["first"] = facts["first"] or stamp
+      facts["last"] = stamp
+    if entry.get("version"):
+      facts["versions"].append(entry["version"])
+    if entry.get("cwd"):
+      facts["cwds"].append(entry["cwd"])
+    message = entry.get("message") or {}
+    if entry.get("type") == "user":
+      content = message.get("content")
+      if isinstance(content, list):
+        for item in content:
+          if isinstance(item, dict) and item.get("type") == "tool_result":
+            results[item.get("tool_use_id")] = item
+      if entry.get("isCompactSummary"):
+        items.append(("compact", stamp, None, None))
+        continue
+      text = owner_text(entry)
+      if text and text.strip():
+        items.append(("owner", stamp, text, None))
+    elif entry.get("type") == "assistant":
+      model = message.get("model")
+      if model and model != "<synthetic>":
+        facts["models"].append(model)
+      for item in message.get("content") or []:
+        if item.get("type") == "text" and item.get("text", "").strip():
+          items.append(("agent", stamp, item["text"], model))
+        elif item.get("type") == "tool_use":
+          items.append(("tool", stamp, item, model))
+  return items, results, facts
+
+
+def issues_in(items):
+  """Issues and PRs the session touched, from its gh commands: deterministic, no judgement."""
+  found = set()
+  for kind, _, item, _ in items:
+    if kind == "tool" and item.get("name") == "Bash":
+      for match in re.finditer(r"\bgh\s+(?:issue|pr)\s+[a-z-]+\s+#?(\d+)", (item.get("input") or {}).get("command", "")):
+        found.add(int(match.group(1)))
+  return sorted(found)
+
+
+def worktrees_in(items, start, start_dir):
+  """The git worktrees the session wrote to or ran git in: from file paths and `git -C <path>`."""
+  paths = set()
+  for kind, _, item, _ in items:
+    if kind != "tool":
+      continue
+    args = item.get("input") or {}
+    for key in ("file_path", "notebook_path"):
+      if args.get(key) and item.get("name") in ("Edit", "Write", "NotebookEdit", "MultiEdit"):
+        paths.add(pathlib.Path(args[key]).parent)
+    if item.get("name") == "Bash":
+      for match in re.finditer(r"\bgit\s+(?:--no-optional-locks\s+)?-C\s+(\"[^\"]+\"|'[^']+'|\S+)", args.get("command", "")):
+        paths.add(pathlib.Path(os.path.expanduser(match.group(1).strip("\"'"))))
+  found, outside = set(), {pathlib.Path.home(), pathlib.Path("/")}
+  for path in paths:
+    path = path if path.is_absolute() else pathlib.Path(start_dir) / path
+    for parent in (path, *path.parents):
+      if parent in outside:
+        break
+      if (parent / ".git").exists():
+        found.add(parent.name)
+        break
+  return sorted(found - ({start} if start else set()))
+
+
+def render_log(items, results, subagents):
+  lines, speaker = [], None
+  for kind, stamp, item, model in items:
+    moment = local_time(stamp).strftime("%Y-%m-%d %H:%M:%S %z") if stamp else "?"
+    if kind == "compact":
+      lines.append(f"\n### {moment} · context compacted\n")
+      speaker = None
+    elif kind == "owner":
+      lines.append(f"\n### {moment} · owner\n\n{item.rstrip()}\n")
+      speaker = "owner"
+    else:
+      if speaker != "agent":
+        lines.append(f"\n### {moment} · agent ({model or 'unknown model'})\n")
+        speaker = "agent"
+      if kind == "agent":
+        lines.append(f"\n{item.rstrip()}\n")
+      elif item.get("name") in ("Agent", "Task"):
+        args, result = item.get("input") or {}, results.get(item.get("id"))
+        child = subagents.get(item.get("id"))
+        lines.append(
+          f"\n**Subagent** `{args.get('subagent_type', 'general-purpose')}`: {args.get('description', '')}"
+          + (f" (raw log: `{child}`)" if child else "")
+          + f"\n\nPrompt:\n\n{(args.get('prompt') or '').rstrip()}\n"
+          + (f"\nReport ({'error' if result.get('is_error') else 'ok'}):\n\n{result_text(result).rstrip()}\n" if result else "\nNo report.\n")
+        )
+      else:
+        lines.append("\n- " + tool_line(item, results.get(item.get("id"))))
+  return "".join(lines)
+
+
+def header_yaml(fields):
+  def value(item):
+    if item is None:
+      return "null"
+    if isinstance(item, bool):
+      return "true" if item else "false"
+    if isinstance(item, (int, float)):
+      return str(item)
+    if isinstance(item, list):
+      return "[" + ", ".join(value(element) for element in item) + "]"
+    return json.dumps(str(item), ensure_ascii=False)
+
+  return "---\n" + "".join(f"{key}: {value(item)}\n" for key, item in fields.items()) + "---\n"
+
+
+def traceparent(session_id, agent_id=None):
+  trace = session_id.replace("-", "")
+  span = agent_id[1:] if agent_id and re.fullmatch(r"a[0-9a-f]{16}", agent_id) else None
+  if agent_id and not span:
+    span = hashlib.sha256(agent_id.encode()).hexdigest()[:16]
+  return f"00-{trace}-{span or '0000000000000001'}-01"
+
+
+def notes_of(session):
+  folder = STATE / "sessions" / session / "notes"
+  return {name: (folder / f"{name}.md").read_text().strip() for name in NOTES if (folder / f"{name}.md").is_file()}
+
+
+def radar_lines(text):
+  return [line.split("Radar:", 1)[1].strip() for line in (text or "").splitlines() if "Radar:" in line]
+
+
+def build_session(me, end=None):
+  """The raw log of the main session, and one of each of its subagents."""
+  transcript = pathlib.Path(me["transcript_path"])
+  items, results, facts = read(transcript)
+  if not facts["first"]:
+    return []
+  started = local_time(facts["first"])
+  day, hhmm = started.strftime("%Y-%m-%d"), started.strftime("%H%M")
+  built = []
+  subagents, children = {}, []
+  folder = transcript.parent / me["session_id"] / "subagents"
+  for child in sorted(folder.glob("agent-*.jsonl")) if folder.is_dir() else []:
+    agent_id = child.stem.removeprefix("agent-")
+    meta_file = child.with_suffix(".meta.json")
+    meta = json.loads(meta_file.read_text()) if meta_file.is_file() else {}
+    child_items, child_results, child_facts = read(child)
+    if not child_facts["first"]:
+      continue
+    child_start = local_time(child_facts["first"])
+    name = f"{child_start.strftime('%H%M')}-{me['agent']}-{agent_id[:8]}.md"
+    if meta.get("toolUseId"):
+      subagents[meta["toolUseId"]] = name
+    children.append((name, child_start, agent_id, meta, child_items, child_results, child_facts))
+  notes = notes_of(me["session_id"])
+  fields = {
+    "pontos": FORMAT,
+    "agent": me["agent"],
+    "session_id": me["session_id"],
+    "parent_session_id": None,
+    "agent_id": None,
+    "agent_type": "main",
+    "spawn_depth": 0,
+    "tool_use_id": None,
+    "traceparent": traceparent(me["session_id"]),
+    "machine": me["machine"],
+    "os_user": me["os_user"],
+    "github_user": me["github_user"],
+    "git_email": me["git_email"],
+    "tmux_window": me["tmux_window"],
+    "repository": me["repository"],
+    "start_dir": me["start_dir"],
+    "worktree": me["worktree"],
+    "main_checkout": me["main_checkout"],
+    "branch": me["branch"],
+    "worktrees_touched": worktrees_in(items, me["worktree"], me["start_dir"]),
+    "source": me["source"],
+    "forked_from": None,
+    "remote_control_session": me["remote_control_session"],
+    "claude_code_version": facts["versions"][-1] if facts["versions"] else None,
+    "model": facts["models"][0] if facts["models"] else None,
+    "started": iso(started),
+    "ended": iso(local_time(facts["last"])) if end else None,
+    "end_reason": end,
+    "issues": issues_in(items),
+    "radar": radar_lines(notes.get("summary")),
+  }
+  title = notes.get("title") or f"Session {me['agent']}"
+  body = (
+    f"\n# {title}\n\n## Summary\n\n{notes.get('summary') or '_No summary yet: the agent adds it with `pontos-save note summary`._'}\n"
+    + (f"\n## Decisions\n\n{notes['decisions']}\n" if notes.get("decisions") else "")
+    + "\n## Log\n" + render_log(items, results, subagents)
+  )
+  built.append((day, f"{hhmm}-{me['agent']}.md", header_yaml(fields) + body))
+  for name, child_start, agent_id, meta, child_items, child_results, child_facts in children:
+    child_fields = {
+      **fields,
+      "agent": f"{me['agent']}-{agent_id[:8]}",
+      "parent_session_id": me["session_id"],
+      "agent_id": agent_id,
+      "agent_type": meta.get("agentType", "subagent"),
+      "spawn_depth": meta.get("spawnDepth", 1),
+      "tool_use_id": meta.get("toolUseId"),
+      "traceparent": traceparent(me["session_id"], agent_id),
+      "worktrees_touched": worktrees_in(child_items, me["worktree"], me["start_dir"]),
+      "model": child_facts["models"][0] if child_facts["models"] else meta.get("model"),
+      "started": iso(child_start),
+      "ended": iso(local_time(child_facts["last"])) if meta.get("finished") else None,
+      "end_reason": None,
+      "issues": issues_in(child_items),
+      "radar": [],
+    }
+    child_body = f"\n# Subagent: {meta.get('description') or agent_id}\n\nParent: `{day}/{hhmm}-{me['agent']}.md`\n\n## Log\n" + render_log(child_items, child_results, {})
+    built.append((day, name, header_yaml(child_fields) + child_body))
+  return built
+
+
+# --- check and upload -------------------------------------------------------------------------------------------
+
+
+def check(text, own_emails=()):
+  problems = []
+  for pattern in SECRETS:
+    for match in pattern.finditer(text):
+      problems.append(f"looks like a secret or personal data: {match.group(0)[:12]}...")
+  for match in EMAIL.finditer(text):
+    if not EMAIL_ALLOWED.search(match.group(0)) and match.group(0).lower() not in {email.lower() for email in own_emails}:
+      problems.append(f"an e-mail address: {match.group(0)[:6]}...")
+  for name, value in os.environ.items():
+    if SECRET_ENV.search(name) and len(value) >= 12 and value in text:
+      problems.append(f"the live value of ${name}")
+  if DENY_LIST.is_file():
+    for word in (line.split("#")[0].strip() for line in DENY_LIST.read_text().splitlines()):
+      if word and re.search(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", text):
+        problems.append(f"a name of the deny-list: {word[:3]}...")
+  return sorted(set(problems))
+
+
+def turns(text):
+  return text.count("\n### ")
+
+
+def write_spool(session, built, own_emails):
+  """Writes each file locally and records its check; returns the names with problems."""
+  folder = STATE / "sessions" / session
+  out = folder / "out"
+  out.mkdir(parents=True, exist_ok=True)
+  state = load(folder / "state.json")
+  blocked = {}
+  for day, name, text in built:
+    path = out / day / name
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(text)
+    problems = check(text, own_emails)
+    uploaded = state.get("files", {}).get(f"{day}/{name}", {})
+    if turns(text) < uploaded.get("turns", 0):
+      problems.append(f"the log shrank: {turns(text)} turns, {uploaded['turns']} uploaded before")
+    if problems:
+      blocked[f"{day}/{name}"] = problems
+  state["blocked"] = blocked
+  save(folder / "state.json", state)
+  return blocked
+
+
+def load(path):
+  try:
+    return json.loads(path.read_text())
+  except (OSError, json.JSONDecodeError):
+    return {}
+
+
+def save(path, data):
+  temporary = path.with_suffix(".tmp")
+  temporary.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+  temporary.replace(path)
+
+
+def pending(session):
+  """The files of a session whose last build is not on Drive yet, and passed the check."""
+  folder = STATE / "sessions" / session
+  state = load(folder / "state.json")
+  found = []
+  for path in sorted((folder / "out").glob("*/*.md")):
+    key = f"{path.parent.name}/{path.name}"
+    if key in state.get("blocked", {}):
+      continue
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if state.get("files", {}).get(key, {}).get("sha256") != digest:
+      found.append((key, path, digest))
+  return found
+
+
+def upload(session):
+  """Uploads what is pending, under a lock, until nothing is: a build made meanwhile goes up in the same run.
+  The copy already on Drive is kept first in .prev/, as session-save kept 00-raw.prev.md."""
+  folder = STATE / "sessions" / session
+  with open(folder / "upload.lock", "w") as lock:
+    try:
+      fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+      return True  # another run is uploading; it loops until nothing is pending
+    rclone = ["rclone", "--log-level", "ERROR"]
+    for _ in range(10):
+      todo = pending(session)
+      if not todo:
+        break
+      for key, path, digest in todo:
+        day, name = key.split("/")
+        # a build may have replaced the file after its check: upload a copy, checked again, never the spool's file
+        copy = folder / "upload.md"
+        copy.write_bytes(path.read_bytes())
+        digest = hashlib.sha256(copy.read_bytes()).hexdigest()
+        problems = check(copy.read_text(), own_emails(load(folder / "identity.json")))
+        if problems:
+          state = load(folder / "state.json")
+          state.setdefault("blocked", {})[key] = problems
+          save(folder / "state.json", state)
+          continue
+        path = copy
+        target = f"{REMOTE}/raw/{day}"
+        state = load(folder / "state.json")
+        if key in state.get("files", {}):
+          subprocess.run([*rclone, "copyto", f"{target}/{name}", f"{target}/.prev/{name}"], capture_output=True)
+        done = subprocess.run([*rclone, "copyto", str(path), f"{target}/{name}"], capture_output=True, text=True)
+        state = load(folder / "state.json")
+        if done.returncode != 0:
+          state["error"] = f"{key}: rclone failed: {done.stderr.strip().splitlines()[-1] if done.stderr.strip() else done.returncode}"
+          save(folder / "state.json", state)
+          return False
+        state.setdefault("files", {})[key] = {"sha256": digest, "turns": turns(path.read_text()), "at": iso(datetime.datetime.now().astimezone())}
+        state.pop("error", None)
+        save(folder / "state.json", state)
+  return True
+
+
+def alert():
+  """The status line marker: on when a log is blocked by its check or its upload failed, off otherwise."""
+  problems = []
+  for folder in sorted((STATE / "sessions").glob("*")) if (STATE / "sessions").is_dir() else []:
+    state = load(folder / "state.json")
+    problems += [f"{key}: {'; '.join(found)}" for key, found in state.get("blocked", {}).items()]
+    if state.get("error"):
+      problems.append(state["error"])
+  if problems:
+    ALERT.write_text("\n".join(problems) + "\n")
+  elif ALERT.exists():
+    ALERT.unlink()
+  return problems
+
+
+def in_background(*args):
+  log = open(STATE / "upload.log", "a")
+  subprocess.Popen([sys.executable, __file__, *args], stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+
+
+# --- commands ---------------------------------------------------------------------------------------------------
+
+
+def me_of(session, hook=None):
+  folder = STATE / "sessions" / session
+  stored = load(folder / "identity.json") or None
+  me = identity(hook or {"session_id": session}, stored)
+  if hook and hook.get("transcript_path"):
+    me["transcript_path"] = hook["transcript_path"]
+  if not stored and hook:
+    folder.mkdir(parents=True, exist_ok=True)
+    save(folder / "identity.json", me)
+  return me
+
+
+def own_emails(me):
+  return {email for email in (me.get("git_email"),) if email}
+
+
+def hook(args):
+  """The entry of every Claude Code hook: the event's JSON on stdin."""
+  try:
+    data = json.load(sys.stdin)
+  except json.JSONDecodeError:
+    return 0
+  session, event = data.get("session_id"), data.get("hook_event_name")
+  if not session:
+    return 0
+  STATE.mkdir(parents=True, exist_ok=True)
+  me = me_of(session, data)
+  if not me["opted_in"]:
+    return 0
+  if event == "SessionStart":
+    problems = alert()
+    if problems:
+      print(f"Pontos: {len(problems)} raw log(s) are not on Drive. Tell the owner, and run 'pontos-save status':")
+      print("\n".join(f"  {problem}" for problem in problems[:10]))
+    in_background("retry")
+    return 0
+  end = data.get("reason", "other") if event == "SessionEnd" else None
+  blocked = write_spool(session, build_session(me, end), own_emails(me))
+  alert()
+  if blocked:
+    return 0
+  in_background("upload", "--session", session)
+  return 0
+
+
+def command_upload(args):
+  ok = upload(args.session)
+  alert()
+  return 0 if ok else 1
+
+
+def command_retry(args):
+  for folder in sorted((STATE / "sessions").glob("*")) if (STATE / "sessions").is_dir() else []:
+    if pending(folder.name):
+      upload(folder.name)
+  alert()
+  return 0
+
+
+def command_note(args):
+  """The agent's part: a title, a summary (with Radar: lines) or the decisions, from a file or stdin."""
+  session = args.session or os.environ.get("CLAUDE_CODE_SESSION_ID")
+  if not session:
+    print("no session: pass --session or run inside Claude Code (CLAUDE_CODE_SESSION_ID)", file=sys.stderr)
+    return 1
+  text = pathlib.Path(args.file).read_text() if args.file else sys.stdin.read()
+  folder = STATE / "sessions" / session / "notes"
+  folder.mkdir(parents=True, exist_ok=True)
+  (folder / f"{args.kind}.md").write_text(text.strip() + "\n")
+  me = me_of(session)
+  if me.get("transcript_path") and me.get("opted_in"):
+    blocked = write_spool(session, build_session(me), own_emails(me))
+    alert()
+    if not blocked:
+      in_background("upload", "--session", session)
+  print(f"{args.kind} saved for session {session[:8]}")
+  return 0
+
+
+def command_status(args):
+  sessions = sorted((STATE / "sessions").glob("*"), key=lambda folder: folder.stat().st_mtime) if (STATE / "sessions").is_dir() else []
+  for folder in sessions[-args.limit:]:
+    me, state = load(folder / "identity.json"), load(folder / "state.json")
+    files = state.get("files", {})
+    waiting = [key for key, _, _ in pending(folder.name)] if me.get("opted_in") else []
+    mark = "skipped (not opted in)" if not me.get("opted_in") else ("blocked" if state.get("blocked") else ("failing" if state.get("error") else ("pending" if waiting else "on Drive")))
+    print(f"{folder.name[:8]}  {me.get('agent', '?'):<40} {mark:<24} {len(files)} file(s) uploaded")
+    for key, problems in state.get("blocked", {}).items():
+      print(f"  {key}:", *problems, sep="\n    ")
+    if state.get("error"):
+      print(f"  {state['error']}")
+  return 0
+
+
+def command_build(args):
+  """Builds a session's raw log from its transcript, checks it, and uploads it unless --dry-run."""
+  data = {"session_id": args.session, "transcript_path": args.transcript, "cwd": args.cwd, "hook_event_name": "Stop"}
+  STATE.mkdir(parents=True, exist_ok=True)
+  me = me_of(args.session, data)
+  if not me["opted_in"]:
+    print(f"{me['repository']} is not opted in: nothing saved")
+    return 0
+  built = build_session(me)
+  blocked = write_spool(args.session, built, own_emails(me))
+  for day, name, text in built:
+    key = f"{day}/{name}"
+    print(f"{'blocked' if key in blocked else 'built'}: {key} ({turns(text)} turns)")
+    for problem in blocked.get(key, []):
+      print(f"  {problem}")
+  if args.dry_run or blocked:
+    alert()
+    return 1 if blocked else 0
+  return command_upload(args)
+
+
+def main():
+  parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+  commands = parser.add_subparsers(dest="command", required=True)
+  commands.add_parser("hook", help="run as a Claude Code hook: the event's JSON on stdin").set_defaults(run=hook)
+  uploading = commands.add_parser("upload", help="upload a session's pending files")
+  uploading.add_argument("--session", required=True)
+  uploading.set_defaults(run=command_upload)
+  commands.add_parser("retry", help="upload what any session left pending").set_defaults(run=command_retry)
+  noting = commands.add_parser("note", help="add the agent's title, summary (with Radar: lines) or decisions")
+  noting.add_argument("kind", choices=NOTES)
+  noting.add_argument("--file", help="the note's Markdown; stdin when absent")
+  noting.add_argument("--session", help="the session id; $CLAUDE_CODE_SESSION_ID when absent")
+  noting.set_defaults(run=command_note)
+  status = commands.add_parser("status", help="the last sessions and whether their raw logs are on Drive")
+  status.add_argument("--limit", type=int, default=15)
+  status.set_defaults(run=command_status)
+  building = commands.add_parser("build", help="build, check and upload one session by hand")
+  building.add_argument("--session", required=True)
+  building.add_argument("--transcript", required=True)
+  building.add_argument("--cwd", required=True)
+  building.add_argument("--dry-run", action="store_true", help="build and check, do not upload")
+  building.set_defaults(run=command_build)
+  args = parser.parse_args()
+  sys.exit(args.run(args))
+
+
+if __name__ == "__main__":
+  main()

@@ -181,18 +181,35 @@ class Pontos(unittest.TestCase):
     redacted, count = self.pontos.redact(text)
     self.assertEqual(count, 4)
     self.assertIn("Bearer [REDACTED]", redacted)
-    self.assertIn("token = [REDACTED](\"X\")", redacted)
+    self.assertIn("token = [REDACTED]\n", redacted)
     self.assertIn("write to [REDACTED] or agent@example.com at [REDACTED]", redacted)
     self.assertEqual(self.pontos.check(redacted), [])
 
   def test_redact_leaves_nothing_of_the_secret_behind(self):
-    for text, kept in (("password=abcdefghijklmnop$qrs!tuv end", "password=[REDACTED] end"),
-                       ("aws_secret_access_key = wJalrXUtnFEMI/K7MDENG end", "aws_secret_access_key = [REDACTED] end"),
-                       ("-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nbody\n-----END RSA PRIVATE KEY-----\nend", "[REDACTED]\nend")):
+    os.environ["SOME_TOKEN"] = "live(value)1234567890"
+    self.addCleanup(os.environ.pop, "SOME_TOKEN")
+    for text, kept in (("password=abcdefghijklmnop$qrs(tuv) end", "password=[REDACTED] end"),
+                       ("aws_secret_access_key = wJal(rXUtnFEMI/K7MDENG end", "aws_secret_access_key = [REDACTED] end"),
+                       ("-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nbody\n-----END RSA PRIVATE KEY-----\nend", "[REDACTED]\nend"),
+                       ("token: live(value)1234567890 end", "token: [REDACTED] end")):
       redacted, _ = self.pontos.redact(text)
       self.assertEqual(redacted, kept)
-    # the label alone still fails the check: the file stays blocked for the owner to look at
-    self.assertTrue(self.pontos.check("aws_secret_access_key = [REDACTED]"))
+      self.assertEqual(self.pontos.check(redacted), [], text)
+    # a label with no value, or a redacted one, is no secret
+    self.assertEqual(self.pontos.check("the aws_secret_access_key = [REDACTED] label"), [])
+
+  def test_redact_never_clears_a_log_that_shrank(self):
+    self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "### a\n### b\nghp_" + "a" * 36)], set())
+    state = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
+    state["files"] = {"2026-10-29/x.md": {"turns": 5}}
+    self.pontos.save(self.root / f"state/sessions/{self.session}/state.json", state)
+    self.pontos.REMOTE = str(self.root / "drive")
+    self.pontos.command_redact(type("Args", (), {"session": self.session[:8], "dry_run": False}))
+    blocked = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")["blocked"]
+    self.assertIn("the log shrank", blocked["2026-10-29/x.md"][0])
+
+  def test_redact_needs_exactly_one_session(self):
+    self.assertEqual(self.pontos.command_redact(type("Args", (), {"session": "nope", "dry_run": True})), 1)
 
   def test_the_redact_command_unblocks_the_file_and_uploads_it(self):
     self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Authorization: Bearer abcdefghijklmnopqrstuvwxyz")], set())

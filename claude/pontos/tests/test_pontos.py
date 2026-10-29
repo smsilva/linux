@@ -197,6 +197,8 @@ class Pontos(unittest.TestCase):
       self.assertEqual(self.pontos.check(redacted), [], text)
     # a label with no value, or a redacted one, is no secret
     self.assertEqual(self.pontos.check("the aws_secret_access_key = [REDACTED] label"), [])
+    self.assertEqual(self.pontos.check(r"grep 'aws_secret_access_key = \\[REDACTED\\]' in a log"), [])
+    self.assertTrue(self.pontos.check(r"aws_secret_access_key = \"wJal(rXUtnFEMI\""))
 
   def test_redact_never_clears_a_log_that_shrank(self):
     self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "### a\n### b\nghp_" + "a" * 36)], set())

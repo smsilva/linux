@@ -1,17 +1,17 @@
 ---
 name: wrap-up
-description: Use before /clear or at the end of a session, when the owner asks what is worth keeping ("antes do clear", "o que guardar", "veja se temos o que guardar em issues", "fechar a sessão", "encerrar", "wrap-up"). Gathers the repository's facts with `wrap-up-facts`, sweeps the conversation for loose ends, and proposes one numbered table of where each one goes (issue, handoff, rule, Pontos notes, owner action); acts only on the owner's go, delegating to the issue, handoff and save-session-learnings skills.
+description: Use before /clear or at the end of a session, when the owner asks what is worth keeping ("antes do clear", "o que guardar", "veja se temos o que guardar em issues", "fechar a sessão", "encerrar", "wrap-up"). Gathers the repository's facts with `wrap-up-facts`, sweeps the conversation for loose ends, and proposes one numbered table of where each one goes (issue, handoff, rule, owner action); acts only on the owner's go, writes the Pontos notes (the agent's own part) without asking, delegating to the issue, handoff and save-session-learnings skills.
 ---
 
 # Wrap up a session
 
-Nothing of value may stay only in the conversation: what was decided, found or left for later goes somewhere durable before `/clear`. This skill proposes first and acts only on the owner's go; the proposal is the dry run.
+Nothing of value may stay only in the conversation: what was decided, found or left for later goes somewhere durable before `/clear`. This skill proposes first and acts only on the owner's go; the proposal is the dry run. The Pontos notes are the exception: they are the agent's own part (`pontos.md`), so they are written without asking and shown in the report.
 
 ## Rules
 
 - Never push, merge, claim, release or delete anything here. Leftover worktrees and branches are reported, not proposed for cleanup (cleanup has its own rule in `workflow.md`).
 - More than one item In Progress for the owner on the board: say so and ask which one stays (`wip.md`).
-- Pontos: read its status and write the notes only; `pontos-save redact` only on the owner's word (`pontos.md`).
+- Pontos: read its status and write the notes (title, summary, decisions) without putting them in the proposal; `pontos-save redact` only on the owner's word (`pontos.md`).
 - Delegate instead of repeating: an issue goes through the project's `issue` skill (else plain `gh issue create`), a handoff through the `handoff` skill (the project's, else the global one), a learning through `save-session-learnings`, a Pontos note through `pontos-save note`.
 
 ## Steps
@@ -30,11 +30,11 @@ Nothing of value may stay only in the conversation: what was decided, found or l
    - `issue` (new, sub-issue, or comment on an existing one: search first);
    - `handoff` (a comment on the In Progress issue: last step, next step, open decision);
    - `regra` (a rule file or `CLAUDE.md` note);
-   - `pontos` (title, summary with `Radar:` lines, decisions);
+   - `pontos` (title, summary with `Radar:` lines, decisions): never in the table, written in step 6;
    - `owner` (something only the owner can do: a login, a merge, a cleanup);
    - `nada` (already recorded: say where, e.g. "#505 (agent login renewal)").
 
-4. **Issues first.** Open the proposal with the `issues` facts, each issue with its number and title:
+4. **Issues first.** Open the proposal with the `issues` facts in a table (`| Papel | Issue | Estado |`), one row per issue with its number and title:
    - **Atual:** the issue In Progress, or the one(s) closed in this session (of those `closed today`, name only the ones this conversation closed), saying which;
    - **Sequência:** the open issues that follow it (`then:`);
    - **Próxima depois do `/clear`:** what `queue next` gives;
@@ -45,8 +45,8 @@ Nothing of value may stay only in the conversation: what was decided, found or l
    | # | Item | Destino | Texto proposto |
    | --- | --- | --- | --- |
 
-   Below it, one line on the facts that need nothing (e.g. "3 worktrees mergeadas no disco: limpeza fica com você"). Without a board or a project `issue` skill, propose plain `gh`; without a remote, only `HANDOFF.local.md` and the Pontos notes.
+   Below it, one line on the facts that need nothing (e.g. "3 worktrees mergeadas no disco: limpeza fica com você"). Without a board or a project `issue` skill, propose plain `gh`; without a remote, only `HANDOFF.local.md`.
 
-6. **Act** on the approved items only. Each action stands alone: report a failure and go on with the next.
+6. **Act** on the approved items only, and write the Pontos notes (`pontos-save note title|summary|decisions`) whatever the answer. Each action stands alone: report a failure and go on with the next.
 
-7. **Report** what went where, every issue and PR number with its short description, then "pronto para `/clear`" (and `/next` in a repository with a board, naming the issue it will pick). In the main session, `speak` one short pt-BR sentence with the outcome when the project asks for it.
+7. **Report** what went where (the Pontos notes included), every issue and PR number with its short description, then "pronto para `/clear`" (and `/next` in a repository with a board, naming the issue it will pick). In the main session, `speak` one short pt-BR sentence with the outcome when the project asks for it.

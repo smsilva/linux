@@ -3,11 +3,14 @@
 unmerged or blocked. It reads only and changes nothing.
 
 Sources: git (the working tree, the worktrees, the local branches and how far they are on origin), gh (the pull
-requests of those branches), the project's board (`scripts/board/queue`, when the repository has one), the project's
+requests of those branches), the project's board (`scripts/board/queue mine` and `next`, when the repository has one;
+the current issue, the sequence it starts and whether the next one follows it), the project's
 own skills (`issue`, `handoff`) and Pontos (`pontos-save status`). Each source fails on its own and reads
 `unavailable: <reason>`; the script exits 0 whenever it printed facts.
 """
 import argparse
+import concurrent.futures
+import datetime
 import json
 import pathlib
 import re
@@ -129,13 +132,121 @@ def origin_owner(repo):
   return found.group(1) if found else None
 
 
-def board(repo):
+def trusted_queue(repo):
   queue = pathlib.Path(repo) / "scripts/board/queue"
   if not queue.exists():
     raise Unavailable("no board (scripts/board/queue)")
   if origin_owner(repo) not in TRUSTED_OWNERS:
     raise Unavailable("board not trusted (origin is not one of the owner's)")
-  return [line.strip() for line in run(str(queue), "mine", cwd=repo).splitlines() if line.strip()]
+  return str(queue)
+
+
+def board(repo):
+  """Mine (`queue mine`) and the next issue (`queue next`), both read only and slow (the board's API), run at once."""
+  queue = trusted_queue(repo)
+  with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    mine, upcoming = pool.submit(run, queue, "mine", cwd=repo), pool.submit(run, queue, "next", cwd=repo)
+    return {"mine": mine.result(), "next": upcoming.result()}
+
+
+def numbered(lines):
+  """The issues in `queue` lines (`Todo  #488  <title>`), as {number, title}."""
+  found = []
+  for line in lines.splitlines():
+    match = re.search(r"#(\d+)\s+(.*)$", line)
+    if match:
+      found.append({"number": int(match.group(1)), "title": clean(match.group(2).strip())})
+  return found
+
+
+# Who may put an issue in a sequence: an issue of a public repository can be opened by anyone, and its title reaches
+# the agent's context, so only the repository's own people count.
+TRUSTED_AUTHORS = {"OWNER", "MEMBER", "COLLABORATOR"}
+
+
+def clean(title):
+  """An issue title as data: no control characters, at most 120 characters."""
+  title = "".join(char for char in title if char.isprintable())
+  return title if len(title) <= 120 else title[:119] + "…"
+
+
+def sequence(repo, slug, number, body):
+  """The open issues that follow one: its `Blocks #n`, the open issues that say `Depends on #<it>`, and the open
+  sub-issues of its parent; each one opened by the repository's own people (TRUSTED_AUTHORS)."""
+  candidates = set()
+  for line in body.splitlines():
+    if re.match(r"\W*blocks\b", line, re.IGNORECASE):
+      candidates.update(int(n) for n in re.findall(r"#(\d+)", line))
+  out = run("gh", "issue", "list", "--state", "open", "--limit", "50", "--search", f'"Depends on #{number}" in:body',
+            "--json", "number,body", cwd=repo)
+  for found in json.loads(out):
+    if re.search(rf"depends on\b[^\n]*#{number}\b", found["body"], re.IGNORECASE):
+      candidates.add(found["number"])
+  owner, name = slug.split("/")
+  fields = "number title state authorAssociation"
+  query = (f'query($n:Int!){{repository(owner:"{owner}",name:"{name}"){{issue(number:$n){{parent{{subIssues(first:50)'
+           f"{{nodes{{{fields}}}}}}}}}}}}}")
+  data = json.loads(run("gh", "api", "graphql", "-F", f"n={number}", "-f", f"query={query}", cwd=repo))
+  parent = data["data"]["repository"]["issue"]["parent"]
+  found = {node["number"]: node for node in (parent or {}).get("subIssues", {}).get("nodes", [])}
+  missing = sorted(candidates - set(found))
+  if missing:
+    aliases = " ".join(f"i{key}:issue(number:{key}){{{fields}}}" for key in missing)
+    query = f'{{repository(owner:"{owner}",name:"{name}"){{{aliases}}}}}'
+    data = json.loads(run("gh", "api", "graphql", "-f", f"query={query}", cwd=repo))
+    found.update({node["number"]: node for node in data["data"]["repository"].values() if node})
+  return [{"number": key, "title": clean(node["title"])} for key, node in sorted(found.items())
+          if key != number and node["state"] == "OPEN" and node["authorAssociation"] in TRUSTED_AUTHORS]
+
+
+WITHHELD = "(title withheld: external author)"
+
+
+def vet(repo, slug, listed):
+  """Replaces the title of every issue whose author is not the repository's own people (TRUSTED_AUTHORS) with
+  WITHHELD, in place: one GraphQL query for all of them."""
+  numbers = sorted({issue["number"] for issue in listed})
+  if not numbers:
+    return
+  owner, name = slug.split("/")
+  aliases = " ".join(f"i{key}:issue(number:{key}){{number authorAssociation}}" for key in numbers)
+  data = json.loads(run("gh", "api", "graphql", "-f", f'query={{repository(owner:"{owner}",name:"{name}"){{{aliases}}}}}',
+                        cwd=repo))
+  trusted = {node["number"] for node in data["data"]["repository"].values()
+             if node and node["authorAssociation"] in TRUSTED_AUTHORS}
+  for issue in listed:
+    if issue["number"] not in trusted:
+      issue["title"] = WITHHELD
+
+
+def issues(repo, queues):
+  """The current issues (mine In Progress, and those I closed today), the sequence each one starts, and the next
+  issue after a /clear (`queue next`, read only), flagged when it leaves a sequence."""
+  if not shutil.which("gh"):
+    raise Unavailable("gh not installed")
+  current = [dict(issue, state="in progress") for issue in numbered(queues["mine"])]
+  today = datetime.date.today().isoformat()
+  out = run("gh", "issue", "list", "--state", "closed", "--limit", "20", "--search", f"assignee:@me closed:>={today}",
+            "--json", "number,title", cwd=repo)
+  current += [{"number": issue["number"], "title": clean(issue["title"]), "state": "closed today"}
+              for issue in json.loads(out)]
+  slug = run("gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner", cwd=repo).strip()
+
+  def follow(issue):
+    body = json.loads(run("gh", "issue", "view", str(issue["number"]), "--json", "body", cwd=repo))["body"]
+    issue["sequence"] = sequence(repo, slug, issue["number"], body)
+
+  with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    list(pool.map(follow, current))
+  following = numbered(queues["next"])
+  upcoming = following[0] if following else None
+  vet(repo, slug, current + ([upcoming] if upcoming else []))
+  expected = {follow["number"] for issue in current for follow in issue["sequence"]}
+  return {
+    "current": current,
+    "next": upcoming,
+    "off_sequence": bool(expected) and (upcoming is None or upcoming["number"] not in expected),
+  }
 
 
 def skills(repo):
@@ -174,6 +285,12 @@ def facts(repo):
   names = [branch["name"] for branch in report["branches"]] if isinstance(report["branches"], list) else []
   gather("pull_requests", pull_requests, top, names)
   gather("board", board, top)
+  queues = report.pop("board")
+  if "unavailable" in queues:
+    report["board"] = report["issues"] = queues
+  else:
+    report["board"] = [line.strip() for line in queues["mine"].splitlines() if line.strip()]
+    gather("issues", issues, top, queues)
   gather("skills", skills, top)
   gather("pontos", pontos, top)
   return report
@@ -209,6 +326,22 @@ def text(report):
         lines.append(f"  {name}: #{pr['number']} {pr['state']} ({pr['title']})")
     else:
       lines.extend(f"  {line}" for line in value)
+  found = report.get("issues")
+  if unavailable(found):
+    lines.append(f"issues: unavailable: {found['unavailable']}")
+  elif found is not None:
+    lines.append("issues:")
+    for issue in found["current"] or [{"number": None}]:
+      if issue["number"] is None:
+        lines.append("  current: none")
+        continue
+      lines.append(f"  current: #{issue['number']} ({issue['state']}) {issue['title']}")
+      for follow in issue["sequence"]:
+        lines.append(f"    then: #{follow['number']} {follow['title']}")
+    upcoming = found["next"]
+    lines.append(f"  next: #{upcoming['number']} {upcoming['title']}" if upcoming else "  next: none")
+    if found["off_sequence"]:
+      lines.append("  warning: the next issue does not follow the sequence of the current one(s)")
   skill = report["skills"]
   lines.append("skills: " + ", ".join(f"{name} {where}" for name, where in skill.items()))
   return "\n".join(lines)

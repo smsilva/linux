@@ -106,7 +106,16 @@
     "planning@flow-cloud-hub": true,
     "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
-    "superpowers@claude-plugins-official": true
+    "superpowers@claude-plugins-official": true,
+    "nats-channel@synadia-plugins": false
+  },
+  "extraKnownMarketplaces": {
+    "synadia-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "synadia-ai/synadia-agents"
+      }
+    }
   },
   "language": "pt-BR",
   "effortLevel": "medium",

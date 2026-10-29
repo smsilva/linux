@@ -24,6 +24,7 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
   - `rules/` — global user instructions, one topic per file (symlinked to `~/.claude/rules/`)
   - `CLAUDE.md` — kept for the `~/.claude/CLAUDE.md` symlink; content lives in `rules/`
   - `settings.json` — global Claude settings
+- `apps/<app>/` — per-application files: `config/` holds a sanitized snapshot of the app's config (no passwords, keys or install IDs; the repo is public); see `apps/README.md`
 - `plugins/linux-tools/` — Claude Code plugin that publishes the `bash-scripts` and `conventional-commits` skills
 
 ## Conventions

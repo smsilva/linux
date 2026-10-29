@@ -4,6 +4,7 @@ Run: python3 -m unittest discover -s claude/pontos/tests
 """
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
 import pathlib
@@ -172,6 +173,19 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.pending(self.session), [])
     self.assertTrue(self.pontos.alert())
     self.assertTrue((self.root / "state/alert").exists())
+
+  def test_a_blocked_file_holds_back_only_itself_the_clean_ones_go_up(self):
+    calls = []
+    self.pontos.in_background = lambda *args: calls.append(args)
+    self.pontos.build_session = lambda me, end=None: [
+      ("2026-10-29", "x.md", "ghp_" + "a" * 36), ("2026-10-29", "x-agent.md", "clean")]
+    stdin = sys.stdin
+    self.addCleanup(setattr, sys, "stdin", stdin)
+    sys.stdin = io.StringIO(json.dumps({"session_id": self.session, "hook_event_name": "SubagentStop",
+                                        "cwd": str(self.main), "transcript_path": str(self.path)}))
+    self.pontos.hook(None)
+    self.assertIn(("upload", "--session", self.session), calls)
+    self.assertEqual([key for key, _, _ in self.pontos.pending(self.session)], ["2026-10-29/x-agent.md"])
 
   def test_redact_keeps_the_words_around_the_value_and_passes_the_check(self):
     (self.root / "config").mkdir(exist_ok=True)

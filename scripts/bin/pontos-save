@@ -681,11 +681,9 @@ def hook(args):
     in_background("retry")
     return 0
   end = data.get("reason", "other") if event == "SessionEnd" else None
-  blocked = write_spool(session, build_session(me, end), own_emails(me))
+  write_spool(session, build_session(me, end), own_emails(me))
   alert()
-  if blocked:
-    return 0
-  in_background("upload", "--session", session)
+  in_background("upload", "--session", session)  # a blocked file holds back only itself: pending() skips it
   return 0
 
 
@@ -751,10 +749,9 @@ def command_note(args):
   (folder / f"{args.kind}.md").write_text(text.strip() + "\n")
   me = me_of(session)
   if me.get("transcript_path") and me.get("opted_in"):
-    blocked = write_spool(session, build_session(me), own_emails(me))
+    write_spool(session, build_session(me), own_emails(me))
     alert()
-    if not blocked:
-      in_background("upload", "--session", session)
+    in_background("upload", "--session", session)
   print(f"{args.kind} saved for session {session[:8]}")
   return 0
 

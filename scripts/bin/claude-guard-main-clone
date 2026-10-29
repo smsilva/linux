@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""A Claude Code PreToolUse hook: refuses a commit or a file edit in the main clone of one of the owner's repositories.
+
+The rule (~/.claude/rules/workflow.md): a session may have its home in the main clone, but every change goes into its
+own worktree; the main clone is only read and pulled. A main clone is a checkout whose git dir is its common dir; a
+linked worktree has its own. Files git ignores (CLAUDE.local.md, settings.local.json) may still be edited there.
+Repositories outside the owner's (the same opt-in as Pontos) are left alone.
+
+Exit 2 blocks the tool call and shows the message to the agent; exit 0 lets it run.
+"""
+import importlib.machinery
+import importlib.util
+import json
+import pathlib
+import re
+import shlex
+import sys
+
+EDITS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+COMMIT = re.compile(r"\bgit\b[^|;&]*?\bcommit\b")
+
+
+def pontos():
+  sys.dont_write_bytecode = True  # no __pycache__ next to the scripts
+  path = pathlib.Path(__file__).resolve().parent / "pontos-save"
+  loader = importlib.machinery.SourceFileLoader("pontos_save", str(path))
+  module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+  loader.exec_module(module)
+  return module
+
+
+def existing(path):
+  for candidate in (path, *path.parents):
+    if candidate.exists():
+      return candidate if candidate.is_dir() else candidate.parent
+  return None
+
+
+def commit_dirs(command, cwd):
+  """The folders the command's `git commit`s run in: `git -C <dir>`, else a leading `cd <dir>`, else cwd."""
+  found = []
+  for segment in re.split(r"&&|\|\||;|\n", command):
+    if not COMMIT.search(segment):
+      continue
+    try:
+      words = shlex.split(segment)
+    except ValueError:
+      words = segment.split()
+    directory = None
+    if "-C" in words and words.index("-C") + 1 < len(words):
+      directory = words[words.index("-C") + 1]
+    found.append(directory)
+  base = cwd
+  leading = re.match(r"\s*cd\s+(\"[^\"]+\"|'[^']+'|\S+)\s*&&", command)
+  if leading:
+    base = cwd / pathlib.Path(leading.group(1).strip("\"'")).expanduser()
+  return [base / pathlib.Path(directory).expanduser() if directory else base for directory in found]
+
+
+def refused(module, directory, file=None):
+  """The message when directory is in the main clone of an opted-in repository, else None."""
+  directory = existing(directory)
+  if not directory:
+    return None
+  toplevel = module.git(directory, "rev-parse", "--show-toplevel")
+  if not toplevel:
+    return None
+  dirs = module.git(directory, "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir").splitlines()
+  if len(dirs) != 2 or dirs[0] != dirs[1]:
+    return None
+  repository = module.repository_of(module.git(directory, "remote", "get-url", "origin"))
+  if not module.opted_in(repository):
+    return None
+  if file and module.subprocess.run(["git", "-C", toplevel, "check-ignore", "--quiet", str(file)]).returncode == 0:
+    return None
+  name = pathlib.Path(toplevel).name
+  helper = pathlib.Path(toplevel) / "scripts/worktree/new"
+  create = (
+    f"{helper} <type> <id>-<slug>" if helper.exists()
+    else f"git -C {toplevel} worktree add ../{name}-<slug> -b <type>/<slug> origin/main"
+  )
+  return (
+    f"{toplevel} is the main clone of {repository}: every change goes into its own worktree, "
+    f"the main clone is only read and pulled (~/.claude/rules/workflow.md).\n"
+    f"Create a worktree and make the change there:\n  {create}"
+  )
+
+
+def main():
+  try:
+    data = json.load(sys.stdin)
+  except json.JSONDecodeError:
+    return 0
+  tool, args = data.get("tool_name"), data.get("tool_input") or {}
+  cwd = pathlib.Path(data.get("cwd") or ".")
+  if tool in EDITS:
+    target = args.get("file_path") or args.get("notebook_path")
+    if not target:
+      return 0
+    file = pathlib.Path(target) if pathlib.Path(target).is_absolute() else cwd / target
+    checks = [(file.parent, file)]
+  elif tool == "Bash" and COMMIT.search(args.get("command", "")):
+    checks = [(directory, None) for directory in commit_dirs(args["command"], cwd)]
+  else:
+    return 0
+  module = pontos()
+  for directory, file in checks:
+    message = refused(module, directory, file)
+    if message:
+      print(message, file=sys.stderr)
+      return 2
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())

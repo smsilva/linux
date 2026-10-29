@@ -3,6 +3,7 @@
 - Walk Skeleton is always preferred approach for development: ship a thin end-to-end slice early for feedback
 - `CLAUDE.local.md` deve estar sempre no `.gitignore` de qualquer repositório (arquivo local, não versionado, análogo a `HANDOFF.local.md`)
 - Commit only on a branch, never on `main` (or the repository's trunk): if on it, create a branch named for the change first, then commit there. Every change reaches `main` through a PR.
+- Worktrees (the owner's repositories): a session may have its home in the main clone (one per tmux window), but every change goes into its own worktree; the main clone is only read and pulled. `claude-guard-main-clone` (a `PreToolUse` hook) refuses commits and file edits in a main clone, except files git ignores; use the repository's own helper (`scripts/worktree/new` in Nereus) or `git worktree add ../<repo>-<slug> -b <type>/<slug> origin/main`.
 - PRs (Bitbucket and GitHub): detect the host via `git remote get-url origin`.
   - Generate a description and save it as `/tmp/<branch>-pr.txt` using markdown
   - In chat messages: show absolute file paths so the user can click/open in the editor

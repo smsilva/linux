@@ -10,12 +10,16 @@ own skills (`issue`, `handoff`) and Pontos (`pontos-save status`). Each source f
 import argparse
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 
 TRUNKS = {"main", "master"}
 # The board script lives in the repository, so it runs only where origin belongs to the owner (as Pontos's opt-in).
 TRUSTED_OWNERS = {"smsilva", "getnereus", "wasp-foundry"}
+# Only github.com, as scp (git@github.com:o/r) or URL (https:// or ssh://git@); anything else (another host, a local
+# path, a query) has no owner.
+GITHUB = re.compile(r"(?:git@github\.com:|(?:https|ssh)://(?:git@)?github\.com/)([A-Za-z0-9-]+)/[A-Za-z0-9._-]+?(?:\.git)?/?")
 
 
 class Unavailable(Exception):
@@ -121,8 +125,8 @@ def origin_owner(repo):
     url = git("remote", "get-url", "origin", cwd=repo).strip()
   except Unavailable:
     return None
-  parts = url.replace(":", "/").rstrip("/").split("/")
-  return parts[-2] if len(parts) >= 2 else None
+  found = GITHUB.fullmatch(url)
+  return found.group(1) if found else None
 
 
 def board(repo):

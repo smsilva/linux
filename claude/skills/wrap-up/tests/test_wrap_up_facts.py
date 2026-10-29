@@ -94,6 +94,13 @@ class Repository(unittest.TestCase):
       git("remote", "set-url", "origin", url, cwd=self.clone)
       self.assertIn(facts.origin_owner(str(self.clone)), facts.TRUSTED_OWNERS)
 
+  def test_an_owner_name_elsewhere_in_the_url_is_no_owner(self):
+    for url in ("https://evil.example.com/smsilva/linux", "/tmp/smsilva/linux", "git@evil.example.com:smsilva/linux.git",
+                "https://github.com.evil.example.com/smsilva/linux", "https://github.com/smsilva/linux?x=1",
+                "https://evil.example.com/x#github.com/smsilva/linux"):
+      git("remote", "set-url", "origin", url, cwd=self.clone)
+      self.assertIsNone(facts.origin_owner(str(self.clone)), url)
+
   def test_it_changes_nothing(self):
     before = subprocess.run(["git", "status", "--porcelain"], cwd=self.clone, capture_output=True, text=True).stdout
     facts.facts(str(self.clone))

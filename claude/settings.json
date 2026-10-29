@@ -16,16 +16,6 @@
   "hooks": {
     "Stop": [
       {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "flow-ai-obs Stop",
-            "timeout": 15
-          }
-        ]
-      },
-      {
         "hooks": [
           {
             "type": "command",
@@ -42,51 +32,6 @@
             "type": "command",
             "command": "play service-login",
             "async": true
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "flow-ai-obs PreToolUse",
-            "timeout": 3
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "case \"${CLAUDE_PROJECT_DIR}\" in */flow/platform-api*) exit 0 ;; esac; rtk hook claude"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "flow-ai-obs UserPromptSubmit",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "flow-ai-obs PostToolUse",
-            "timeout": 10
           }
         ]
       }
@@ -177,16 +122,5 @@
       "routine under aws/terraform/* and aws/eks/* prefixes: terraform fmt/validate/init(-backend=false)/plan-type read operations are routine for this project"
     ]
   },
-  "voiceEnabled": true,
-  "env": {
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
-    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
-    "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_LOGS_EXPORTER": "otlp",
-    "OTEL_LOG_TOOL_DETAILS": "1",
-    "OTEL_LOG_USER_PROMPTS": "1",
-    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://flow.ciandt.com/otel",
-    "FLOW_BASE_URL": "https://flow.ciandt.com"
-  },
-  "otelHeadersHelper": "flow-ai-obs otel-headers"
+  "voiceEnabled": true
 }

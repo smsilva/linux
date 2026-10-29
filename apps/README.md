@@ -5,7 +5,7 @@ One folder per application or utility, grouping everything about it:
 ```
 apps/<app>/
   config/     snapshot of the app's config directory (e.g. ~/.config/<app>)
-  install     installer (to be migrated from scripts/utilities/<app>/)
+  install     installer (for now a symlink to scripts/utilities/<app>/install.sh)
   README.md   what is versioned, what is left out, how to restore and refresh
 ```
 

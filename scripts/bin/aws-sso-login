@@ -1,0 +1,10 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+aws sso login \
+  --use-device-code \
+  "$@" \
+&& aws-profile

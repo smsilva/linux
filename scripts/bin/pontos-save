@@ -39,7 +39,7 @@ LONG_ARGUMENT = 300
 
 SECRETS = [
   re.compile(r"trycloudflare\.com/[0-9a-f]{16,}"),
-  re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key)(\\?[\"'])?\s*[:=]\s*(\\?[\"'])?[A-Za-z0-9+/_.-]{12,}"),
+  re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key)(\\?[\"'])?\s*[:=]\s*(\\?[\"'])?(?P<value>[A-Za-z0-9+/_.-]{12,})"),
   re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9+/_.=-]{20,}"),  # an Authorization header
   re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),  # a JWT
   re.compile(r"[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s:@]+@"),  # credentials in a URL
@@ -54,6 +54,12 @@ SECRETS = [
   re.compile(r"\+55\s?\(?\d{2}\)?\s?9?\d{4}-?\d{4}\b|\(\d{2}\)\s?9?\d{4}-\d{4}\b"),  # phone number
   re.compile(r"\b(Rua|Avenida|Av\.|Alameda|Travessa|Rodovia)\s+[A-ZÀ-Ú][^,\n]{2,40},\s*\d{1,5}\b"),  # street address
 ]
+# a value that only names a secret (`google-oauth`, `GOOGLE_CLIENT_SECRET`, `default/google-oauth/CLIENT_ID`):
+# letter-only words joined by `-` or `_`, or such names joined by `/`, never digits or mixed case
+NAME_WORDS = r"(?:[a-z]+(?:-[a-z]+)*|[A-Z]+(?:_[A-Z]+)*)"
+SECRET_NAME = re.compile(rf"(?=.*[-_/]){NAME_WORDS}(?:/{NAME_WORDS})*")
+# a name ends the token: only closing quotes or punctuation before a space or the end (`google-oauth$x` is no name)
+NAME_END = re.compile(r"[\\\"'),;}\]]*(?=\s|$)")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # git@<host> is an SSH remote, not a person
 EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|users\.noreply\.github\.com)$")
@@ -447,6 +453,8 @@ def check(text, own_emails=()):
   problems = []
   for pattern in SECRETS:
     for match in pattern.finditer(text):
+      if names_a_secret(match):
+        continue
       problems.append(f"looks like a secret or personal data: {match.group(0)[:12]}...")
   for match in EMAIL.finditer(text):
     if not EMAIL_ALLOWED.search(match.group(0)) and match.group(0).lower() not in {email.lower() for email in own_emails}:
@@ -466,13 +474,21 @@ def denied():
   return [word for word in (line.split("#")[0].strip() for line in DENY_LIST.read_text().splitlines()) if word]
 
 
+def names_a_secret(match):
+  """A value that only names a secret, never a password's, and ending its token: nothing after it can hide."""
+  value = match.groupdict().get("value")
+  if not value or re.match(r"(?i)passw", match.group(0)):
+    return False
+  return bool(SECRET_NAME.fullmatch(value) and NAME_END.match(match.string, match.end()))
+
+
 def hide(pattern, text):
   """Replaces each match of a secret's pattern from its first separator on, and the rest of the token after the
   match too: a secret longer than the pattern's charset (`password=abc$def...`) leaves nothing behind. A match
   that is only a label (`aws_secret_access_key =`) hides the value that follows it."""
   parts, last, count = [], 0, 0
   for match in pattern.finditer(text):
-    if match.start() < last:
+    if match.start() < last or names_a_secret(match):
       continue
     found, end = match.group(0), match.end()
     label = SECRET_LABEL.match(found)

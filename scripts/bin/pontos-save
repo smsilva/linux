@@ -5,7 +5,8 @@ Pontos is the raw data layer (in Hesiod's Theogony, the primordial sea, father o
 `pontos-save hook`: it builds a Markdown raw log from the session's JSONL transcript, one file per session and one per
 subagent, in a local spool first, checks it for secrets, and uploads it in the background to
 `#pontos/raw/<YYYY-MM-DD>/HHMM-<agent>.md`. The agent adds only what needs judgement (title, summary, decisions,
-Radar lines) with `pontos-save note`. Only the owner's own repositories are saved (opt-in).
+Radar lines) with `pontos-save note`; a session that ends without them gets them from `pontos-save summarize`, a model
+reading its raw log. Only the owner's own repositories are saved (opt-in).
 
 Rule: ~/.claude/rules/pontos.md. Local spool: ~/.local/state/pontos/.
 """
@@ -36,6 +37,23 @@ DENY_LIST = CONFIG / "deny-list"
 COMMAND_NAMES = {"bash", "zsh", "sh", "fish", "node", "claude", "python", "python3", "tmux", "vim", "nvim", "ssh", "less", "man"}
 NOTES = ("title", "summary", "decisions")
 LONG_ARGUMENT = 300
+# a session that ends with no notes gets them from a model reading its raw log (`summarize`); the agent's own notes win
+SUMMARY_MODEL = os.environ.get("PONTOS_SUMMARY_MODEL", "sonnet")
+SUMMARY_MIN_TURNS = 3
+SUMMARY_TRIES = 3
+SUMMARY_HEAD, SUMMARY_TAIL = 50_000, 250_000  # the characters of a long log the model reads: its start and its end
+GENERATED = "_Generated after the session by `pontos-save summarize` ({model}), from the raw log._"
+SUMMARY_PROMPT = """You read the raw log of one Claude Code session, below, and write its notes for the owner's archive.
+Reply with only a JSON object with three string fields:
+- "title": one line, at most 120 characters, what the session delivered, naming the issue and PR numbers the log names;
+- "summary": one to three paragraphs in English, one paragraph per line, what was done and what was left open; then one
+  line `Radar: <ring> · <idea>` (ring: adopt, trial, assess or hold) per idea the session created or moved, if any;
+- "decisions": a Markdown list, one line per decision the owner took or agreed, as `- Owner, YYYY-MM-DD: ...`; "" if none.
+Use only what the log says, never invent. Write no secrets, e-mails, names of people or personal data.
+
+The log:
+
+"""
 
 SECRETS = [
   re.compile(r"trycloudflare\.com/[0-9a-f]{16,}"),
@@ -684,8 +702,8 @@ def hook(args):
   except json.JSONDecodeError:
     return 0
   session, event = data.get("session_id"), data.get("hook_event_name")
-  if not session:
-    return 0
+  if not session or os.environ.get("PONTOS_SUMMARIZING"):
+    return 0  # the session `summarize` runs to write notes is never saved itself
   STATE.mkdir(parents=True, exist_ok=True)
   me = me_of(session, data)
   if not me["opted_in"]:
@@ -700,7 +718,105 @@ def hook(args):
   end = data.get("reason", "other") if event == "SessionEnd" else None
   write_spool(session, build_session(me, end), own_emails(me))
   alert()
+  if end and needs_notes(session):
+    state = load(STATE / "sessions" / session / "state.json")
+    state["summary"] = {"status": "due", "tries": 0, "end": end}
+    save(STATE / "sessions" / session / "state.json", state)
+    in_background("summarize", "--session", session)  # it uploads the log with the notes when it is done
+    return 0
   in_background("upload", "--session", session)  # a blocked file holds back only itself: pending() skips it
+  return 0
+
+
+# --- notes written after the session ----------------------------------------------------------------------------
+
+
+def needs_notes(session):
+  """True while the title or the summary is missing, or was written by `summarize` (a resumed session gets new ones)."""
+  folder = STATE / "sessions" / session / "notes"
+  return any(not (folder / f"{kind}.md").is_file() or (folder / f"{kind}.generated").exists() for kind in ("title", "summary"))
+
+
+def main_log(session, agent):
+  """The spool's raw log of the main session (`HHMM-<agent>.md`), not a subagent's."""
+  for path in sorted((STATE / "sessions" / session / "out").glob("*/*.md")):
+    if path.name[:4].isdigit() and path.name[4:] == f"-{agent}.md":
+      return path
+  return None
+
+
+def excerpt(text):
+  if len(text) <= SUMMARY_HEAD + SUMMARY_TAIL:
+    return text
+  return text[:SUMMARY_HEAD] + "\n\n[... the middle of the log is left out ...]\n\n" + text[-SUMMARY_TAIL:]
+
+
+def ask_model(text):
+  """The notes from `claude --print`, with no tools, run outside any repository so that its own session saves nothing."""
+  done = subprocess.run(
+    ["claude", "--print", "--model", SUMMARY_MODEL, "--tools", "", "--no-session-persistence", "--output-format", "text"],
+    input=SUMMARY_PROMPT + excerpt(text), cwd=STATE, env={**os.environ, "PONTOS_SUMMARIZING": "1"},
+    capture_output=True, text=True, timeout=600,
+  )
+  if done.returncode != 0:
+    raise RuntimeError(f"claude failed: {(done.stderr.strip().splitlines() or [str(done.returncode)])[-1]}")
+  found = re.search(r"\{.*\}", done.stdout, re.DOTALL)
+  notes = json.loads(found.group(0)) if found else None
+  if not isinstance(notes, dict) or not str(notes.get("title", "")).strip() or not str(notes.get("summary", "")).strip():
+    raise RuntimeError("the model's reply has no title or summary")
+  return {kind: str(notes.get(kind) or "").strip() for kind in NOTES}
+
+
+def summarize(session):
+  """Writes the notes an ended session lacks from its raw log, keeps the agent's own, rebuilds and uploads; returns the
+  status it recorded: done, skipped (too short, blocked, no log, notes by the agent) or failed (retried later)."""
+  folder = STATE / "sessions" / session
+  with open(folder / "summarize.lock", "w") as lock:
+    try:
+      fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+      return "running"
+    state = load(folder / "state.json")
+    summary = state.get("summary", {})
+    me = me_of(session)
+    log = main_log(session, me.get("agent"))
+    if not needs_notes(session):
+      status, reason = "skipped", "notes by the agent"
+    elif not log:
+      status, reason = "skipped", "no raw log"
+    elif f"{log.parent.name}/{log.name}" in state.get("blocked", {}):
+      status, reason = "failed", "the raw log is blocked: redact it first"  # never send a blocked log out again
+    elif turns(log.read_text()) < SUMMARY_MIN_TURNS:
+      status, reason = "skipped", "too short"
+    else:
+      try:
+        notes = ask_model(log.read_text())
+        status, reason = "done", None
+      except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError, RuntimeError) as error:
+        status, reason = "failed", str(error)[:200]
+    if status == "done":
+      written = folder / "notes"
+      written.mkdir(parents=True, exist_ok=True)
+      notes["summary"] += "\n\n" + GENERATED.format(model=SUMMARY_MODEL)
+      for kind in NOTES:
+        if notes[kind] and (not (written / f"{kind}.md").is_file() or (written / f"{kind}.generated").exists()):
+          (written / f"{kind}.md").write_text(notes[kind] + "\n")
+          (written / f"{kind}.generated").touch()
+      if me.get("transcript_path") and me.get("opted_in"):
+        write_spool(session, build_session(me, summary.get("end")), own_emails(me))
+    state = load(folder / "state.json")
+    state["summary"] = {**summary, "status": status, "tries": summary.get("tries", 0) + (status == "failed")}
+    state["summary"].pop("reason", None)
+    if reason:
+      state["summary"]["reason"] = reason
+    save(folder / "state.json", state)
+  upload(session)
+  return status
+
+
+def command_summarize(args):
+  print(f"{args.session[:8]}: {summarize(args.session)}")
+  alert()
   return 0
 
 
@@ -711,8 +827,12 @@ def command_upload(args):
 
 
 def command_retry(args):
+  """Uploads what any session left pending, and writes the notes a failed `summarize` left for later."""
   for folder in sorted((STATE / "sessions").glob("*")) if (STATE / "sessions").is_dir() else []:
-    if pending(folder.name):
+    summary = load(folder / "state.json").get("summary", {})
+    if summary.get("status") in ("due", "failed") and summary.get("tries", 0) < SUMMARY_TRIES:
+      summarize(folder.name)
+    elif pending(folder.name):
       upload(folder.name)
   alert()
   return 0
@@ -764,6 +884,7 @@ def command_note(args):
   folder = STATE / "sessions" / session / "notes"
   folder.mkdir(parents=True, exist_ok=True)
   (folder / f"{args.kind}.md").write_text(text.strip() + "\n")
+  (folder / f"{args.kind}.generated").unlink(missing_ok=True)  # the agent's note replaces one `summarize` wrote
   me = me_of(session)
   if me.get("transcript_path") and me.get("opted_in"):
     write_spool(session, build_session(me), own_emails(me))
@@ -787,6 +908,9 @@ def command_status(args):
       print(f"  {key}: {count} place(s) redacted")
     if state.get("error"):
       print(f"  {state['error']}")
+    if state.get("summary"):
+      summary = state["summary"]
+      print(f"  notes: {summary['status']}" + (f" ({summary['reason']})" if summary.get("reason") else ""))
   return 0
 
 
@@ -818,7 +942,10 @@ def main():
   uploading = commands.add_parser("upload", help="upload a session's pending files")
   uploading.add_argument("--session", required=True)
   uploading.set_defaults(run=command_upload)
-  commands.add_parser("retry", help="upload what any session left pending").set_defaults(run=command_retry)
+  commands.add_parser("retry", help="upload what any session left pending, and write the notes left for later").set_defaults(run=command_retry)
+  summarizing = commands.add_parser("summarize", help="write an ended session's missing notes from its raw log, with a model")
+  summarizing.add_argument("--session", required=True)
+  summarizing.set_defaults(run=command_summarize)
   redacting = commands.add_parser("redact", help="replace what the check blocked with [REDACTED], then upload")
   redacting.add_argument("--session", required=True, help="a session id or its first characters, matching one session")
   redacting.add_argument("--dry-run", action="store_true", help="count what would be redacted, change nothing")

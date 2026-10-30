@@ -261,6 +261,107 @@ class Pontos(unittest.TestCase):
     # an open session rebuilds its log each turn: the next build is redacted too, not blocked again
     self.assertEqual(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Bearer abcdefghijklmnopqrstuvwxyz, then more")], set()), {})
 
+  def end_session(self, calls):
+    self.pontos.in_background = lambda *args: calls.append(args)
+    stdin = sys.stdin
+    self.addCleanup(setattr, sys, "stdin", stdin)
+    sys.stdin = io.StringIO(json.dumps({"session_id": self.session, "hook_event_name": "SessionEnd", "reason": "clear",
+                                        "cwd": str(self.main), "transcript_path": str(self.path)}))
+    self.pontos.hook(None)
+
+  def summarized(self, reply):
+    """Ends the session, then runs summarize with the model's reply (a dict, or an exception it raises)."""
+    self.end_session([])
+    self.pontos.SUMMARY_MIN_TURNS = 0
+    self.pontos.REMOTE = str(self.root / "drive")
+    asked = []
+
+    def model(text):
+      asked.append(text)
+      if isinstance(reply, Exception):
+        raise reply
+      return {kind: reply.get(kind, "") for kind in self.pontos.NOTES}
+
+    self.pontos.ask_model = model
+    return self.pontos.summarize(self.session), asked
+
+  def state(self):
+    return self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
+
+  def write_notes(self, *kinds):
+    folder = self.root / f"state/sessions/{self.session}/notes"
+    folder.mkdir(parents=True, exist_ok=True)
+    for kind in kinds:
+      (folder / f"{kind}.md").write_text(f"The agent's {kind}\n")
+    return folder
+
+  def test_a_session_that_ends_with_no_notes_is_summarized_instead_of_uploaded(self):
+    calls = []
+    self.end_session(calls)
+    self.assertEqual(calls, [("summarize", "--session", self.session)])
+    self.assertEqual(self.state()["summary"], {"status": "due", "tries": 0, "end": "clear"})
+
+  def test_a_session_whose_agent_wrote_the_notes_is_only_uploaded(self):
+    self.write_notes("title", "summary")
+    calls = []
+    self.end_session(calls)
+    self.assertEqual(calls, [("upload", "--session", self.session)])
+
+  def test_summarize_writes_the_missing_notes_keeps_the_agent_s_own_and_uploads(self):
+    folder = self.write_notes("title")
+    status, asked = self.summarized({"title": "A model's title", "summary": "What was done.", "decisions": "- Owner, 2026-10-30: yes"})
+    self.assertEqual(status, "done")
+    self.assertIn("abre o deck", asked[0])
+    self.assertEqual((folder / "title.md").read_text(), "The agent's title\n")
+    self.assertFalse((folder / "title.generated").exists())
+    self.assertTrue((folder / "summary.generated").exists())
+    uploaded = next((self.root / "drive/raw").glob("*/*.md")).read_text()
+    for line in ("# The agent's title", "What was done.", "pontos-save summarize", "- Owner, 2026-10-30: yes", 'end_reason: "clear"'):
+      self.assertIn(line, uploaded)
+    self.assertEqual(self.state()["summary"]["status"], "done")
+
+  def test_the_agent_s_note_replaces_a_generated_one(self):
+    self.summarized({"title": "A model's title", "summary": "What was done."})
+    self.assertTrue(self.pontos.needs_notes(self.session))  # a resumed session gets new ones
+    note = self.root / "note.md"
+    for kind in ("title", "summary"):
+      note.write_text(f"the agent's {kind}")
+      self.pontos.command_note(type("Args", (), {"session": self.session, "kind": kind, "file": str(note)}))
+    self.assertFalse(self.pontos.needs_notes(self.session))
+
+  def test_a_failed_summary_is_retried_a_few_times_then_left(self):
+    status, _ = self.summarized(RuntimeError("claude failed: offline"))
+    self.assertEqual(status, "failed")
+    self.assertEqual(self.state()["summary"]["reason"], "claude failed: offline")
+    for _ in range(5):
+      self.pontos.command_retry(None)
+    self.assertEqual(self.state()["summary"]["tries"], self.pontos.SUMMARY_TRIES)
+
+  def test_a_short_session_is_not_summarized(self):
+    self.end_session([])
+    self.pontos.SUMMARY_MIN_TURNS = 100
+    self.pontos.REMOTE = str(self.root / "drive")
+    self.pontos.ask_model = lambda text: self.fail("the model was asked")
+    self.assertEqual(self.pontos.summarize(self.session), "skipped")
+
+  def test_a_blocked_log_is_never_sent_to_the_model(self):
+    self.pontos.build_session = lambda me, end=None: [("2026-10-29", f"1300-{self.me['agent']}.md", "### a\nghp_" + "a" * 36)]
+    status, asked = self.summarized({"title": "x", "summary": "y"})
+    self.assertEqual((status, asked), ("failed", []))
+
+  def test_the_session_summarize_runs_is_never_saved(self):
+    os.environ["PONTOS_SUMMARIZING"] = "1"
+    self.addCleanup(os.environ.pop, "PONTOS_SUMMARIZING")
+    calls = []
+    self.end_session(calls)
+    self.assertEqual(calls, [])
+    self.assertFalse((self.root / f"state/sessions/{self.session}").exists())
+
+  def test_a_long_log_is_cut_in_the_middle(self):
+    self.pontos.SUMMARY_HEAD, self.pontos.SUMMARY_TAIL = 3, 4
+    self.assertEqual(self.pontos.excerpt("abcdef"), "abcdef")
+    self.assertEqual(self.pontos.excerpt("abc-middle-wxyz"), "abc\n\n[... the middle of the log is left out ...]\n\nwxyz")
+
   def test_another_owner_s_repository_is_not_opted_in_unless_listed(self):
     self.assertTrue(self.pontos.opted_in("getnereus/nereus"))
     self.assertFalse(self.pontos.opted_in("client/app"))

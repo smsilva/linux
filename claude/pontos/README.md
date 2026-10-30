@@ -6,15 +6,19 @@ The raw log of every Claude Code session in the owner's repositories, on Google 
 
 | Piece | What it does |
 |---|---|
-| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `status`, `retry`, `redact` (hides what the check blocked behind `[REDACTED]`, then uploads), `upload`, `build` (one session by hand) |
+| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `summarize` (the notes a session ended without, from its raw log, with `claude --print`), `status`, `retry` (also retries a failed `summarize`, three times at most), `redact` (hides what the check blocked behind `[REDACTED]`, then uploads), `upload`, `build` (one session by hand) |
 | `scripts/bin/claude-guard-main-clone` | the `PreToolUse` hook that refuses commits and file edits in a main clone (`claude/rules/workflow.md`) |
 | `scripts/bin/claude-status-line` | shows `⚠ pontos` while a raw log is not on Drive |
 | `claude/pontos/allow-list` | repositories saved besides the owner's own (public names only) |
 | `claude/pontos/tests/` | `python3 -m unittest discover -s claude/pontos/tests` |
 
+## Notes after the session
+
+When a session ends (`SessionEnd`, `/clear` included) with no title or summary from its agent, the hook does not upload the log right away: it runs `pontos-save summarize` in the background, which sends the raw log (its first 50,000 and last 250,000 characters) to `claude --print --model sonnet` with no tools, writes the missing notes marked `Generated after the session by pontos-save summarize`, rebuilds and uploads. The agent's own notes always win: `summarize` never replaces them, and a later `pontos-save note` replaces a generated one. A log with fewer than 3 turns is skipped; a log the check blocked is never sent. The model's session runs outside any repository with `PONTOS_SUMMARIZING=1`, so it saves nothing itself. Set `PONTOS_SUMMARY_MODEL` to use another model.
+
 ## Local files
 
-- `~/.local/state/pontos/sessions/<session id>/`: `identity.json` (read once when the session starts), `notes/`, `out/<day>/<file>.md` (the last build), `state.json` (what was uploaded, what the check blocked, the last upload error, `redact` once the owner redacted the session).
+- `~/.local/state/pontos/sessions/<session id>/`: `identity.json` (read once when the session starts), `notes/` (a `<kind>.generated` marker next to a note `summarize` wrote), `out/<day>/<file>.md` (the last build), `state.json` (what was uploaded, what the check blocked, the last upload error, `redact` once the owner redacted the session, `summary` with the state of the notes written after the session: `due`, `done`, `skipped` or `failed`).
 - `~/.local/state/pontos/alert`: present while a log is blocked or failing; the status line reads it.
 - `~/.local/state/pontos/upload.log`: the background uploads' output.
 - `~/.config/pontos/deny-list` and `~/.config/pontos/allow-list`: local, never in a repository.

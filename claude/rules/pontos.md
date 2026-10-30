@@ -6,7 +6,7 @@ Pontos is the raw data layer: every Claude Code session in one of the owner's re
 - **Where:** `gdrive:#pontos/raw/<YYYY-MM-DD>/HHMM-<agent>.md`, the day and time the session started (local time); a subagent's log is `HHMM-<agent>-<agent id 8>.md` in the same folder. `#pontos/silver` and `#pontos/gold` come later (medallion architecture). The previous upload of a file is kept in `.prev/`.
 - **The agent's name:** `<machine>-<tmux window name, or repo-worktree>-<session id 8>`, e.g. `m15-triton-ed1a5c33`.
 - **What it holds:** a YAML header (identity: machine, users, repository, branch, worktree, model, trace), then the owner's words verbatim (never translated), the agent's replies in full, tool calls by name and arguments with their exit status and output size (outputs left out), subagents' prompts and reports in full, a timestamp and model per turn.
-- **The agent's part, only what needs judgement:** at a milestone and before the session ends, write a title, a summary (with a `Radar: <ring> · <idea>` line per idea created or moved) and the decisions taken, each from a file or stdin:
+- **The agent's part, only what needs judgement:** at a milestone and before the session ends (a session that ends without them gets notes from `pontos-save summarize`, a model reading the raw log, marked as generated; the agent's own are better and always win), write a title, a summary (with a `Radar: <ring> · <idea>` line per idea created or moved) and the decisions taken, each from a file or stdin:
 
 ```bash
 pontos-save note title --file /tmp/title.md

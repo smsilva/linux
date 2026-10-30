@@ -58,8 +58,9 @@ SECRETS = [
 # letter-only words joined by `-` or `_`, or such names joined by `/`, never digits or mixed case
 NAME_WORDS = r"(?:[a-z]+(?:-[a-z]+)*|[A-Z]+(?:_[A-Z]+)*)"
 SECRET_NAME = re.compile(rf"(?=.*[-_/]){NAME_WORDS}(?:/{NAME_WORDS})*")
-# a name ends the token: only closing quotes or punctuation before a space or the end (`google-oauth$x` is no name)
-NAME_END = re.compile(r"[\\\"'),;}\]]*(?=\s|$)")
+# a name ends the token: only closing quotes, a markdown backtick or punctuation before a space or the end
+# (`google-oauth$x` is no name)
+NAME_END = re.compile(r"[\\\"'`),;:!?}\]]*(?=\s|$)")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # git@<host> is an SSH remote, not a person
 EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|users\.noreply\.github\.com)$")

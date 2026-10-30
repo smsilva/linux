@@ -162,6 +162,10 @@ class Pontos(unittest.TestCase):
       self.assertNotEqual(self.pontos.redact(text)[1], 0, text)
     self.assertEqual(self.pontos.redact("secret=google-oauth-token=realsecret123456")[0], "secret=[REDACTED]")
     self.assertEqual(self.pontos.check('{"secret": "default/google-oauth"}, next'), [])
+    # a name quoted in markdown, in a table or a sentence
+    self.assertEqual(self.pontos.check("| 565 | `--param googleSecret=google-oauth` |"), [])
+    self.assertEqual(self.pontos.check("the key `client-secret: GOOGLE_CLIENT_SECRET`, then"), [])
+    self.assertTrue(self.pontos.check("`secret=google-oauth`abc123def"))
 
   def test_an_owner_s_name_on_another_host_is_not_opted_in(self):
     self.assertEqual(self.pontos.repository_of("git@github.com:getnereus/nereus.git"), "getnereus/nereus")

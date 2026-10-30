@@ -67,27 +67,17 @@ ssh-add ~/.ssh/id_rsa
 
 ## Configurando qual chave usar
 
-Para configurar qual chave usar, crie um arquivo `~/.ssh/config` com o conteúdo abaixo:
+Para configurar qual chave usar, crie um arquivo `~/.ssh/config` (modo `600`) com o conteúdo abaixo:
 
 ```bash
-Host *
-    User git
-    PubkeyAcceptedAlgorithms +ssh-rsa
-    HostkeyAlgorithms +ssh-rsa
-    StrictHostKeyChecking no
-
-Host github.com-pessoal
-    HostName github.com
-    IdentityFile ~/.ssh/id_ed25519
-
 Host github.com
-    HostName github.com
-    IdentityFile ~/.ssh/id_rsa
-
-Host ssh.dev.azure.com
-    HostName ssh.dev.azure.com
-    IdentityFile ~/.ssh/id_ed25519
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
 ```
+
+O `IdentitiesOnly yes` faz o ssh oferecer só essa chave. Sem ele, o ssh-agent oferece todas as que carrega, em ordem variável, e o GitHub autentica com a primeira que reconhece: quando é uma deploy key (por exemplo `ci: smsilva/azure-kubernetes`), a sessão vira a daquele repositório, e um repositório privado de outra conta ou organização responde `Permission denied (publickey)` de forma intermitente. Para conferir, `ssh -T git@github.com` deve responder sempre `Hi smsilva!`.
+
+Uma deploy key, quando precisar ser usada, ganha um alias próprio com o seu `IdentityFile` e `IdentitiesOnly yes` (veja o alias abaixo), nunca o `github.com`. Não use `StrictHostKeyChecking no`: aceitar qualquer host key abre espaço para um man-in-the-middle.
 
 ## Alias curto para a conta pessoal (proposta)
 

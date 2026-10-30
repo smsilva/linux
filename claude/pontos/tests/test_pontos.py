@@ -166,6 +166,7 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.check("| 565 | `--param googleSecret=google-oauth` |"), [])
     self.assertEqual(self.pontos.check("the key `client-secret: GOOGLE_CLIENT_SECRET`, then"), [])
     self.assertTrue(self.pontos.check("`secret=google-oauth`abc123def"))
+    self.assertTrue(self.pontos.check("token=correct-horse-battery! next"))
 
   def test_an_owner_s_name_on_another_host_is_not_opted_in(self):
     self.assertEqual(self.pontos.repository_of("git@github.com:getnereus/nereus.git"), "getnereus/nereus")

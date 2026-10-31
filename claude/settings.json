@@ -46,6 +46,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${HOME}/.scripts/nato-name\" hook",
+            "timeout": 10
+          },
+          {
+            "type": "command",
             "command": "\"${HOME}/.scripts/pontos-save\" hook",
             "timeout": 10
           }
@@ -66,6 +71,11 @@
     "SessionEnd": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/nato-name\" hook",
+            "timeout": 10
+          },
           {
             "type": "command",
             "command": "\"${HOME}/.scripts/pontos-save\" hook",

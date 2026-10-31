@@ -14,11 +14,18 @@ show_usage() {
       -r, --remote   rclone remote name (default: gdrive)
       -f, --folder   Google Drive folder, also the name under ~/gdrive (default: dump-mental-prompts)
 
+    Environment:
+
+      GDRIVE_CLIENT_ID       our own Google OAuth client id for rclone (https://rclone.org/drive/#making-your-own-client-id)
+      GDRIVE_CLIENT_SECRET   its secret; with both set, the remote is created with them, or switched to them and reconnected
+
     Examples:
 
       ${this_script_name}
 
       ${this_script_name} --folder another-folder
+
+      GDRIVE_CLIENT_ID="<id>" GDRIVE_CLIENT_SECRET="<secret>" ${this_script_name}
 EOF
 }
 
@@ -56,13 +63,33 @@ mount_point="${HOME}/gdrive/${folder}"
 service_name="rclone-${folder}.service"
 service_file="${HOME}/.config/systemd/user/${service_name}"
 
-if ! which rclone > /dev/null || ! which fusermount3 > /dev/null; then
-  sudo apt-get install --yes -q rclone fuse3
+if ! which rclone > /dev/null || ! which fusermount3 > /dev/null || ! which jq > /dev/null; then
+  sudo apt-get install --yes -q rclone fuse3 jq
+fi
+
+client_options=()
+
+if [[ -n "${GDRIVE_CLIENT_ID}" && -n "${GDRIVE_CLIENT_SECRET}" ]]; then
+  client_options=(client_id "${GDRIVE_CLIENT_ID}" client_secret "${GDRIVE_CLIENT_SECRET}")
 fi
 
 if ! rclone listremotes | grep --quiet --line-regexp "${remote}:"; then
   echo "rclone remote '${remote}' not found: creating it (Google Drive OAuth opens in the browser)"
-  rclone config create "${remote}" drive scope=drive
+  rclone config create "${remote}" drive scope=drive "${client_options[@]}"
+fi
+
+current_client_id="$(rclone config dump | jq --raw-output --arg remote "${remote}" '.[$remote].client_id // empty')"
+
+if [[ ${#client_options[@]} -gt 0 && "${current_client_id}" != "${GDRIVE_CLIENT_ID}" ]]; then
+  echo "rclone remote '${remote}': switching to our own client_id ${GDRIVE_CLIENT_ID:0:3}... and reconnecting (Google Drive OAuth opens in the browser)"
+  rclone config update "${remote}" "${client_options[@]}"
+  rclone config reconnect "${remote}:"
+  current_client_id="${GDRIVE_CLIENT_ID}"
+  client_changed=true
+fi
+
+if [[ -z "${current_client_id}" ]]; then
+  echo "warning: rclone remote '${remote}' uses rclone's shared client_id, retired during 2026: set GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET and run ${this_script_name} again (https://rclone.org/drive/#making-your-own-client-id)"
 fi
 
 rclone mkdir "${remote}:${folder}"
@@ -96,10 +123,15 @@ fi
 systemctl --user daemon-reload
 systemctl --user enable --now "${service_name}"
 
-if [[ "${service_changed}" == "true" ]]; then
+if [[ "${service_changed}" == "true" || "${client_changed}" == "true" ]]; then
   systemctl --user restart "${service_name}"
 fi
 
 echo "service.....: ${service_name}"
 echo "status......: $(systemctl --user is-active "${service_name}")"
 echo "mount point.: ${mount_point}"
+if [[ -n "${current_client_id}" ]]; then
+  echo "client_id...: own (${current_client_id:0:3}...)"
+else
+  echo "client_id...: rclone's shared one"
+fi

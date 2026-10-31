@@ -1,0 +1,326 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+# Every agent session on this machine gets a unique name from the NATO phonetic alphabet (ICAO spelling: alfa,
+# juliett). One file per name in the state folder, written under one flock, holds the session id, the pid and the
+# time it was taken; a name whose pid is gone is taken again by the next acquire.
+
+NAMES=(alfa bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu)
+
+# The session id a launcher reserves a name with, before Claude Code has one (agent: launcher-<pid>).
+LAUNCHER_PREFIX="launcher-"
+
+state_directory="${NATO_NAME_STATE_DIR:-${XDG_STATE_HOME:-${HOME}/.local/state}/nato-names}"
+
+show_usage() {
+  cat <<EOF
+
+  Gives each agent session on this machine a unique NATO phonetic name
+  (alfa, bravo, ... zulu; then alfa-2, bravo-2, ...).
+
+    Commands:
+
+      acquire --session-id <id> --pid <pid> [--name <name>]
+                  Takes a name and prints it: the one this session or pid
+                  (or one of its parent processes) already holds, else
+                  --name when free, else the first free one. A name whose
+                  pid is no longer alive counts as free.
+      release --session-id <id>
+                  Frees the name that session holds.
+      whoami  --session-id <id>
+                  Prints the name that session holds.
+      list        Shows the names in use: name, session id, pid, time.
+      hook        Claude Code hook (SessionStart, SessionEnd): reads the
+                  hook's JSON on stdin.
+
+    Environment:
+
+      NATO_NAME_STATE_DIR  State folder (default: ~/.local/state/nato-names)
+      NATO_NAME            Preferred name, passed by the launcher (agent)
+
+    Examples:
+
+      ${this_script_name} acquire --session-id 0f3c9a1e --pid 4242
+
+      ${this_script_name} whoami --session-id 0f3c9a1e
+
+      ${this_script_name} release --session-id 0f3c9a1e
+
+      ${this_script_name} list
+
+EOF
+}
+
+field() {
+  local file="${1?}"
+  local key="${2?}"
+  sed --quiet "s/^${key}=//p" "${file}" 2>/dev/null | head --lines 1
+}
+
+start_time() {
+  # Field 22 of /proc/<pid>/stat: when the process started, so a reused pid is not taken for the old holder.
+  local pid="${1?}"
+  [[ -r "/proc/${pid}/stat" ]] || return 0
+  sed 's/^.*) //' "/proc/${pid}/stat" | cut --delimiter ' ' --fields 20
+}
+
+alive() {
+  local file="${1?}"
+  local pid
+  local started
+  pid="$(field "${file}" pid)"
+  [[ "${pid}" =~ ^[0-9]+$ ]] || return 1
+  [[ -d "/proc/${pid}" ]] || kill -0 "${pid}" 2>/dev/null || return 1
+  started="$(field "${file}" started)"
+  [[ -z "${started}" || "${started}" == "$(start_time "${pid}")" ]]
+}
+
+ancestors() {
+  # The pid itself, then each parent up to init.
+  local pid="${1?}"
+  while [[ "${pid}" =~ ^[0-9]+$ && "${pid}" -gt 1 ]]; do
+    echo "${pid}"
+    pid="$(ps -o ppid= -p "${pid}" 2>/dev/null | tr --delete ' ')"
+  done
+}
+
+name_files() {
+  local file
+  for file in "${state_directory}"/*; do
+    [[ -f "${file}" && "${file##*/}" != .* ]] && echo "${file}"
+  done
+}
+
+write() {
+  local name="${1?}"
+  local session_id="${2?}"
+  local pid="${3?}"
+  local file="${state_directory}/${name}"
+  printf 'session_id=%s\npid=%s\nstarted=%s\nacquired_at=%s\n' \
+    "${session_id}" \
+    "${pid}" \
+    "$(start_time "${pid}")" \
+    "$(date --iso-8601=seconds)" > "${file}.tmp"
+  mv "${file}.tmp" "${file}"
+  echo "${name}"
+}
+
+free() {
+  local name="${1?}"
+  [[ ! -f "${state_directory}/${name}" ]] || ! alive "${state_directory}/${name}"
+}
+
+valid_name() {
+  [[ "${1}" =~ ^[a-z]+(-[a-z]+)?(-[0-9]+)?$ ]]
+}
+
+acquire() {
+  local session_id="${1?}"
+  local pid="${2?}"
+  local preferred="${3:-}"
+  local file
+  local holder
+  local round
+  local name
+
+  # The session already holds one (a resume, a second SessionStart).
+  for file in $(name_files); do
+    if [[ "$(field "${file}" session_id)" == "${session_id}" ]]; then
+      write "${file##*/}" "${session_id}" "${pid}"
+      return
+    fi
+  done
+
+  # This process holds one (after /clear), or the launcher that started it reserved one (agent --name). Only a
+  # launcher's reservation passes down: a `claude -p` run inside a session gets its own name, so its SessionEnd
+  # never frees its parent's.
+  for holder in $(ancestors "${pid}"); do
+    for file in $(name_files); do
+      if [[ "$(field "${file}" pid)" == "${holder}" ]] \
+        && { [[ "${holder}" == "${pid}" ]] || [[ "$(field "${file}" session_id)" == "${LAUNCHER_PREFIX}"* ]]; } \
+        && alive "${file}"; then
+        write "${file##*/}" "${session_id}" "${pid}"
+        return
+      fi
+    done
+  done
+
+  if [[ -n "${preferred}" ]] && valid_name "${preferred}" && free "${preferred}"; then
+    write "${preferred}" "${session_id}" "${pid}"
+    return
+  fi
+
+  round=1
+  while true; do
+    for name in "${NAMES[@]}"; do
+      [[ "${round}" -gt 1 ]] && name="${name}-${round}"
+      if free "${name}"; then
+        write "${name}" "${session_id}" "${pid}"
+        return
+      fi
+    done
+    round=$(( round + 1 ))
+  done
+}
+
+release() {
+  local session_id="${1?}"
+  local file
+  for file in $(name_files); do
+    if [[ "$(field "${file}" session_id)" == "${session_id}" ]]; then
+      rm --force "${file}"
+    fi
+  done
+}
+
+whoami_of() {
+  local session_id="${1?}"
+  local file
+  for file in $(name_files); do
+    if [[ "$(field "${file}" session_id)" == "${session_id}" ]]; then
+      echo "${file##*/}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+list() {
+  local file
+  local state
+  printf '%-12s %-38s %-8s %-6s %s\n' NAME SESSION PID STATE ACQUIRED
+  for file in $(name_files); do
+    state="alive"
+    alive "${file}" || state="stale"
+    printf '%-12s %-38s %-8s %-6s %s\n' \
+      "${file##*/}" \
+      "$(field "${file}" session_id)" \
+      "$(field "${file}" pid)" \
+      "${state}" \
+      "$(field "${file}" acquired_at)"
+  done
+}
+
+claude_pid() {
+  # The Claude Code process that runs this hook: the first ancestor named claude, else the parent.
+  local pid
+  for pid in $(ancestors "${PPID}"); do
+    if [[ "$(ps -o comm= -p "${pid}" 2>/dev/null)" == "claude" ]]; then
+      echo "${pid}"
+      return
+    fi
+  done
+  echo "${PPID}"
+}
+
+hook() {
+  local input
+  local event
+  local session_id
+  local name
+  input="$(cat)"
+  event="$(jq --raw-output '.hook_event_name // empty' <<< "${input}")"
+  session_id="$(jq --raw-output '.session_id // empty' <<< "${input}")"
+  [[ -n "${session_id}" ]] || exit 0
+  case "${event}" in
+    SessionStart )
+      name="$(locked acquire "${session_id}" "${NATO_NAME_PID:-$(claude_pid)}" "${NATO_NAME:-}")" || exit 0
+      jq --null-input --arg name "${name}" '{
+        hookSpecificOutput: {
+          hookEventName: "SessionStart",
+          additionalContext: ("Your name is " + $name + " (nato-name, unique among the agent sessions on this machine). Say it when the owner asks your name, and sign cross-session messages, orders and replies with it when relevant.")
+        }
+      }'
+      ;;
+
+    SessionEnd )
+      # After /clear the same process goes on with a new session id: keep its name for the next SessionStart.
+      [[ "$(jq --raw-output '.reason // empty' <<< "${input}")" == "clear" ]] && exit 0
+      locked release "${session_id}"
+      ;;
+  esac
+}
+
+locked() {
+  mkdir --parents "${state_directory}"
+  (
+    flock --exclusive --timeout 5 9 || {
+      echo "${this_script_name}: cannot lock ${state_directory}" >&2
+      exit 1
+    }
+    "${@}"
+  ) 9> "${state_directory}/.lock"
+}
+
+command="${1:-}"
+[[ -n "${command}" ]] && shift
+
+session_id=""
+pid=""
+preferred=""
+
+while [[ "${1}" =~ ^- ]]; do
+  case "${1}" in
+    --session-id )
+      shift
+      session_id="${1?}"
+      ;;
+
+    --pid )
+      shift
+      pid="${1?}"
+      ;;
+
+    --name )
+      shift
+      preferred="${1?}"
+      ;;
+
+    -h | --help )
+      show_usage
+      exit 0
+      ;;
+
+    * )
+      echo "Unknown option: ${1}" >&2
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+case "${command}" in
+  acquire )
+    [[ -n "${session_id}" && "${pid}" =~ ^[0-9]+$ ]] || { echo "acquire needs --session-id <id> and --pid <pid>" >&2; exit 1; }
+    locked acquire "${session_id}" "${pid}" "${preferred}"
+    ;;
+
+  release )
+    [[ -n "${session_id}" ]] || { echo "release needs --session-id <id>" >&2; exit 1; }
+    locked release "${session_id}"
+    ;;
+
+  whoami )
+    [[ -n "${session_id}" ]] || { echo "whoami needs --session-id <id>" >&2; exit 1; }
+    whoami_of "${session_id}"
+    ;;
+
+  list )
+    list
+    ;;
+
+  hook )
+    hook
+    ;;
+
+  -h | --help | help )
+    show_usage
+    ;;
+
+  * )
+    show_usage
+    exit 1
+    ;;
+esac

@@ -16,7 +16,7 @@ Nothing of value may stay only in the conversation: what was decided, found or l
 
 ## Steps
 
-1. **Facts.** Run `wrap-up-facts` (add `--json` when parsing) from the repository. Show nothing yet. A source reading `unavailable` is a fact too: no board, no `gh`, not a repository.
+1. **Facts.** Run `wrap-up-facts` (add `--json` when parsing) from the repository. Show nothing yet. A source reading `unavailable` is a fact too: no board, no `gh`, not a repository. Inside Claude Code it reads this session's tool calls (`$CLAUDE_CODE_SESSION_ID`) and marks each worktree, board item and issue `this session` or `another session`, since every session shares one `gh` account: only `this session` items are yours to propose; the others are reported in one line and left alone.
 
 2. **Sweep the conversation** for:
    - loose ends: work started and not finished, a step skipped, a check not run;
@@ -38,6 +38,7 @@ Nothing of value may stay only in the conversation: what was decided, found or l
    - **Atual:** the issue In Progress, or the one(s) closed in this session (of those `closed today`, name only the ones this conversation closed), saying which;
    - **Sequência:** the open issues that follow it (`then:`);
    - **Próxima depois do `/clear`:** what `queue next` gives;
+   - when the facts say `warning: the next issue is held by another session`, say it in bold: `/next` alone would take that session's issue, so name the number to pass (`/next <n>`) or `--new`;
    - when the facts say `warning: the next issue does not follow the sequence`, say it in bold, name the issue of the sequence that should come next, and propose an item that reorders the board (`scripts/board/queue status <n> Todo` and `move <n> --top`), so `/next` resumes the sequence.
 
 5. **Propose** one numbered table in pt-BR, so the owner can answer by voice or phone ("1, 3 e 5", "tudo", "nenhum"):

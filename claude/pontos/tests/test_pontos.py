@@ -108,6 +108,10 @@ class Pontos(unittest.TestCase):
   def built(self):
     return self.pontos.build_session(self.me)
 
+  def test_a_session_closed_before_its_transcript_exists_builds_nothing(self):
+    self.path.unlink()
+    self.assertEqual(self.built(), [])
+
   def test_the_file_is_named_by_start_time_and_agent_in_its_day_folder(self):
     day, name, _ = self.built()[0]
     started = self.pontos.local_time("2026-10-29T13:00:00Z")

@@ -382,6 +382,8 @@ def radar_lines(text):
 def build_session(me, end=None):
   """The raw log of the main session, and one of each of its subagents."""
   transcript = pathlib.Path(me["transcript_path"])
+  if not transcript.is_file():
+    return []  # a session closed before its first turn leaves no transcript
   items, results, facts = read(transcript)
   if not facts["first"]:
     return []

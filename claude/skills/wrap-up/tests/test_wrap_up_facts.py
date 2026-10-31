@@ -161,6 +161,92 @@ class Issues(unittest.TestCase):
       "skills": {}}))
 
 
+class Session(unittest.TestCase):
+  """Which worktrees and issues belong to this Claude Code session: read from its transcript's tool inputs only."""
+
+  def setUp(self):
+    import json
+    self.home = pathlib.Path(tempfile.mkdtemp())
+    self.addCleanup(subprocess.run, ["rm", "-rf", str(self.home)])
+    project = self.home / ".claude/projects/-w"
+    (project / "s1/subagents").mkdir(parents=True)
+
+    def call(command, tool="Bash", **given):
+      return json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "name": tool, "input": given or {"command": command}}]}})
+
+    output = json.dumps({"type": "user", "message": {"content": [
+      {"type": "tool_result", "content": "/w/repo-674-examples In Progress #674"}]}})
+    (project / "s1.jsonl").write_text("\n".join([
+      call("scripts/board/queue claim 498"), call("scripts/worktree/new feat 498-keycloak"), output,
+      call("for n in 651 529; do gh issue close $n --reason completed; done"), "not json",
+      call("git -C /w/repo-497-other log --oneline"),
+      call(None, "Write", file_path="/tmp/page.html", content="#680 shipped. Every issue closes in hours."),
+      call(None, "Edit", file_path="/w/repo-700-edit/a.py", old_string="x", new_string="y")]) + "\n")
+    (project / "s1/subagents/agent-a.jsonl").write_text(call("git -C /w/repo-681-review commit --file m.txt") + "\n")
+    self.commands = facts.session_commands("s1", home=self.home)
+
+  def test_it_reads_the_inputs_of_the_session_and_its_subagents_never_the_outputs(self):
+    self.assertEqual(len(self.commands), 7)
+    self.assertFalse(any("674" in command for command in self.commands))
+
+  def test_no_session_known_is_none(self):
+    self.assertIsNone(facts.session_commands("missing", home=self.home))
+
+  def test_a_worktree_is_this_sessions_when_a_command_named_it(self):
+    self.assertTrue(facts.mine_worktree("/w/repo-498-keycloak", "repo", self.commands))
+    self.assertTrue(facts.mine_worktree("/w/repo-681-review", "repo", self.commands))
+    self.assertTrue(facts.mine_worktree("/w/repo-700-edit", "repo", self.commands))
+    self.assertFalse(facts.mine_worktree("/w/repo-674-examples", "repo", self.commands))
+
+  def test_reading_a_worktree_or_naming_it_in_a_text_does_not_make_it_this_sessions(self):
+    self.assertFalse(facts.mine_worktree("/w/repo-497-other", "repo", self.commands))
+
+  def test_an_issue_is_this_sessions_when_it_claimed_or_closed_it(self):
+    self.assertTrue(facts.claimed(498, self.commands))
+    self.assertFalse(facts.claimed(674, self.commands))
+    self.assertTrue(facts.closed_here(651, self.commands))
+    self.assertTrue(facts.closed_here(498, self.commands))
+    self.assertTrue(facts.closed_here(529, self.commands))
+    self.assertFalse(facts.closed_here(65, self.commands))
+    self.assertFalse(facts.closed_here(680, self.commands))
+
+  def test_an_in_progress_issue_of_another_session_is_set_apart_and_the_next_one_flagged(self):
+    import json
+
+    def run(*command, cwd, timeout=60):
+      text = " ".join(command)
+      if "repo view" in text:
+        return "acme/widget\n"
+      if "--state closed" in text:
+        return json.dumps([{"number": 651, "title": "Mine"}, {"number": 600, "title": "Theirs"}])
+      if "issue view" in text:
+        return json.dumps({"body": ""})
+      if "Depends on" in text:
+        return "[]"
+      if "graphql" in text and "{number authorAssociation}" in text:
+        return json.dumps({"data": {"repository": {f"i{n}": {"number": n, "authorAssociation": "OWNER"}
+                                                   for n in (498, 674, 651, 600)}}})
+      if "graphql" in text:
+        return json.dumps({"data": {"repository": {"issue": {"parent": None}}}})
+      raise AssertionError(text)
+
+    self.addCleanup(setattr, facts, "run", facts.run)
+    facts.run = run
+    found = facts.issues(".", {"mine": "In Progress  #498  Keycloak\nIn Progress  #674  Examples\n",
+                               "next": "In Progress  #674  Examples\n"}, self.commands)
+    sessions = {issue["number"]: issue["session"] for issue in found["current"]}
+    self.assertEqual(sessions, {498: "this", 674: "another", 651: "this", 600: "another"})
+    self.assertTrue(found["next_held_elsewhere"])
+    report = {"repository": {"name": "w", "path": "/w", "branch": "main", "changes": 0}, "worktrees": [],
+              "branches": [], "pull_requests": {}, "board": [], "pontos": [], "issues": found, "skills": {}}
+    output = facts.text(report)
+    self.assertIn("#674 (in progress, another session)", output)
+    self.assertNotIn("#600", output)
+    self.assertIn("closed today by other sessions: 1", output)
+    self.assertIn("held by another session", output)
+
+
 class OutsideARepository(unittest.TestCase):
   def test_it_says_so(self):
     with tempfile.TemporaryDirectory() as folder:

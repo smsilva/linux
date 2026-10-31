@@ -7,11 +7,16 @@ requests of those branches), the project's board (`scripts/board/queue mine` and
 the current issue, the sequence it starts and whether the next one follows it), the project's
 own skills (`issue`, `handoff`) and Pontos (`pontos-save status`). Each source fails on its own and reads
 `unavailable: <reason>`; the script exits 0 whenever it printed facts.
+
+Several sessions share one gh account, so the board's "mine" holds every session's issues. Inside Claude Code
+($CLAUDE_CODE_SESSION_ID, or --session), the tool calls of this session and its subagents (their inputs only, never
+the outputs) tell this session's worktrees and issues from another session's.
 """
 import argparse
 import concurrent.futures
 import datetime
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -141,6 +146,58 @@ def trusted_queue(repo):
   return str(queue)
 
 
+def session_commands(session_id=None, home=None):
+  """The input of every tool call of a Claude Code session and its subagents, as JSON text; None when the session or
+  its transcript is unknown. Outputs are left out: they also name other sessions' work."""
+  session_id = session_id or os.environ.get("CLAUDE_CODE_SESSION_ID")
+  if not session_id:
+    return None
+  transcripts = list(((home or pathlib.Path.home()) / ".claude/projects").glob(f"*/{session_id}.jsonl"))
+  if not transcripts:
+    return None
+  files = transcripts + [path for found in transcripts for path in (found.parent / session_id / "subagents").glob("*.jsonl")]
+  commands = []
+  for path in files:
+    with path.open(errors="replace") as lines:
+      for line in lines:
+        try:
+          entry = json.loads(line)
+        except ValueError:
+          continue
+        content = (entry.get("message") or {}).get("content") if isinstance(entry, dict) else None
+        if entry.get("type") != "assistant" or not isinstance(content, list):
+          continue
+        commands += [json.dumps(block.get("input", {}), ensure_ascii=False) for block in content
+                     if isinstance(block, dict) and block.get("type") == "tool_use"]
+  return commands
+
+
+def mine_worktree(path, repo_name, commands):
+  """True when this session wrote in the worktree: created it (`worktree/new <type> <slug>`, `worktree add`), edited a
+  file in it, or added, committed or pushed there (`git -C <path>`, `cd <path>`). Reading it or naming it does not
+  count."""
+  name = pathlib.Path(path).name
+  slug = re.escape(name.removeprefix(f"{repo_name}-"))
+  where = re.escape(path)
+  wrote = re.compile(rf'"file_path": "{where}/|worktree/new\s+\S+\s+{slug}\b|worktree add\s+(?:--?\S+\s+)*\S*{re.escape(name)}\b'
+                     rf"|git -C {where} (?:add|commit|push)\b|cd {where}\b[^\"]*\bgit (?:add|commit|push)\b")
+  return any(wrote.search(command) for command in commands)
+
+
+def claimed(number, commands):
+  """True when this session claimed the issue (`queue claim <n>`, or `queue status <n> "In Progress"`)."""
+  pattern = re.compile(rf"queue\s+(?:claim\s+{number}\b|status\s+{number}\s+\\?[\"']?In Progress)")
+  return any(pattern.search(command) for command in commands)
+
+
+def closed_here(number, commands):
+  """True when this session claimed the issue, closed it (`gh issue close <n>`, also in a `for` loop over numbers) or
+  wrote `Closes #<n>`."""
+  closes = re.compile(rf"closes\s+#{number}\b|gh issue close\s+#?{number}\b"
+                      rf"|for \w+ in [^;]*\b{number}\b[^;]*;\s*do\b[^\"]*gh issue close\b", re.IGNORECASE)
+  return claimed(number, commands) or any(closes.search(command) for command in commands)
+
+
 def board(repo):
   """Mine (`queue mine`) and the next issue (`queue next`), both read only and slow (the board's API), run at once."""
   queue = trusted_queue(repo)
@@ -219,20 +276,33 @@ def vet(repo, slug, listed):
       issue["title"] = WITHHELD
 
 
-def issues(repo, queues):
+def issues(repo, queues, commands=None):
   """The current issues (mine In Progress, and those I closed today), the sequence each one starts, and the next
-  issue after a /clear (`queue next`, read only), flagged when it leaves a sequence."""
+  issue after a /clear (`queue next`, read only), flagged when it leaves a sequence. With this session's commands
+  (session_commands), each issue says whether this session or another one holds it, and the next one is flagged when
+  another session holds it."""
   if not shutil.which("gh"):
     raise Unavailable("gh not installed")
+  def whose(issue, test):
+    return None if commands is None else "this" if test(issue["number"], commands) else "another"
+
   current = [dict(issue, state="in progress") for issue in numbered(queues["mine"])]
+  for issue in current:
+    issue["session"] = whose(issue, claimed)
   today = datetime.date.today().isoformat()
   out = run("gh", "issue", "list", "--state", "closed", "--limit", "20", "--search", f"assignee:@me closed:>={today}",
             "--json", "number,title", cwd=repo)
-  current += [{"number": issue["number"], "title": clean(issue["title"]), "state": "closed today"}
-              for issue in json.loads(out)]
+  closed = [{"number": issue["number"], "title": clean(issue["title"]), "state": "closed today"}
+            for issue in json.loads(out)]
+  for issue in closed:
+    issue["session"] = whose(issue, closed_here)
+  current += closed
   slug = run("gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner", cwd=repo).strip()
 
   def follow(issue):
+    if issue["session"] == "another":
+      issue["sequence"] = []
+      return
     body = json.loads(run("gh", "issue", "view", str(issue["number"]), "--json", "body", cwd=repo))["body"]
     issue["sequence"] = sequence(repo, slug, issue["number"], body)
 
@@ -242,9 +312,11 @@ def issues(repo, queues):
   upcoming = following[0] if following else None
   vet(repo, slug, current + ([upcoming] if upcoming else []))
   expected = {follow["number"] for issue in current for follow in issue["sequence"]}
+  elsewhere = {issue["number"] for issue in current if issue["state"] == "in progress" and issue["session"] == "another"}
   return {
     "current": current,
     "next": upcoming,
+    "next_held_elsewhere": bool(upcoming) and upcoming["number"] in elsewhere,
     "off_sequence": bool(expected) and (upcoming is None or upcoming["number"] not in expected),
   }
 
@@ -267,8 +339,9 @@ def pontos(repo):
   return [problem for problem in problems if problem]
 
 
-def facts(repo):
+def facts(repo, session=None):
   report = {}
+  commands = session_commands(session)
 
   def gather(key, source, *args):
     try:
@@ -281,6 +354,9 @@ def facts(repo):
     return report
   top = report["repository"]["path"]
   gather("worktrees", worktrees, top)
+  if commands is not None and isinstance(report["worktrees"], list):
+    for tree in report["worktrees"]:
+      tree["session"] = "this" if mine_worktree(tree["path"], report["repository"]["name"], commands) else "another"
   gather("branches", branches, top)
   names = [branch["name"] for branch in report["branches"]] if isinstance(report["branches"], list) else []
   gather("pull_requests", pull_requests, top, names)
@@ -290,7 +366,10 @@ def facts(repo):
     report["board"] = report["issues"] = queues
   else:
     report["board"] = [line.strip() for line in queues["mine"].splitlines() if line.strip()]
-    gather("issues", issues, top, queues)
+    gather("issues", issues, top, queues, commands)
+    if commands is not None:
+      report["board"] = [line if not numbered(line) or claimed(numbered(line)[0]["number"], commands)
+                         else f"{line} (another session)" for line in report["board"]]
   gather("skills", skills, top)
   gather("pontos", pontos, top)
   return report
@@ -317,6 +396,7 @@ def text(report):
       for tree in value:
         flags = [f"{tree['changes']} uncommitted" if tree["changes"] else "clean"]
         flags += ["merged on the trunk"] if tree["merged"] else []
+        flags += [f"{tree['session']} session"] if tree.get("session") else []
         lines.append(f"  {tree['path']} [{tree.get('branch', 'detached')}] {', '.join(flags)}")
     elif key == "branches":
       for branch in value:
@@ -331,17 +411,25 @@ def text(report):
     lines.append(f"issues: unavailable: {found['unavailable']}")
   elif found is not None:
     lines.append("issues:")
-    for issue in found["current"] or [{"number": None}]:
+    elsewhere = [issue for issue in found["current"]
+                 if issue.get("session") == "another" and issue["state"] == "closed today"]
+    shown = [issue for issue in found["current"] if issue not in elsewhere]
+    for issue in shown or [{"number": None}]:
       if issue["number"] is None:
         lines.append("  current: none")
         continue
-      lines.append(f"  current: #{issue['number']} ({issue['state']}) {issue['title']}")
+      state = issue["state"] + (", another session" if issue.get("session") == "another" else "")
+      lines.append(f"  current: #{issue['number']} ({state}) {issue['title']}")
       for follow in issue["sequence"]:
         lines.append(f"    then: #{follow['number']} {follow['title']}")
+    if elsewhere:
+      lines.append(f"  closed today by other sessions: {len(elsewhere)}")
     upcoming = found["next"]
     lines.append(f"  next: #{upcoming['number']} {upcoming['title']}" if upcoming else "  next: none")
     if found["off_sequence"]:
       lines.append("  warning: the next issue does not follow the sequence of the current one(s)")
+    if found.get("next_held_elsewhere"):
+      lines.append("  warning: the next issue is held by another session (one gh account): /next <number> or --new")
   skill = report["skills"]
   lines.append("skills: " + ", ".join(f"{name} {where}" for name, where in skill.items()))
   return "\n".join(lines)
@@ -351,8 +439,9 @@ def main():
   parser = argparse.ArgumentParser(description="The facts of a repository at the end of a session (read only).")
   parser.add_argument("--repo", default=".", help="A path inside the repository (default: the current folder).")
   parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+  parser.add_argument("--session", help="The Claude Code session id (default: $CLAUDE_CODE_SESSION_ID).")
   args = parser.parse_args()
-  report = facts(str(pathlib.Path(args.repo).resolve()))
+  report = facts(str(pathlib.Path(args.repo).resolve()), args.session)
   print(json.dumps(report, indent=2) if args.json else text(report))
 
 

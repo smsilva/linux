@@ -23,8 +23,11 @@ Take the working tree all the way to `main` in one go. Stop and report on any fa
 
 6. **Sync** — `git checkout main && git pull --ff-only`.
 
+7. **Announce** — `main` changed under every other session on this repository. List them (`ListAgents`; keep the ones whose working directory is this repository or one of its worktrees) and send each, with `SendMessage`, one `[release]`: the issue and PR with their short descriptions, the merged sha, the paths the merge changed (`git diff --stat <old-main>..origin/main`) and "rebase onto main". When the repository has its own protocol (Nereus: the `room` skill, `docs/agent/peers.md`), follow its format. No peer: send nothing.
+
 ## Report
 
 - PR number with its title, and the merged commits (`<sha> <subject>`)
 - Absolute path of `/tmp/<branch>-pr.txt`
 - What was verified and what was not (e.g. syntax check only, service not enabled)
+- The peers told (or none)

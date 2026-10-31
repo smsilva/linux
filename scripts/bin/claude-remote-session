@@ -1,0 +1,129 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Opens a new tmux window, starts a Claude Code session in it (agent) and
+  turns on Remote Control (/remote-control), so the session can be driven
+  from the phone or claude.ai/code. Prints the window, the pane and the
+  session's URL.
+
+    Options:
+
+      -h,  --help       Show this help
+      -d,  --directory  Folder the session starts in (default: current folder)
+      -n,  --name       Name of the new tmux window (default: tmux's own)
+      -t,  --timeout    Seconds to wait for each step (default: 30)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --directory ~/git/getnereus/nereus --name nereus-rc
+
+EOF
+}
+
+directory="${PWD}"
+window_name=""
+timeout_seconds="30"
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -d | --directory )
+      shift
+      directory="${1?}"
+      ;;
+
+    -n | --name )
+      shift
+      window_name="${1?}"
+      ;;
+
+    -t | --timeout )
+      shift
+      timeout_seconds="${1?}"
+      ;;
+
+    * )
+      echo "Unknown option: ${1}" >&2
+      show_usage
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [ -z "${TMUX}" ] && ! tmux list-sessions > /dev/null 2>&1; then
+  echo "No tmux server is running." >&2
+  exit 1
+fi
+
+if [ ! -d "${directory}" ]; then
+  echo "No such folder: ${directory}" >&2
+  exit 1
+fi
+
+# Wait until the pane shows a line matching the pattern, up to the timeout
+wait_for() {
+  local pattern="${1?}"
+  local deadline=$(( SECONDS + timeout_seconds ))
+
+  while (( SECONDS < deadline )); do
+    if tmux capture-pane -p -J -t "${pane_id}" | grep --quiet --extended-regexp "${pattern}"; then
+      return 0
+    fi
+    sleep 0.5
+  done
+
+  return 1
+}
+
+name_option=()
+if [ -n "${window_name}" ]; then
+  name_option=(-n "${window_name}")
+fi
+
+read -r window pane_id < <(
+  tmux new-window \
+    "${name_option[@]}" \
+    -c "${directory}" \
+    -P \
+    -F '#{session_name}:#{window_index} #{pane_id}' \
+    'bash -lc "agent; exec bash"'
+)
+
+echo "window: ${window} pane: ${pane_id}"
+
+if ! wait_for 'bypass permissions|shift\+tab to cycle'; then
+  echo "Claude Code did not start in ${pane_id} within ${timeout_seconds}s." >&2
+  exit 1
+fi
+
+tmux send-keys -t "${pane_id}" -l '/remote-control'
+sleep 0.5
+tmux send-keys -t "${pane_id}" Enter
+
+# The command menu may take the first Enter to pick the command; a second one runs it
+if ! timeout_seconds=5 wait_for 'remote-control is active'; then
+  tmux send-keys -t "${pane_id}" Enter
+fi
+
+if ! wait_for 'remote-control is active'; then
+  echo "Remote Control did not turn on in ${pane_id}; look at the window." >&2
+  exit 1
+fi
+
+url="$(tmux capture-pane -p -J -t "${pane_id}" | grep --only-matching --extended-regexp 'https://claude\.ai/code/session_[A-Za-z0-9]+' | tail -1)"
+
+echo "url: ${url}"

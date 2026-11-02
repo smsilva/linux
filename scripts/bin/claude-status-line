@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % signal ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+
+this_script_path="$(realpath "${0}")"
+PATH="${this_script_path%/*}:${PATH}"
 
 json_input=$(cat)
 
@@ -147,11 +150,11 @@ fi
 # Absent for API-key accounts; the segment is omitted then.
 limit_str() {
   local label="${1}" window="${2}" reset_format="${3}"
-  local used resets_at color reset_display=""
+  local used used_exact resets_at color reset_display="" signal="" signal_display=""
 
-  used=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
-  [ -z "${used}" ] && return
-  used=$(printf '%.0f' "${used}")
+  used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
+  [ -z "${used_exact}" ] && return
+  used=$(printf '%.0f' "${used_exact}")
   resets_at=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.resets_at // empty")
   [ -n "${resets_at}" ] && reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
 
@@ -160,7 +163,20 @@ limit_str() {
   else                                                         color=114  # green
   fi
 
-  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%\033[38;5;247m%s" "${label}" "${used}" "${reset_display}"
+  # The weekly percentage takes the signal's color, so it follows the forecast rather than the usage thresholds
+  if [ "${window}" = seven_day ] && [ -n "${resets_at}" ]; then
+    signal=$(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" 2>/dev/null)
+
+    case "${signal}" in
+      push   ) color=114 ;;
+      steady ) color=221 ;;
+      slow   ) color=203 ;;
+    esac
+
+    [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
+  fi
+
+  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
 }
 
 # Which segments to show: both, session, weekly or none (set with claude-status-line-limits)

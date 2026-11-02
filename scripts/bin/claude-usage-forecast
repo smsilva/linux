@@ -1,0 +1,97 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+window_seconds=$(( 7 * 24 * 60 * 60 ))
+minimum_elapsed_seconds=$(( 6 * 60 * 60 ))
+
+show_usage() {
+  cat <<EOF
+
+  Says whether the weekly Claude quota allows speeding up, from a linear
+  forecast of the percentage used when the 7-day window resets:
+
+    - push:   below 70%
+    - steady: from 70% to 95%
+    - slow:   above 95%
+
+  Prints nothing in the first 6 hours of the window, while the forecast is
+  still unstable.
+
+    Options:
+
+      -h,  --help       Show this help
+      -u,  --used       Percentage of the window used so far
+      -r,  --resets-at  Epoch seconds of the window's reset
+      -n,  --now        Epoch seconds of the current time (default: the clock)
+
+    Examples:
+
+      ${this_script_name} --used 4 --resets-at 1794186000
+
+      ${this_script_name} --used 4 --resets-at 1794186000 --now 1793624000
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -u | --used )
+      shift
+      used="${1}"
+      ;;
+
+    -r | --resets-at )
+      shift
+      resets_at="${1}"
+      ;;
+
+    -n | --now )
+      shift
+      now="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}" >&2
+      show_usage >&2
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+now="${now:-$(date +%s)}"
+
+if ! [[ "${used}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "--used must be a percentage: '${used}'" >&2
+  exit 1
+fi
+
+for epoch in "${resets_at}" "${now}"; do
+  if ! [[ "${epoch}" =~ ^[0-9]+$ ]]; then
+    echo "--resets-at and --now must be epoch seconds: '${epoch}'" >&2
+    exit 1
+  fi
+done
+
+elapsed=$(( now - (resets_at - window_seconds) ))
+
+[ "${elapsed}" -lt "${minimum_elapsed_seconds}" ] && exit 0
+[ "${elapsed}" -gt "${window_seconds}" ] && elapsed="${window_seconds}"
+
+awk \
+  --assign used="${used}" \
+  --assign elapsed="${elapsed}" \
+  --assign window="${window_seconds}" \
+  'BEGIN {
+    forecast = used * window / elapsed
+    if (forecast < 70) print "push"
+    else if (forecast <= 95) print "steady"
+    else print "slow"
+  }'

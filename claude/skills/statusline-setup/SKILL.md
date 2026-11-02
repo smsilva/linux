@@ -54,6 +54,18 @@ When the owner asks to show or hide the session (5h) or weekly (7d) limit ("deix
 
 The choice lives in `${XDG_CONFIG_HOME:-~/.config}/claude-status-line/limits`.
 
+## Weekly signal
+
+The 7-day segment says whether the owner can speed up, as in `7d 5% push ↻ Mon 01:00`. `claude-usage-forecast` projects the percentage used at the reset (`used × 7 days / elapsed`), and the percentage takes the signal's color:
+
+| Forecast at the reset | Signal | Color | Meaning |
+|-----------------------|--------|-------|---------|
+| below 70% | `push` | 114 (green) | speed up: more subagents and parallel sessions |
+| from 70% to 95% | `steady` | 221 (amber) | keep the pace |
+| above 95% | `slow` | 203 (salmon) | hold back: one agent, no subagents, or a day off |
+
+In the first 6 hours of the window there is no signal, and the percentage keeps the usage thresholds of the 5-hour segment.
+
 ## Segment layout
 
 ```

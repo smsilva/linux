@@ -15,14 +15,18 @@ show_tips() {
       ${this_script_name} -r              pick a session to resume from a list
       ${this_script_name} -r <name-or-id> resume that session
       ${this_script_name} "<prompt>"      start a new session with a first prompt
-      ${this_script_name} -L, --local     start it with Remote Control off
+      ${this_script_name} -L, --local     start it with Remote Control off (AGENT_REMOTE=false: always off)
 
 EOF
 }
 
 # Remote Control is on by default, under the session's name (a name given with --name counts). -L and --local are this
-# script's, Claude Code never sees them; a run with -p or --print has no session to drive.
+# script's, Claude Code never sees them; a run with -p or --print has no session to drive. AGENT_REMOTE=false turns it
+# off for a machine or a folder, with no flag to remember.
 remote="true"
+if [[ "${AGENT_REMOTE}" == "false" ]]; then
+  remote="false"
+fi
 session_name=""
 previous=""
 arguments=()

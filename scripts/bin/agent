@@ -38,10 +38,16 @@ fi
 # SessionStart hook takes the reservation over. Skipped when the name is given.
 PATH="${this_script_path%/*}:${PATH}"
 name_options=()
+window_renamed=""
 if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v nato-name > /dev/null; then
   if NATO_NAME="$(nato-name acquire --session-id "launcher-${$}" --pid "${$}")"; then
     export NATO_NAME
     name_options=(--name "${NATO_NAME}")
+
+    # The tmux window takes the session's name, unless it was named by hand (rename-window turns automatic-rename off).
+    if [[ -n "${TMUX_PANE}" && "$(tmux display-message -p -t "${TMUX_PANE}" '#{automatic-rename}')" == "1" ]]; then
+      tmux rename-window -t "${TMUX_PANE}" "${NATO_NAME}" && window_renamed="true"
+    fi
   fi
 fi
 
@@ -50,6 +56,11 @@ claude \
   "${name_options[@]}" \
   "${@}"
 exit_code="${?}"
+
+# The name freed: the window goes back to tmux's own, so the next agent in it can name it again
+if [[ "${window_renamed}" == "true" ]]; then
+  tmux set-option -w -t "${TMUX_PANE}" automatic-rename on
+fi
 
 # A non-zero exit right away usually means claude rejected the arguments
 if [[ "${exit_code}" -ne 0 && "${SECONDS}" -lt 5 ]]; then

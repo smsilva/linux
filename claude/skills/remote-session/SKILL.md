@@ -22,9 +22,9 @@ url: https://claude.ai/code/session_<id>
 
 ## Steps
 
-1. **Folder:** the one the owner names; otherwise the current session's working directory. `--name` only when the owner gives one.
+1. **Folder:** the one the owner names; otherwise the current session's working directory. `--name` only when the owner gives one: never derive it from the task (an issue number, a slug). Without it, the window takes the session's NATO name, the one the Claude app shows, so the owner sees one name everywhere.
 2. **Run** the script and read what it prints.
-3. **Report** in pt-BR: the window and pane, the URL, and that the session shows up in the Claude app. The new session has no prompt yet: send it one only when the owner asks (`tmux send-keys -t <pane> -l '<text>'`, then `Enter`).
+3. **Report** in pt-BR: the session's NATO name (`nato-name list`, the newest entry), the window and pane, the URL, and that the session shows up in the Claude app under that name. The new session has no prompt yet: send it one only when the owner asks (`tmux send-keys -t <pane> -l '<text>'`, then `Enter`).
 4. **On failure** (Claude Code did not start, Remote Control did not turn on): show the last lines of the pane (`tmux capture-pane -p -t <pane> | tail -20`) and say what failed; leave the window open for the owner to look at.
 
 ## Notes

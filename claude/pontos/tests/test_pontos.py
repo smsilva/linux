@@ -150,6 +150,13 @@ class Pontos(unittest.TestCase):
                  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstuv"):
       self.assertTrue(self.pontos.check(text), text)
 
+  def test_a_date_format_after_dash_u_is_no_password(self):
+    for text in ("date -u +%H:%M:%S", "date -u '+%Y-%m-%dT%H:%M:%SZ'", 'date -u "+%H:%M:%S"', "date --user +%H:%M:%S"):
+      self.assertEqual(self.pontos.check(text), [], text)
+      self.assertEqual(self.pontos.redact(text), (text, 0), text)
+    for text in ("curl -u admin:hunter22 https://x", "curl --user admin:hunter22 https://x", "curl -u +admin:hunter22 https://x"):
+      self.assertTrue(self.pontos.check(text), text)
+
   def test_a_value_that_only_names_a_secret_is_no_secret(self):
     for text in ("mandate apply keycloak --param googleSecret=google-oauth --param admins=x",
                  "--key client-secret=GOOGLE_CLIENT_SECRET", "client-secret: GOOGLE_CLIENT_SECRET",

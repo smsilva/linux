@@ -13,7 +13,7 @@ claude-remote-session \
   --name "<window name>"
 ```
 
-It opens a new tmux window in that folder, runs `agent` (Claude Code with bypass permissions), waits for its prompt, sends `/remote-control` (pressing Enter again if the command menu takes the first one), waits for "remote-control is active" and prints:
+It opens a new tmux window in that folder, runs `agent` (Claude Code with bypass permissions and Remote Control on), waits for "remote-control is active" and prints:
 
 ```text
 window: 0:3 pane: %41

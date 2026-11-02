@@ -8,10 +8,9 @@ PATH="${this_script_directory}:${PATH}"
 show_usage() {
   cat <<EOF
 
-  Opens a new tmux window, starts a Claude Code session in it (agent) and
-  turns on Remote Control (/remote-control), so the session can be driven
-  from the phone or claude.ai/code. Prints the window, the pane and the
-  session's URL.
+  Opens a new tmux window and starts a Claude Code session in it (agent, which
+  turns on Remote Control), so the session can be driven from the phone or
+  claude.ai/code. Prints the window, the pane and the session's URL.
 
     Options:
 
@@ -105,22 +104,8 @@ read -r window pane_id < <(
 
 echo "window: ${window} pane: ${pane_id}"
 
-if ! wait_for 'bypass permissions|shift\+tab to cycle'; then
-  echo "Claude Code did not start in ${pane_id} within ${timeout_seconds}s." >&2
-  exit 1
-fi
-
-tmux send-keys -t "${pane_id}" -l '/remote-control'
-sleep 0.5
-tmux send-keys -t "${pane_id}" Enter
-
-# The command menu may take the first Enter to pick the command; a second one runs it
-if ! timeout_seconds=5 wait_for 'remote-control is active'; then
-  tmux send-keys -t "${pane_id}" Enter
-fi
-
 if ! wait_for 'remote-control is active'; then
-  echo "Remote Control did not turn on in ${pane_id}; look at the window." >&2
+  echo "Remote Control did not turn on in ${pane_id} within ${timeout_seconds}s; look at the window." >&2
   exit 1
 fi
 

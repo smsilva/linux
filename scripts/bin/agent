@@ -8,16 +8,39 @@ tip_chance="${AGENT_TIP_CHANCE:-5}"
 show_tips() {
   cat >&2 <<EOF
 
-  Tip: ${this_script_name} opens Claude Code with --permission-mode bypassPermissions ;)
+  Tip: ${this_script_name} opens Claude Code with --permission-mode bypassPermissions and Remote Control on ;)
 
       ${this_script_name}                 start a new session
       ${this_script_name} -c              continue the latest session in this folder
       ${this_script_name} -r              pick a session to resume from a list
       ${this_script_name} -r <name-or-id> resume that session
       ${this_script_name} "<prompt>"      start a new session with a first prompt
+      ${this_script_name} -L, --local     start it with Remote Control off
 
 EOF
 }
+
+# Remote Control is on by default, under the session's name (a name given with --name counts). -L and --local are this
+# script's, Claude Code never sees them; a run with -p or --print has no session to drive.
+remote="true"
+session_name=""
+previous=""
+arguments=()
+for argument in "${@}"; do
+  if [[ "${argument}" == "-L" || "${argument}" == "--local" ]]; then
+    remote="false"
+    continue
+  fi
+  if [[ "${argument}" == "-p" || "${argument}" == "--print" ]]; then
+    remote="false"
+  fi
+  if [[ "${previous}" == "-n" || "${previous}" == "--name" ]]; then
+    session_name="${argument}"
+  fi
+  arguments+=("${argument}")
+  previous="${argument}"
+done
+set -- "${arguments[@]}"
 
 # Bare words that look like a mistyped option, not a first prompt
 if [[ $# -eq 1 && "${1}" =~ ^(r|c|-resume|-continue|--r|--c|resume|continue|h|help|-h|--help)$ ]]; then
@@ -43,6 +66,7 @@ if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v nato-name > /dev/null; th
   if NATO_NAME="$(nato-name acquire --session-id "launcher-${$}" --pid "${$}")"; then
     export NATO_NAME
     name_options=(--name "${NATO_NAME}")
+    session_name="${NATO_NAME}"
 
     # The tmux window takes the session's name, unless it was named by hand (rename-window turns automatic-rename off).
     if [[ -n "${TMUX_PANE}" && "$(tmux display-message -p -t "${TMUX_PANE}" '#{automatic-rename}')" == "1" ]]; then
@@ -51,10 +75,17 @@ if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v nato-name > /dev/null; th
   fi
 fi
 
+# Last on the line: its name is optional, so anywhere else it would take the first prompt as the name
+remote_options=()
+if [[ "${remote}" == "true" ]]; then
+  remote_options=(--remote-control ${session_name:+"${session_name}"})
+fi
+
 claude \
   --permission-mode bypassPermissions \
   "${name_options[@]}" \
-  "${@}"
+  "${@}" \
+  "${remote_options[@]}"
 exit_code="${?}"
 
 # The name freed: the window goes back to tmux's own, so the next agent in it can name it again

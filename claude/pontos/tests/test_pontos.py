@@ -232,6 +232,19 @@ class Pontos(unittest.TestCase):
     self.assertIn("write to [REDACTED] or agent@example.com at [REDACTED]", redacted)
     self.assertEqual(self.pontos.check(redacted), [])
 
+  def test_redact_from_now_on_covers_a_build_with_nothing_blocked_yet(self):
+    self.pontos.REMOTE = str(self.root / "nowhere")
+    self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "clean")], set())
+    args = type("Args", (), {"session": self.session[:8], "dry_run": False, "from_now_on": True})
+    self.assertEqual(self.pontos.command_redact(args), 0)
+    self.assertEqual(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "ghp_" + "a" * 36)], set()), {})
+
+  def test_redact_with_nothing_blocked_marks_nothing_without_from_now_on(self):
+    self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "clean")], set())
+    args = type("Args", (), {"session": self.session[:8], "dry_run": False, "from_now_on": False})
+    self.assertEqual(self.pontos.command_redact(args), 0)
+    self.assertTrue(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "ghp_" + "a" * 36)], set()))
+
   def test_redact_leaves_nothing_of_the_secret_behind(self):
     os.environ["SOME_TOKEN"] = "live(value)1234567890"
     self.addCleanup(os.environ.pop, "SOME_TOKEN")

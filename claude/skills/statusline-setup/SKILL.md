@@ -56,7 +56,7 @@ The choice lives in `${XDG_CONFIG_HOME:-~/.config}/claude-status-line/limits`.
 
 ## Weekly signal
 
-The session and weekly segments start with the time left to their reset instead of a fixed `5h` or `7d`, as in `2h18m 42% ↻ 14:30` and `5d12h 15% ↻ Mon 01:00` (the label falls back to `5h` or `7d` once the reset has passed). The weekly segment holds only the time left, the usage and the reset. The `today` segment after it says whether the owner can speed up, as in `today 69,6% of 23% steady`. `claude-usage-forecast` projects the percentage used at the reset (`used × 7 days / elapsed`), and only the signal word takes the signal's color, in bold; `today` and `of` stay gray (247) and the two numbers stand out in white (255):
+The session and weekly segments start with the time left to their reset instead of a fixed `5h` or `7d`, as in `2h18m 42% ↻ 14:30` and `5d12h 15% ↻ Mon 01:00` (the label falls back to `5h` or `7d` once the reset has passed). The weekly segment holds only the time left, the usage and the reset. Two segments follow it, as in `today 69,6% of 23%` and `forecast 71,2% steady`. The `forecast` segment says whether the owner can speed up: `claude-usage-forecast --with-percentage` projects the percentage used at the reset (`used × 7 days / elapsed`), and only the signal word takes the signal's color, in bold; the labels stay gray (247) and the numbers stand out in white (255):
 
 | Forecast at the reset | Signal | Color | Meaning |
 |-----------------------|--------|-------|---------|
@@ -64,9 +64,9 @@ The session and weekly segments start with the time left to their reset instead 
 | from 70% to 95% | `steady` | 221 (amber) | keep the pace |
 | above 95% | `slow` | 203 (salmon) | hold back: one agent, no subagents, or a day off |
 
-In the first 6 hours of the window there is no signal, so no word is shown.
+In the first 6 hours of the window there is no signal, so the `forecast` segment is not shown.
 
-In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage to reach by the end of today, from `claude-usage-plan --today-goal`; 69,6% is how much of that goal the weekly usage has reached (16 of 23), with one decimal and a comma, none when the decimal is zero (`71%`), and it passes 100% once the goal is passed. The goal spreads what was left at the day's first reading evenly up to the reset, so it stays fixed all day; before that reading exists it comes from the usage now. The signal still comes from the whole week's forecast, not from today's goal.
+In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage to reach by the end of today, from `claude-usage-plan --today-goal`; 69,6% is how much of that goal the weekly usage has reached (16 of 23), with one decimal and a comma, none when the decimal is zero (`71%`), and it passes 100% once the goal is passed. The goal spreads what was left at the day's first reading evenly up to the reset, so it stays fixed all day; before that reading exists it comes from the usage now. The forecast comes from the whole week's pace, not from today's goal.
 
 ## Segment layout
 

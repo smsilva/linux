@@ -13,13 +13,14 @@ RESETS_AT = 2_000_000_000
 WINDOW_START = RESETS_AT - WEEK
 
 
-def forecast(used, elapsed):
+def forecast(used, elapsed, *options):
   return subprocess.run(
     [
       SCRIPT,
       "--used", str(used),
       "--resets-at", str(RESETS_AT),
-      "--now", str(WINDOW_START + elapsed),
+      "--now", str(int(WINDOW_START + elapsed)),
+      *options,
     ],
     capture_output=True,
     text=True,
@@ -59,6 +60,14 @@ class UsageForecast(unittest.TestCase):
   def test_a_reset_already_past_uses_the_percentage_as_it_is(self):
     self.assertEqual(self.signal(40, WEEK + HOUR), "push")
     self.assertEqual(self.signal(96, WEEK + HOUR), "slow")
+
+  def test_with_percentage_prints_the_forecast_before_the_signal(self):
+    result = forecast(16, 37.6 * HOUR, "--with-percentage")
+    self.assertEqual(result.stdout.strip(), "71.5 steady")
+
+  def test_with_percentage_prints_nothing_in_the_first_six_hours(self):
+    result = forecast(50, 6 * HOUR - 1, "--with-percentage")
+    self.assertEqual(result.stdout.strip(), "")
 
   def test_a_missing_or_invalid_value_fails(self):
     for args in (

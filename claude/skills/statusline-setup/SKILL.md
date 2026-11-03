@@ -71,18 +71,23 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 ## Segment layout
 
 ```
-[ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ] ▶
-    bg=31           bg=236                    bg=dynamic    bg=dynamic    bg=238      bg=244
+[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶ [ ◔ time ] ▶ [ ⇌ turns ] ▶ [ model ] ▶ [ ◈ tokens ] ▶
 ```
 
 | Seg | Content | Background | Notes |
 |-----|---------|------------|-------|
+| 0 | `⚠ pontos` | 160 (red) | only when a raw log is not on Drive |
 | 1 | `repo/subfolder` | 31 (dark blue) | bold text |
 | 2 | `branch  git-status` | 236 (#303030) | omitted if not a git repo |
 | 3 | `≡ 33%` | dynamic (green/yellow/red) | context window % |
-| 4 | `◔ 5m` | dynamic (green/amber/orange/bordeaux) | session uptime |
-| 5 | `model name` | 238 (#444444) | gray text |
-| 6 | `◈ 15k` | 244 (#808080) | total tokens (input+output), lighter than model |
+| 4 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
+| 5 | `5d12h 15% ↻ Mon 01:00` | 239 (#4e4e4e) | weekly limit; omitted when hidden or absent |
+| 6 | `today 69,6% of 23%` | 235 (#262626) | share of today's goal, shown with the weekly limit |
+| 7 | `forecast 71,2% steady` | 237 (#3a3a3a) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
+| 8 | `◔ 5m` | dynamic (green/amber/orange/bordeaux) | session uptime |
+| 9 | `⇌ 3` | 235 (#262626) | the session's turns, gray text |
+| 10 | `model name` | 238 (#444444) | gray text |
+| 11 | `◈ 15k` | 244 (#808080) | total tokens (input+output), lighter than model |
 
 All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
 
@@ -107,7 +112,7 @@ printf "\033[0m\033[38;5;<last_bg>m%s\033[0m" "${sep}"
 
 Three states based on `ctx_threshold_critical` and `ctx_threshold_warning` (see script top). Colors: `2`=green, `3`=yellow, `1`=red. All use foreground index `0` (black).
 
-### Session time (seg 4)
+### Session time (seg 8)
 
 Four states based on three thresholds (see script top). Colors and foregrounds:
 

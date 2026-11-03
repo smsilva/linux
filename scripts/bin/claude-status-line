@@ -150,12 +150,13 @@ fi
 # Absent for API-key accounts; the segment is omitted then.
 limit_str() {
   local label="${1}" window="${2}" reset_format="${3}"
-  local used used_exact resets_at color reset_display="" signal="" signal_display=""
+  local used used_display used_exact resets_at color reset_display="" signal="" signal_display=""
 
   used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
   [ -z "${used_exact}" ] && return
-  # Round up, to be cautious
+  # The thresholds compare a whole number, rounded up to be cautious; the display keeps one decimal
   used=$(awk --assign value="${used_exact}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
+  used_display=$(awk --assign value="${used_exact}" 'BEGIN { printf "%.1f", value }')
   resets_at=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.resets_at // empty")
   [ -n "${resets_at}" ] && reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
 
@@ -177,7 +178,7 @@ limit_str() {
     [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
   fi
 
-  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
+  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%%b\033[38;5;247m%s" "${label}" "${used_display}" "${signal_display}" "${reset_display}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)

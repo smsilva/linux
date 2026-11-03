@@ -104,7 +104,7 @@ if [[ "${now}" -ge "${resets_at}" ]]; then
 fi
 
 echo
-used_display=$(awk --assign value="${used}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
+used_display=$(awk --assign value="${used}" 'BEGIN { printf "%.1f", value }')
 echo "  Weekly quota: ${used_display}% used, resets $(date --date "@${resets_at}" '+%a %d/%m %H:%M'), target ${target}%"
 if [[ -n "${saved_at}" ]]; then
   echo "  Usage read at $(date --date "@${saved_at}" '+%a %H:%M')"
@@ -136,9 +136,9 @@ while [[ "${day_start}" -lt "${resets_at}" ]]; do
         cumulative = used + (target - used) * (end - now) / (reset - now)
         if (cumulative < used) cumulative = used
         # Round down, to be cautious (the last day lands on the target)
-        cumulative = (end == reset) ? target : int(cumulative)
+        cumulative = (end == reset) ? target : int(cumulative * 10) / 10
         if (cumulative < previous) cumulative = previous
-        printf "%.0f %.0f\n", cumulative, cumulative - previous
+        printf "%.1f %.1f\n", cumulative, cumulative - previous
       }'
   )
 

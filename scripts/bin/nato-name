@@ -4,7 +4,9 @@ this_script_name="${this_script_path##*/}"
 
 # Every agent session on this machine gets a unique name from the NATO phonetic alphabet (ICAO spelling: alfa,
 # juliett). One file per name in the state folder, written under one flock, holds the session id, the pid and the
-# time it was taken; a name whose pid is gone is taken again by the next acquire.
+# time it was taken. Names go round like hurricane names: .last holds the last one given, the next session takes the
+# one after it, and the list starts over only after zulu, skipping the names still in use. A closed session's name, or
+# one whose pid is gone, comes back on its turn.
 
 NAMES=(alfa bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu)
 
@@ -24,8 +26,9 @@ show_usage() {
       acquire --session-id <id> --pid <pid> [--name <name>]
                   Takes a name and prints it: the one this session or pid
                   (or one of its parent processes) already holds, else
-                  --name when free, else the first free one. A name whose
-                  pid is no longer alive counts as free.
+                  --name when free, else the next free one after the last
+                  name given, starting over after zulu. A name whose pid is
+                  no longer alive counts as free.
       release --session-id <id>
                   Frees the name that session holds.
       whoami  --session-id <id>
@@ -111,6 +114,26 @@ free() {
   [[ ! -f "${state_directory}/${name}" ]] || ! alive "${state_directory}/${name}"
 }
 
+next_position() {
+  # The position in NAMES after the last name given; the top when there is none or it is not on the list.
+  local last
+  local index
+  last="$(cat "${state_directory}/.last" 2>/dev/null)"
+  for index in "${!NAMES[@]}"; do
+    if [[ "${NAMES[${index}]}" == "${last}" ]]; then
+      echo $(( (index + 1) % ${#NAMES[@]} ))
+      return
+    fi
+  done
+  echo 0
+}
+
+remember_last() {
+  local name="${1?}"
+  echo "${name}" > "${state_directory}/.last.tmp"
+  mv "${state_directory}/.last.tmp" "${state_directory}/.last"
+}
+
 valid_name() {
   [[ "${1}" =~ ^[a-z]+(-[a-z]+)?(-[0-9]+)?$ ]]
 }
@@ -123,6 +146,8 @@ acquire() {
   local holder
   local round
   local name
+  local position
+  local offset
 
   # The session already holds one (a resume, a second SessionStart).
   for file in $(name_files); do
@@ -151,10 +176,21 @@ acquire() {
     return
   fi
 
-  round=1
+  position="$(next_position)"
+  for (( offset = 0; offset < ${#NAMES[@]}; offset++ )); do
+    name="${NAMES[$(( (position + offset) % ${#NAMES[@]} ))]}"
+    if free "${name}"; then
+      remember_last "${name}"
+      write "${name}" "${session_id}" "${pid}"
+      return
+    fi
+  done
+
+  # Every name of the list is in use: a suffix, without moving the list.
+  round=2
   while true; do
     for name in "${NAMES[@]}"; do
-      [[ "${round}" -gt 1 ]] && name="${name}-${round}"
+      name="${name}-${round}"
       if free "${name}"; then
         write "${name}" "${session_id}" "${pid}"
         return

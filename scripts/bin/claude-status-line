@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ 5h % ↻ ] ▶ [ 7d % signal ↻ ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal signal ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
 
 this_script_path="$(realpath "${0}")"
 PATH="${this_script_path%/*}:${PATH}"
@@ -17,6 +17,7 @@ section_model_background_color=238   # #444444
 section_tokens_background_color=244  # #808080, lighter than model
 section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
 section_limits_seven_day_background_color=239  # #4e4e4e, 7-day usage limit
+section_limits_today_background_color=235      # #262626, today's goal and signal
 
 # Account usage limit thresholds (percentage)
 limits_threshold_critical=${CLAUDE_LIMITS_THRESHOLD_CRITICAL:-80}
@@ -148,40 +149,64 @@ fi
 
 # --- Account usage limits (5-hour session window, 7-day window) ---
 # Absent for API-key accounts; the segment is omitted then.
+
+# Prints the time left up to an epoch, such as 5d12h, 2h18m or 45m, or the fallback once it has passed
+time_left() {
+  local left=$(( ${1} - $(date +%s) ))
+
+  if   [ "${left}" -le 0 ];     then echo "${2}"
+  elif [ "${left}" -ge 86400 ]; then echo "$(( left / 86400 ))d$(( left % 86400 / 3600 ))h"
+  elif [ "${left}" -ge 3600 ];  then echo "$(( left / 3600 ))h$(( left % 3600 / 60 ))m"
+  else                               echo "$(( left / 60 ))m"
+  fi
+}
+
 limit_str() {
   local label="${1}" window="${2}" reset_format="${3}"
-  local used used_exact resets_at color reset_display="" signal="" signal_display="" today_goal="" today_goal_display=""
+  local used used_exact resets_at color reset_display=""
 
   used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
   [ -z "${used_exact}" ] && return
   # Round up, to be cautious
   used=$(awk --assign value="${used_exact}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
   resets_at=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.resets_at // empty")
-  [ -n "${resets_at}" ] && reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
+  if [ -n "${resets_at}" ]; then
+    reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
+    label=$(time_left "${resets_at}" "${label}")
+  fi
 
   if   [ "${used}" -ge "${limits_threshold_critical}" ]; then color=203  # salmon
   elif [ "${used}" -ge "${limits_threshold_warning}"  ]; then color=221  # amber
   else                                                         color=114  # green
   fi
 
-  # The weekly percentage takes the signal's color, so it follows the forecast rather than the usage thresholds
-  if [ "${window}" = seven_day ] && [ -n "${resets_at}" ]; then
-    signal=$(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" 2>/dev/null)
+  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%\033[38;5;247m%s" "${label}" "${used}" "${reset_display}"
+}
 
-    case "${signal}" in
-      push   ) color=114 ;;
-      steady ) color=221 ;;
-      slow   ) color=203 ;;
-    esac
+# Today's guidance from the weekly quota: the usage so far, the percentage to reach by the end of today and the signal
+today_str() {
+  local used_exact resets_at today_goal goal_reached signal color=114 signal_display=""
 
-    [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
+  used_exact=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.used_percentage // empty')
+  resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
+  [ -z "${used_exact}" ] || [ -z "${resets_at}" ] && return
 
-    # The percentage to reach by the end of today, to compare with the one used
-    today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
-    [ -n "${today_goal}" ] && today_goal_display="\033[38;5;247m/${today_goal}%%"
-  fi
+  today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
+  [ -z "${today_goal}" ] && return
 
-  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%${today_goal_display}%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
+  # The share of today's goal already reached
+  goal_reached=$(awk --assign used="${used_exact}" --assign goal="${today_goal}" 'BEGIN { printf "%.0f", (goal > 0) ? used * 100 / goal : 0 }')
+  signal=$(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" 2>/dev/null)
+
+  case "${signal}" in
+    push   ) color=114 ;;
+    steady ) color=221 ;;
+    slow   ) color=203 ;;
+  esac
+
+  [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
+
+  printf "\033[38;5;247mtoday \033[38;5;${color}m%s%%\033[38;5;247m of %s%%%b" "${goal_reached}" "${today_goal}" "${signal_display}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)
@@ -222,8 +247,10 @@ limits_choice=$(claude-status-line-limits)
 
 limits_five_hour=""
 limits_seven_day=""
+limits_today=""
 [[ "${limits_choice}" == both || "${limits_choice}" == session ]] && limits_five_hour=$(limit_str "5h" five_hour "%H:%M")
 [[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_seven_day=$(limit_str "7d" seven_day "%a %H:%M")
+[[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_today=$(today_str)
 
 # Assemble segments with powerline separators
 segment_separator=$'\ue0b0'
@@ -272,6 +299,8 @@ add_segment --text " ≡ ${used_int}% "        --background "${section_context_b
 add_segment --text " ${limits_five_hour} "   --background "${section_limits_five_hour_background_color}"
 [ -n "${limits_seven_day}" ] && \
 add_segment --text " ${limits_seven_day} "   --background "${section_limits_seven_day_background_color}"
+[ -n "${limits_today}" ] && \
+add_segment --text " ${limits_today} "       --background "${section_limits_today_background_color}"
 add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
 add_segment --text " ⇌ ${turn_count} "       --background "${section_turns_background_color}"   --foreground 247
 add_segment --text " ✦ ${model} "            --background "${section_model_background_color}"   --foreground 247

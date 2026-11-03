@@ -26,12 +26,15 @@ show_usage() {
       -r,  --resets-at  Epoch seconds of the window's reset
       -t,  --target     Percentage to reach at the reset (default: 100)
       -n,  --now        Epoch seconds of the current time (default: the clock)
+           --today-goal Print only the percentage to reach by the end of today
 
     Examples:
 
       ${this_script_name}
 
       ${this_script_name} --target 95
+
+      ${this_script_name} --today-goal
 
       ${this_script_name} --used 30 --resets-at 1794186000
 
@@ -63,6 +66,10 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
     -n | --now )
       shift
       now="${1}"
+      ;;
+
+    --today-goal )
+      today_goal=true
       ;;
 
     * )
@@ -106,8 +113,43 @@ if [[ "${now}" -ge "${resets_at}" ]]; then
   exit 1
 fi
 
-echo
 used_display=$(awk --assign value="${used}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
+
+# Prints the end of the plan's day that holds an epoch
+plan_day_end() {
+  local day_end
+  day_end=$(date --date "$(date --date "@${1}" '+%F') +1 day" '+%s')
+  # The hours after midnight before the reset still belong to the last day
+  [[ $(( resets_at - day_end )) -lt $(( 6 * 3600 )) ]] && day_end="${resets_at}"
+  echo "${day_end}"
+}
+
+# Prints the cumulative percentage to reach by an epoch, and the share over the previous one
+plan_cumulative() {
+  awk \
+    --assign used="${used}" \
+    --assign target="${target}" \
+    --assign previous="${2}" \
+    --assign now="${now}" \
+    --assign end="${1}" \
+    --assign reset="${resets_at}" \
+    'BEGIN {
+      cumulative = used + (target - used) * (end - now) / (reset - now)
+      if (cumulative < used) cumulative = used
+      # Round down, to be cautious (the last day lands on the target)
+      cumulative = (end == reset) ? target : int(cumulative)
+      if (cumulative < previous) cumulative = previous
+      printf "%.0f %.0f\n", cumulative, cumulative - previous
+    }'
+}
+
+if [[ "${today_goal}" == true ]]; then
+  read -r cumulative _ < <(plan_cumulative "$(plan_day_end "${now}")" "${used_display}")
+  echo "${cumulative}"
+  exit 0
+fi
+
+echo
 echo "  Weekly quota: ${used_display}% used, resets $(date --date "@${resets_at}" '+%a %d/%m %H:%M'), target ${target}%"
 if [[ -n "${saved_at}" ]]; then
   echo "  Usage read at $(date --date "@${saved_at}" '+%a %H:%M')"
@@ -185,31 +227,12 @@ previous="${used_display}"
 day_start="${now}"
 
 while [[ "${day_start}" -lt "${resets_at}" ]]; do
-  day_date=$(date --date "@${day_start}" '+%F')
-  day_end=$(date --date "${day_date} +1 day" '+%s')
-  # The hours after midnight before the reset still belong to the last day
-  [[ $(( resets_at - day_end )) -lt $(( 6 * 3600 )) ]] && day_end="${resets_at}"
+  day_end=$(plan_day_end "${day_start}")
 
   label=$(date --date "@${day_start}" '+%a %d/%m')
   [[ "${day_start}" == "${now}" ]] && label="${label} (today)"
 
-  read -r cumulative share < <(
-    awk \
-      --assign used="${used}" \
-      --assign target="${target}" \
-      --assign previous="${previous}" \
-      --assign now="${now}" \
-      --assign end="${day_end}" \
-      --assign reset="${resets_at}" \
-      'BEGIN {
-        cumulative = used + (target - used) * (end - now) / (reset - now)
-        if (cumulative < used) cumulative = used
-        # Round down, to be cautious (the last day lands on the target)
-        cumulative = (end == reset) ? target : int(cumulative)
-        if (cumulative < previous) cumulative = previous
-        printf "%.0f %.0f\n", cumulative, cumulative - previous
-      }'
-  )
+  read -r cumulative share < <(plan_cumulative "${day_end}" "${previous}")
 
   printf '  %-18s %-8s %9s%% %11s%%\n' \
     "${label}" \

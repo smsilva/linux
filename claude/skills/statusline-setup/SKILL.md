@@ -66,6 +66,8 @@ The 7-day segment says whether the owner can speed up, as in `7d 5% push ↻ Mon
 
 In the first 6 hours of the window there is no signal, and the percentage keeps the usage thresholds of the 5-hour segment.
 
+After the percentage comes today's goal, as in `7d 15%/22% steady`: the cumulative percentage to reach by the end of today, from `claude-usage-plan --today-goal`, the same number as the `(today)` row of its table. It spreads what is left evenly up to the reset, so it moves with the usage.
+
 ## Segment layout
 
 ```

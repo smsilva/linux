@@ -150,7 +150,7 @@ fi
 # Absent for API-key accounts; the segment is omitted then.
 limit_str() {
   local label="${1}" window="${2}" reset_format="${3}"
-  local used used_exact resets_at color reset_display="" signal="" signal_display=""
+  local used used_exact resets_at color reset_display="" signal="" signal_display="" today_goal="" today_goal_display=""
 
   used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
   [ -z "${used_exact}" ] && return
@@ -175,9 +175,13 @@ limit_str() {
     esac
 
     [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
+
+    # The percentage to reach by the end of today, to compare with the one used
+    today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
+    [ -n "${today_goal}" ] && today_goal_display="\033[38;5;247m/${today_goal}%%"
   fi
 
-  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
+  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%${today_goal_display}%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)

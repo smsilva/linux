@@ -8,6 +8,10 @@ disable-model-invocation: true
 
 A session that has grown too long hands its work to a new one and asks the owner nothing: what needs the owner stays on the issue, not in a session waiting for an answer. Unlike `wrap-up`, this skill is not a proposal to approve. It runs only when the owner calls it, while its behaviour is being evaluated.
 
+## When to suggest it
+
+Suggest `/rollover` only when much is left: several steps, files or PRs (owner, 2026-11-03). It costs about a dozen calls on the long context, plus a new session reading the issue again. When a few calls are left (a push, a PR, a merge), tell the owner to finish in this session, then `/wrap-up` and `/clear`, instead of suggesting it. When the owner calls `/rollover` anyway, run it.
+
 ## Rules
 
 - Never push, merge, claim, release or delete anything, and do not open issues or edit rules: those wait for the owner's go, listed as pending in the comment.

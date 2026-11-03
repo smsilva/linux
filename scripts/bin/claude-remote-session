@@ -17,6 +17,7 @@ show_usage() {
       -h,  --help       Show this help
       -d,  --directory  Folder the session starts in (default: current folder)
       -n,  --name       Name of the new tmux window (default: the session's NATO name, set by agent)
+      -p,  --prompt     First prompt of the session (default: none)
       -t,  --timeout    Seconds to wait for each step (default: 30)
 
     Examples:
@@ -25,11 +26,14 @@ show_usage() {
 
       ${this_script_name} --directory ~/git/getnereus/nereus --name nereus-rc
 
+      ${this_script_name} --prompt "Continue issue #123 from its last comment"
+
 EOF
 }
 
 directory="${PWD}"
 window_name=""
+first_prompt=""
 timeout_seconds="30"
 
 while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
@@ -47,6 +51,11 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
     -n | --name )
       shift
       window_name="${1?}"
+      ;;
+
+    -p | --prompt )
+      shift
+      first_prompt="${1?}"
       ;;
 
     -t | --timeout )
@@ -93,13 +102,22 @@ if [ -n "${window_name}" ]; then
   name_option=(-n "${window_name}")
 fi
 
+# The prompt travels in the window's environment, so no quoting of it can break the command
+environment_option=()
+window_command='bash -lc "agent; exec bash"'
+if [ -n "${first_prompt}" ]; then
+  environment_option=(-e "AGENT_FIRST_PROMPT=${first_prompt}")
+  window_command='bash -lc "agent \"\${AGENT_FIRST_PROMPT}\"; exec bash"'
+fi
+
 read -r window pane_id < <(
   tmux new-window \
     "${name_option[@]}" \
+    "${environment_option[@]}" \
     -c "${directory}" \
     -P \
     -F '#{session_name}:#{window_index} #{pane_id}' \
-    'bash -lc "agent; exec bash"'
+    "${window_command}"
 )
 
 echo "window: ${window} pane: ${pane_id}"

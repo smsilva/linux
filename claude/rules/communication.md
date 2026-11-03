@@ -10,3 +10,8 @@
 - Show an artifact's absolute path and open it:
   - `xdg-open <file>`: pdf, docx, xlsx, pptx, jpg, png, gif, mp4, mp3
   - `code <file>`: txt, py, js, html, css, md, xml, csv, json
+- A summary that asks for the owner's decisions uses colors (owner, 2026-11-03), so it can be read first and decided at the end:
+  - 🟢 only information, one line, no number; 🟠 to review, with a suggestion of high confidence; 🔴 depends on the owner's answer.
+  - The order on screen is 🟢, 🟠, 🔴. Numbers start at 1 on the first item that asks for action and follow the screen across the colors.
+  - 🔴 always waits for the owner's answer. A 🟠 the owner does not mention counts as accepted, only after every 🔴 is answered; never act on one before that.
+  - The summary ends with the agent's weighing, not a sample reply: one line per 🔴, with the recommendation and its reason in as few words as possible.

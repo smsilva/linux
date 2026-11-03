@@ -41,13 +41,8 @@ Nothing of value may stay only in the conversation: what was decided, found or l
    - when the facts say `warning: the next issue is held by another session`, say it in bold: `/next` alone would take that session's issue, so name the number to pass (`/next <n>`) or `--new`;
    - when the facts say `warning: the next issue does not follow the sequence`, say it in bold, name the issue of the sequence that should come next, and propose an item that reorders the board (`scripts/board/queue status <n> Todo` and `move <n> --top`), so `/next` resumes the sequence.
 
-5. **Propose** one numbered table in pt-BR, so the owner can answer by voice or phone ("1, 3 e 5", "tudo", "nenhum"):
+5. **Propose** in pt-BR, in the colors of `communication.md` (🟢, then 🟠, then 🔴, numbered across the colors, ending with the weighing of each 🔴), each item with its destination and proposed text, so the owner can answer by voice or phone. Facts that need nothing go in the 🟢 line (e.g. "3 worktrees mergeadas no disco: limpeza fica com você"). Without a board or a project `issue` skill, propose plain `gh`; without a remote, only `HANDOFF.local.md`.
 
-   | # | Item | Destino | Texto proposto |
-   | --- | --- | --- | --- |
-
-   Below it, one line on the facts that need nothing (e.g. "3 worktrees mergeadas no disco: limpeza fica com você"). Without a board or a project `issue` skill, propose plain `gh`; without a remote, only `HANDOFF.local.md`.
-
-6. **Act** on the approved items only, and write the Pontos notes (`pontos-save note title|summary|decisions`) whatever the answer. Each action stands alone: report a failure and go on with the next.
+6. **Act** once every 🔴 is answered, on the approved items only (a 🟠 the owner did not mention counts as approved), and write the Pontos notes (`pontos-save note title|summary|decisions`) whatever the answer. Each action stands alone: report a failure and go on with the next.
 
 7. **Report** what went where (the Pontos notes included), every issue and PR number with its short description, then "pronto para `/clear`" (and `/next` in a repository with a board, naming the issue it will pick). In the main session, `speak` one short pt-BR sentence with the outcome when the project asks for it.

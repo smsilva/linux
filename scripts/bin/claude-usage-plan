@@ -1,0 +1,155 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+cache_file="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line/weekly.json"
+
+show_usage() {
+  cat <<EOF
+
+  Plans the rest of the weekly Claude quota: for each remaining day, the
+  cumulative percentage to reach by the end of that day (and the share of
+  that day), so the whole quota is used by the reset without running out
+  before it. The budget is spread evenly over the time left.
+
+  Reads the last weekly usage saved by claude-status-line in
+  ${cache_file}
+  unless --used and --resets-at are given.
+
+    Options:
+
+      -h,  --help       Show this help
+      -u,  --used       Percentage of the window used so far
+      -r,  --resets-at  Epoch seconds of the window's reset
+      -t,  --target     Percentage to reach at the reset (default: 100)
+      -n,  --now        Epoch seconds of the current time (default: the clock)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} --target 95
+
+      ${this_script_name} --used 30 --resets-at 1794186000
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -u | --used )
+      shift
+      used="${1}"
+      ;;
+
+    -r | --resets-at )
+      shift
+      resets_at="${1}"
+      ;;
+
+    -t | --target )
+      shift
+      target="${1}"
+      ;;
+
+    -n | --now )
+      shift
+      now="${1}"
+      ;;
+
+    * )
+      echo "Invalid option: ${1}" >&2
+      show_usage >&2
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+now="${now:-$(date +%s)}"
+target="${target:-100}"
+
+if [[ -z "${used}" && -z "${resets_at}" ]]; then
+  if [[ ! -f "${cache_file}" ]]; then
+    echo "No saved usage in ${cache_file}: wait for the status line to refresh, or pass --used and --resets-at" >&2
+    exit 1
+  fi
+
+  used=$(jq --raw-output '.used_percentage' "${cache_file}")
+  resets_at=$(jq --raw-output '.resets_at' "${cache_file}")
+  saved_at=$(jq --raw-output '.saved_at // empty' "${cache_file}")
+fi
+
+if ! [[ "${used}" =~ ^[0-9]+(\.[0-9]+)?$ && "${target}" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "--used and --target must be percentages: '${used}' '${target}'" >&2
+  exit 1
+fi
+
+for epoch in "${resets_at}" "${now}"; do
+  if ! [[ "${epoch}" =~ ^[0-9]+$ ]]; then
+    echo "--resets-at and --now must be epoch seconds: '${epoch}'" >&2
+    exit 1
+  fi
+done
+
+if [[ "${now}" -ge "${resets_at}" ]]; then
+  echo "The window reset at $(date --date "@${resets_at}" '+%a %d %H:%M'): the saved usage is stale, wait for the status line to refresh" >&2
+  exit 1
+fi
+
+echo
+used_display=$(awk --assign value="${used}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
+echo "  Weekly quota: ${used_display}% used, resets $(date --date "@${resets_at}" '+%a %d/%m %H:%M'), target ${target}%"
+if [[ -n "${saved_at}" ]]; then
+  echo "  Usage read at $(date --date "@${saved_at}" '+%a %H:%M')"
+fi
+echo
+printf '  %-18s %-8s %12s %10s\n' "Day" "Ends" "Cumulative" "Day share"
+
+previous="${used_display}"
+day_start="${now}"
+
+while [[ "${day_start}" -lt "${resets_at}" ]]; do
+  day_date=$(date --date "@${day_start}" '+%F')
+  day_end=$(date --date "${day_date} +1 day" '+%s')
+  # The hours after midnight before the reset still belong to the last day
+  [[ $(( resets_at - day_end )) -lt $(( 6 * 3600 )) ]] && day_end="${resets_at}"
+
+  label=$(date --date "@${day_start}" '+%a %d/%m')
+  [[ "${day_start}" == "${now}" ]] && label="${label} (today)"
+
+  read -r cumulative share < <(
+    awk \
+      --assign used="${used}" \
+      --assign target="${target}" \
+      --assign previous="${previous}" \
+      --assign now="${now}" \
+      --assign end="${day_end}" \
+      --assign reset="${resets_at}" \
+      'BEGIN {
+        cumulative = used + (target - used) * (end - now) / (reset - now)
+        if (cumulative < used) cumulative = used
+        # Round down, to be cautious (the last day lands on the target)
+        cumulative = (end == reset) ? target : int(cumulative)
+        if (cumulative < previous) cumulative = previous
+        printf "%.0f %.0f\n", cumulative, cumulative - previous
+      }'
+  )
+
+  printf '  %-18s %-8s %11s%% %9s%%\n' \
+    "${label}" \
+    "$(date --date "@${day_end}" '+%H:%M')" \
+    "${cumulative}" \
+    "+${share}"
+
+  previous="${cumulative}"
+  day_start="${day_end}"
+done
+
+echo

@@ -180,6 +180,22 @@ limit_str() {
   printf "\033[38;5;247m%s \033[38;5;${color}m%s%%%b\033[38;5;247m%s" "${label}" "${used}" "${signal_display}" "${reset_display}"
 }
 
+# Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)
+weekly_used=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.used_percentage // empty')
+weekly_resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
+
+if [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
+  weekly_cache_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line"
+  mkdir --parents "${weekly_cache_directory}"
+  jq --null-input \
+    --argjson used "${weekly_used}" \
+    --argjson resets_at "${weekly_resets_at}" \
+    --argjson saved_at "$(date +%s)" \
+    '{used_percentage: $used, resets_at: $resets_at, saved_at: $saved_at}' \
+    > "${weekly_cache_directory}/weekly.json.$$" \
+  && mv "${weekly_cache_directory}/weekly.json.$$" "${weekly_cache_directory}/weekly.json"
+fi
+
 # Which segments to show: both, session, weekly or none (set with claude-status-line-limits)
 limits_choice=$(claude-status-line-limits)
 

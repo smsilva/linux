@@ -7,13 +7,13 @@ PATH="${this_script_directory}:${PATH}"
 
 state_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line"
 last_shown_file="${state_directory}/plan-last-shown"
-interval_hours="${CLAUDE_USAGE_PLAN_INTERVAL_HOURS:-4}"
+interval_hours="${CLAUDE_USAGE_PLAN_INTERVAL_HOURS:-1}"
 
 show_usage() {
   cat <<EOF
 
   UserPromptSubmit hook: shows the weekly quota plan (claude-usage-plan) to
-  the owner as a system message, at most once every ${interval_hours} hours
+  the owner as a system message, at most once every ${interval_hours} hour(s)
   (CLAUDE_USAGE_PLAN_INTERVAL_HOURS). The epoch of the last time it fired is
   kept in ${last_shown_file}.
 

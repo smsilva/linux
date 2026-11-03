@@ -95,6 +95,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/claude-usage-plan-hook\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "statusLine": {

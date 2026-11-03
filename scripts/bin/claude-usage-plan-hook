@@ -1,0 +1,67 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+state_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line"
+last_shown_file="${state_directory}/plan-last-shown"
+interval_hours="${CLAUDE_USAGE_PLAN_INTERVAL_HOURS:-4}"
+
+show_usage() {
+  cat <<EOF
+
+  UserPromptSubmit hook: shows the weekly quota plan (claude-usage-plan) to
+  the owner as a system message, at most once every ${interval_hours} hours
+  (CLAUDE_USAGE_PLAN_INTERVAL_HOURS). The epoch of the last time it fired is
+  kept in ${last_shown_file}.
+
+  Prints nothing, and does not record anything, while there is no saved usage
+  yet, so the next prompt tries again.
+
+    Options:
+
+      -h,  --help  Show this help
+
+    Examples:
+
+      ${this_script_name} < /dev/null
+
+      cat ${last_shown_file}
+
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    * )
+      echo "Invalid option: ${1}" >&2
+      show_usage >&2
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+now=$(date +%s)
+last_shown=$(cat "${last_shown_file}" 2>/dev/null)
+
+if [[ "${last_shown}" =~ ^[0-9]+$ ]] && [[ $(( now - last_shown )) -lt $(( interval_hours * 3600 )) ]]; then
+  exit 0
+fi
+
+plan=$(claude-usage-plan 2>/dev/null) || exit 0
+
+mkdir --parents "${state_directory}"
+echo "${now}" > "${last_shown_file}"
+
+jq --null-input \
+  --arg message "${plan}" \
+  '{systemMessage: $message}'

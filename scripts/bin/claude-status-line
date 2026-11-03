@@ -194,8 +194,8 @@ today_str() {
   today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
   [ -z "${today_goal}" ] && return
 
-  # The share of today's goal already reached
-  goal_reached=$(awk --assign used="${used_exact}" --assign goal="${today_goal}" 'BEGIN { printf "%.0f", (goal > 0) ? used * 100 / goal : 0 }')
+  # The share of today's goal already reached, with one decimal unless it is zero
+  goal_reached=$(awk --assign used="${used_exact}" --assign goal="${today_goal}" 'BEGIN { reached = sprintf("%.1f", (goal > 0) ? used * 100 / goal : 0); sub(/\.0$/, "", reached); sub(/\./, ",", reached); print reached }')
   signal=$(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" 2>/dev/null)
 
   case "${signal}" in
@@ -206,7 +206,8 @@ today_str() {
 
   [ -n "${signal}" ] && signal_display=" \033[1;38;5;${color}m${signal}\033[22m"
 
-  printf "\033[38;5;247mtoday \033[38;5;${color}m%s%%\033[38;5;247m of %s%%%b" "${goal_reached}" "${today_goal}" "${signal_display}"
+  # Only the signal carries the color: the numbers just stand out from the labels
+  printf "\033[38;5;247mtoday \033[38;5;255m%s%%\033[38;5;247m of \033[38;5;255m%s%%\033[38;5;247m%b" "${goal_reached}" "${today_goal}" "${signal_display}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)

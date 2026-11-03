@@ -51,10 +51,63 @@ class NatoName(unittest.TestCase):
       args += ["--name", name]
     return self.run_script(*args).stdout.strip()
 
-  def test_acquire_gives_the_first_free_name_in_order(self):
+  def test_acquire_gives_the_names_in_order(self):
     self.assertEqual(self.acquire("s1"), "alfa")
     self.assertEqual(self.acquire("s2"), "bravo")
     self.assertEqual(self.acquire("s3"), "charlie")
+
+  def test_a_closed_session_does_not_give_its_name_to_the_next_one(self):
+    self.assertEqual(self.acquire("s1"), "alfa")
+    self.run_script("release", "--session-id", "s1")
+    self.assertEqual(self.acquire("s2"), "bravo")
+    self.run_script("release", "--session-id", "s2")
+    self.assertEqual(self.acquire("s3"), "charlie")
+
+  def test_the_list_starts_over_after_zulu(self):
+    for index, _ in enumerate(NAMES):
+      session_id = f"s{index}"
+      self.acquire(session_id)
+      self.run_script("release", "--session-id", session_id)
+    self.assertEqual(self.acquire("next"), "alfa")
+
+  def test_starting_over_skips_the_names_still_in_use(self):
+    self.assertEqual(self.acquire("long-lived"), "alfa")
+    for index, _ in enumerate(NAMES[1:]):
+      session_id = f"s{index}"
+      self.acquire(session_id)
+      self.run_script("release", "--session-id", session_id)
+    self.assertEqual(self.acquire("next"), "bravo")
+
+  def test_a_dead_holder_gets_its_turn_when_the_list_comes_back(self):
+    self.assertEqual(self.acquire("crashed", self.dead_pid()), "alfa")
+    self.assertEqual(self.acquire("s1"), "bravo")
+    (pathlib.Path(self.state.name) / ".last").write_text("zulu\n")
+    self.assertEqual(self.acquire("s2"), "alfa")
+
+  def test_keeping_a_name_does_not_move_the_list(self):
+    pid = self.live_pid()
+    self.assertEqual(self.acquire("s1", pid), "alfa")
+    self.assertEqual(self.acquire("s1", pid), "alfa")
+    self.assertEqual(self.acquire("s1-after-clear", pid), "alfa")
+    self.assertEqual(self.acquire("s2"), "bravo")
+
+  def test_the_launcher_reservation_moves_the_list_once(self):
+    launcher = os.getpid()
+    self.assertEqual(self.acquire(f"launcher-{launcher}", launcher), "alfa")
+    self.assertEqual(self.acquire("session", self.live_pid()), "alfa")
+    self.assertEqual(self.acquire("other", name="alfa"), "bravo")
+
+  def test_a_preferred_name_does_not_move_the_list(self):
+    self.assertEqual(self.acquire("s1", name="kilo"), "kilo")
+    self.assertEqual(self.acquire("s2"), "alfa")
+
+  def test_an_unknown_last_name_starts_from_the_top(self):
+    (pathlib.Path(self.state.name) / ".last").write_text("not-a-name\n")
+    self.assertEqual(self.acquire("s1"), "alfa")
+
+  def test_the_last_name_file_is_not_listed_as_a_name(self):
+    self.acquire("s1")
+    self.assertNotIn(".last", self.run_script("list").stdout)
 
   def test_acquire_again_keeps_the_session_name(self):
     pid = self.live_pid()
@@ -66,7 +119,7 @@ class NatoName(unittest.TestCase):
     self.acquire("s1")
     self.acquire("s2")
     self.run_script("release", "--session-id", "s1")
-    self.assertEqual(self.acquire("s3"), "alfa")
+    self.assertEqual(self.acquire("s3", name="alfa"), "alfa")
 
   def test_whoami_prints_the_session_name(self):
     self.acquire("s1")
@@ -76,7 +129,7 @@ class NatoName(unittest.TestCase):
 
   def test_a_dead_holder_is_reclaimed(self):
     self.acquire("crashed", self.dead_pid())
-    self.assertEqual(self.acquire("s2"), "alfa")
+    self.assertEqual(self.acquire("s2", name="alfa"), "alfa")
     self.assertEqual(self.run_script("whoami", "--session-id", "crashed", check=False).stdout.strip(), "")
 
   def test_a_reused_pid_does_not_keep_the_name(self):
@@ -84,13 +137,15 @@ class NatoName(unittest.TestCase):
     self.acquire("old", pid)
     holder = pathlib.Path(self.state.name) / "alfa"
     holder.write_text(holder.read_text().replace("started=", "started=1"))
-    self.assertEqual(self.acquire("new"), "alfa")
+    self.assertEqual(self.acquire("new", name="alfa"), "alfa")
 
   def test_overflow_continues_with_a_suffix(self):
     for index, _ in enumerate(NAMES):
       self.acquire(f"s{index}")
     self.assertEqual(self.acquire("s26"), "alfa-2")
     self.assertEqual(self.acquire("s27"), "bravo-2")
+    self.run_script("release", "--session-id", "s0")
+    self.assertEqual(self.acquire("s28"), "alfa")
 
   def test_the_launcher_name_passes_to_its_child(self):
     launcher = os.getpid()
@@ -134,7 +189,7 @@ class NatoName(unittest.TestCase):
     pid = self.live_pid()
     self.hook("SessionStart", "s1", pid, source="startup")
     self.hook("SessionEnd", "s1", pid, reason="logout")
-    self.assertEqual(self.acquire("s2"), "alfa")
+    self.assertEqual(self.acquire("s2", name="alfa"), "alfa")
 
   def test_clear_keeps_the_name_for_the_same_process(self):
     pid = self.live_pid()

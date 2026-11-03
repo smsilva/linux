@@ -11,7 +11,20 @@
     "use-browser": "off",
     "daily": "off",
     "all-skills-review": "off",
-    "video-captions": "off"
+    "video-captions": "off",
+    "pptx": "off",
+    "anthropic-skills:pptx": "on",
+    "diagnosing-bugs": "off",
+    "k9s-tutor": "off",
+    "speak-words": "user-invocable-only",
+    "panel": "user-invocable-only",
+    "anthropic-skills:built-in-browser": "off",
+    "anthropic-skills:computer-use": "off",
+    "anthropic-skills:deep-research": "off",
+    "anthropic-skills:google-workspace": "off",
+    "anthropic-skills:import-memory": "off",
+    "anthropic-skills:morning": "off",
+    "anthropic-skills:skill-creator": "off"
   },
   "hooks": {
     "Stop": [

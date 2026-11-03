@@ -124,13 +124,13 @@ plan_day_end() {
   echo "${day_end}"
 }
 
-# Prints the cumulative percentage to reach by an epoch, and the share over the previous one
+# Prints the cumulative percentage to reach by an epoch, and the share over the previous one, spreading what is left from a usage at a time (default: now)
 plan_cumulative() {
   awk \
-    --assign used="${used}" \
+    --assign used="${3:-${used}}" \
     --assign target="${target}" \
     --assign previous="${2}" \
-    --assign now="${now}" \
+    --assign now="${4:-${now}}" \
     --assign end="${1}" \
     --assign reset="${resets_at}" \
     'BEGIN {
@@ -143,9 +143,22 @@ plan_cumulative() {
     }'
 }
 
+# Today's goal stays fixed from the day's first reading, so reaching it means something; without one it comes from the usage now
+today_goal_value=""
+today_snapshot="${history_directory}/$(date --date "@${now}" '+%F').json"
+
+if [[ -f "${today_snapshot}" ]]; then
+  read -r snapshot_used snapshot_resets_at snapshot_saved_at < <(jq --raw-output '"\(.used_percentage) \(.resets_at) \(.saved_at)"' "${today_snapshot}")
+  if [[ "${snapshot_resets_at}" == "${resets_at}" && "${snapshot_saved_at}" -le "${now}" ]]; then
+    read -r today_goal_value _ < <(plan_cumulative "$(plan_day_end "${now}")" 0 "${snapshot_used}" "${snapshot_saved_at}")
+  fi
+fi
+
 if [[ "${today_goal}" == true ]]; then
-  read -r cumulative _ < <(plan_cumulative "$(plan_day_end "${now}")" "${used_display}")
-  echo "${cumulative}"
+  if [[ -z "${today_goal_value}" ]]; then
+    read -r today_goal_value _ < <(plan_cumulative "$(plan_day_end "${now}")" "${used_display}")
+  fi
+  echo "${today_goal_value}"
   exit 0
 fi
 
@@ -233,6 +246,12 @@ while [[ "${day_start}" -lt "${resets_at}" ]]; do
   [[ "${day_start}" == "${now}" ]] && label="${label} (today)"
 
   read -r cumulative share < <(plan_cumulative "${day_end}" "${previous}")
+
+  # Today's row shows the fixed goal, unless the usage already passed it
+  if [[ "${day_start}" == "${now}" && -n "${today_goal_value}" ]]; then
+    cumulative=$(( today_goal_value > used_display ? today_goal_value : used_display ))
+    share=$(( cumulative - previous ))
+  fi
 
   printf '  %-18s %-8s %9s%% %11s%%\n' \
     "${label}" \

@@ -56,7 +56,7 @@ The choice lives in `${XDG_CONFIG_HOME:-~/.config}/claude-status-line/limits`.
 
 ## Weekly signal
 
-The 7-day segment says whether the owner can speed up, as in `7d 5% push ↻ Mon 01:00`. `claude-usage-forecast` projects the percentage used at the reset (`used × 7 days / elapsed`), and the percentage takes the signal's color:
+The session and weekly segments start with the time left to their reset instead of a fixed `5h` or `7d`, as in `2h18m 42% ↻ 14:30` and `5d12h 15% ↻ Mon 01:00` (the label falls back to `5h` or `7d` once the reset has passed). The weekly segment holds only the time left, the usage and the reset. The `today` segment after it says whether the owner can speed up, as in `today 65% of 23% steady`. `claude-usage-forecast` projects the percentage used at the reset (`used × 7 days / elapsed`), and the first percentage takes the signal's color:
 
 | Forecast at the reset | Signal | Color | Meaning |
 |-----------------------|--------|-------|---------|
@@ -64,9 +64,9 @@ The 7-day segment says whether the owner can speed up, as in `7d 5% push ↻ Mon
 | from 70% to 95% | `steady` | 221 (amber) | keep the pace |
 | above 95% | `slow` | 203 (salmon) | hold back: one agent, no subagents, or a day off |
 
-In the first 6 hours of the window there is no signal, and the percentage keeps the usage thresholds of the 5-hour segment.
+In the first 6 hours of the window there is no signal, and the first percentage is green.
 
-After the percentage comes today's goal, as in `7d 15%/22% steady`: the cumulative percentage to reach by the end of today, from `claude-usage-plan --today-goal`, the same number as the `(today)` row of its table. It spreads what is left evenly up to the reset, so it moves with the usage.
+In `today 65% of 23%`, 23% is today's goal, the cumulative weekly percentage to reach by the end of today, from `claude-usage-plan --today-goal`; 65% is how much of that goal the weekly usage has reached (15 of 23), and it passes 100% once the goal is passed. The goal spreads what was left at the day's first reading evenly up to the reset, so it stays fixed all day; before that reading exists it comes from the usage now. The signal still comes from the whole week's forecast, not from today's goal.
 
 ## Segment layout
 

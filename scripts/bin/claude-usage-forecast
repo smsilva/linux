@@ -24,12 +24,16 @@ show_usage() {
       -u,  --used       Percentage of the window used so far
       -r,  --resets-at  Epoch seconds of the window's reset
       -n,  --now        Epoch seconds of the current time (default: the clock)
+           --with-percentage
+                        Print the forecast before the signal: 71.5 steady
 
     Examples:
 
       ${this_script_name} --used 4 --resets-at 1794186000
 
       ${this_script_name} --used 4 --resets-at 1794186000 --now 1793624000
+
+      ${this_script_name} --used 4 --resets-at 1794186000 --with-percentage
 
 EOF
 }
@@ -54,6 +58,10 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
     -n | --now )
       shift
       now="${1}"
+      ;;
+
+    --with-percentage )
+      with_percentage=true
       ;;
 
     * )
@@ -89,9 +97,12 @@ awk \
   --assign used="${used}" \
   --assign elapsed="${elapsed}" \
   --assign window="${window_seconds}" \
+  --assign with_percentage="${with_percentage:-false}" \
   'BEGIN {
     forecast = used * window / elapsed
-    if (forecast < 70) print "push"
-    else if (forecast <= 95) print "steady"
-    else print "slow"
+    if (forecast < 70) signal = "push"
+    else if (forecast <= 95) signal = "steady"
+    else signal = "slow"
+    if (with_percentage == "true") printf "%.1f ", forecast
+    print signal
   }'

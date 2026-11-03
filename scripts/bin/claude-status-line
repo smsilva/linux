@@ -194,6 +194,23 @@ if [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
     '{used_percentage: $used, resets_at: $resets_at, saved_at: $saved_at}' \
     > "${weekly_cache_directory}/weekly.json.$$" \
   && mv "${weekly_cache_directory}/weekly.json.$$" "${weekly_cache_directory}/weekly.json"
+
+  # The first reading of each day is that day's starting point; noclobber keeps it when several sessions race
+  weekly_history_directory="${weekly_cache_directory}/weekly-history"
+  weekly_today=$(date +%F)
+  if [ ! -f "${weekly_history_directory}/${weekly_today}.json" ]; then
+    mkdir --parents "${weekly_history_directory}"
+    (
+      set -o noclobber
+      jq --null-input --compact-output \
+        --arg date "${weekly_today}" \
+        --argjson used "${weekly_used}" \
+        --argjson resets_at "${weekly_resets_at}" \
+        --argjson saved_at "$(date +%s)" \
+        '{date: $date, used_percentage: $used, resets_at: $resets_at, saved_at: $saved_at, source: "status-line"}' \
+        > "${weekly_history_directory}/${weekly_today}.json"
+    ) 2>/dev/null
+  fi
 fi
 
 # Which segments to show: both, session, weekly or none (set with claude-status-line-limits)

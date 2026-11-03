@@ -3,11 +3,14 @@ this_script_path="$(realpath "${0}")"
 this_script_name="${this_script_path##*/}"
 
 cache_file="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line/weekly.json"
+history_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line/weekly-history"
 
 show_usage() {
   cat <<EOF
 
-  Plans the rest of the weekly Claude quota: for each remaining day, the
+  Shows the days already gone of the weekly Claude quota, from the first
+  reading of each day saved by claude-status-line (~ marks an estimate between
+  known points), and plans the rest: for each remaining day, the
   cumulative percentage to reach by the end of that day (and the share of
   that day), so the whole quota is used by the reset without running out
   before it. The budget is spread evenly over the time left.
@@ -110,7 +113,73 @@ if [[ -n "${saved_at}" ]]; then
   echo "  Usage read at $(date --date "@${saved_at}" '+%a %H:%M')"
 fi
 echo
-printf '  %-18s %-8s %12s %10s\n' "Day" "Ends" "Cumulative" "Day share"
+printf '  %-18s %-8s %10s %12s\n' "Day" "Ends" "Day share" "Cumulative"
+
+# Known points of the window as "epoch percentage": its start at 0, each day's first reading placed at that day's midnight, and now
+window_start=$(( resets_at - 7 * 24 * 3600 ))
+points="${window_start} 0"
+
+for snapshot in "${history_directory}"/*.json; do
+  [[ -f "${snapshot}" ]] || continue
+  read -r snapshot_date snapshot_used snapshot_saved_at < <(jq --raw-output '"\(.date) \(.used_percentage) \(.saved_at)"' "${snapshot}")
+  [[ "${snapshot_saved_at}" -ge "${window_start}" && "${snapshot_saved_at}" -le "${now}" ]] || continue
+  snapshot_epoch=$(date --date "${snapshot_date}" '+%s')
+  # A first reading on the reset's own day comes after the window started, so it keeps its own time
+  [[ "${snapshot_epoch}" -lt "${window_start}" ]] && snapshot_epoch="${snapshot_saved_at}"
+  points+=$'\n'"${snapshot_epoch} ${snapshot_used}"
+done
+
+points+=$'\n'"${now} ${used}"
+points=$(sort --numeric-sort --key 1,1 <<< "${points}")
+
+# Prints the usage at an epoch, interpolated between the known points, rounded up, followed by 1 when it is an estimate
+usage_at() {
+  awk \
+    --assign at="${1}" \
+    '{ time[NR] = $1; value[NR] = $2 }
+    END {
+      estimate = 1
+      for (i = 1; i <= NR; i++) {
+        if (time[i] == at) { result = value[i]; estimate = 0 }
+      }
+      if (estimate) {
+        for (i = 1; i < NR; i++) {
+          if (time[i] < at && at < time[i + 1]) {
+            result = value[i] + (value[i + 1] - value[i]) * (at - time[i]) / (time[i + 1] - time[i])
+          }
+        }
+      }
+      printf "%d %d\n", (result == int(result)) ? result : int(result) + 1, estimate
+    }' <<< "${points}"
+}
+
+today_start=$(date --date "$(date --date "@${now}" '+%F')" '+%s')
+[[ "${today_start}" -lt "${window_start}" ]] && today_start="${window_start}"
+
+previous=0
+day_start="${window_start}"
+
+while [[ "${day_start}" -lt "${today_start}" ]]; do
+  day_end=$(date --date "$(date --date "@${day_start}" '+%F') +1 day" '+%s')
+  read -r cumulative estimate < <(usage_at "${day_end}")
+  mark=""
+  [[ "${estimate}" == 1 ]] && mark="~"
+
+  printf '  %-18s %-8s %9s%% %11s%%\n' \
+    "$(date --date "@${day_start}" '+%a %d/%m')" \
+    "$(date --date "@${day_end}" '+%H:%M')" \
+    "${mark}+$(( cumulative - previous ))" \
+    "${mark}${cumulative}"
+
+  previous="${cumulative}"
+  day_start="${day_end}"
+done
+
+printf '  %-18s %-8s %9s%% %11s%%\n' \
+  "$(date --date "@${now}" '+%a %d/%m') (so far)" \
+  "$(date --date "@${now}" '+%H:%M')" \
+  "+$(( used_display - previous ))" \
+  "${used_display}"
 
 previous="${used_display}"
 day_start="${now}"
@@ -142,11 +211,11 @@ while [[ "${day_start}" -lt "${resets_at}" ]]; do
       }'
   )
 
-  printf '  %-18s %-8s %11s%% %9s%%\n' \
+  printf '  %-18s %-8s %9s%% %11s%%\n' \
     "${label}" \
     "$(date --date "@${day_end}" '+%H:%M')" \
-    "${cumulative}" \
-    "+${share}"
+    "+${share}" \
+    "${cumulative}"
 
   previous="${cumulative}"
   day_start="${day_end}"

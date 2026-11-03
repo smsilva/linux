@@ -154,7 +154,8 @@ limit_str() {
 
   used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
   [ -z "${used_exact}" ] && return
-  used=$(printf '%.0f' "${used_exact}")
+  # Round up, to be cautious
+  used=$(awk --assign value="${used_exact}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
   resets_at=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.resets_at // empty")
   [ -n "${resets_at}" ] && reset_display=" ↻ $(date --date "@${resets_at}" "+${reset_format}")"
 

@@ -843,8 +843,7 @@ def command_retry(args):
 def command_redact(args):
   """Redacts what the check refused in one session's blocked files, checks them again, and uploads the ones that pass.
   Run it only on the owner's word, one session at a time. The session is marked to be redacted on every later build
-  too, since an open session rebuilds its log each turn. --from-now-on marks it even with nothing blocked yet, for a
-  session about to end (the rollover skill), whose last turns would otherwise be blocked with nobody to redact them."""
+  too, since an open session rebuilds its log each turn."""
   folders = sorted((STATE / "sessions").glob(f"{args.session}*")) if (STATE / "sessions").is_dir() else []
   if len(folders) != 1:
     print(f"{args.session}: {len(folders)} sessions match, name exactly one", file=sys.stderr)
@@ -852,9 +851,6 @@ def command_redact(args):
   for folder in folders:
     state = load(folder / "state.json")
     if not state.get("blocked"):
-      if args.from_now_on and not args.dry_run:
-        state["redact"] = True
-        save(folder / "state.json", state)
       continue
     emails = own_emails(load(folder / "identity.json"))
     for key in list(state["blocked"]):
@@ -955,7 +951,6 @@ def main():
   redacting = commands.add_parser("redact", help="replace what the check blocked with [REDACTED], then upload")
   redacting.add_argument("--session", required=True, help="a session id or its first characters, matching one session")
   redacting.add_argument("--dry-run", action="store_true", help="count what would be redacted, change nothing")
-  redacting.add_argument("--from-now-on", action="store_true", help="also redact later builds when nothing is blocked yet")
   redacting.set_defaults(run=command_redact)
   noting = commands.add_parser("note", help="add the agent's title, summary (with Radar: lines) or decisions")
   noting.add_argument("kind", choices=NOTES)

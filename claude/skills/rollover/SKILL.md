@@ -53,14 +53,7 @@ A session that has grown too long hands its work to a new one and asks the owner
 
    Aim for about 2000 characters: this comment is the summary the next session starts from, so point to a long text under `Read only if needed` instead of copying it. Leave out a section that has nothing. When blocked, the first box is the blocking decision, marked `Blocks the next step:`.
 
-6. **Pontos.** Write the title, summary and decisions with `pontos-save note title|summary|decisions --file <file>`. Then redact this session's log, the owner's standing word for a rollover (2026-11-03), so a session that ends leaves no alert behind:
-
-   ```bash
-   pontos-save status
-   pontos-save redact --session "${CLAUDE_CODE_SESSION_ID:0:8}" --from-now-on
-   ```
-
-   `status` first, to read what was flagged. Never redact another session: its alert is only reported.
+6. **Pontos.** Write the title, summary and decisions with `pontos-save note title|summary|decisions --file <file>`, then read `pontos-save status`. Never redact: a blocked log stays in the spool and holds back only itself, and what was flagged is the owner's to judge (`pontos.md`). Never name an alert in the issue's comment, which is public.
 
 7. **The next session.** When blocked, skip this step. Otherwise open it in this session's working directory, with one line of prompt:
 
@@ -72,4 +65,4 @@ A session that has grown too long hands its work to a new one and asks the owner
 
    On failure, follow the `remote-session` skill's failure step and say that the handoff is on the issue.
 
-8. **Report** in pt-BR, in a few lines: the issue with its short description, the comment's URL, the status, the items waiting for the owner, the next session's NATO name and URL (`nato-name list`, the newest entry), what Pontos flagged and redacted (kind and count, never the value; a real secret must still be rotated, since the redact only hides it in the log), anything still blocked or another session's alert, and that this session can be closed with `/exit`.
+8. **Report** in pt-BR, in a few lines: the issue with its short description, the comment's URL, the status, the items waiting for the owner, the next session's NATO name and URL (`nato-name list`, the newest entry), this session's Pontos alert if any (kind and count, never the value, with `pontos-save redact --session <id 8>` for the owner to run or ask for), and that this session can be closed with `/exit`.

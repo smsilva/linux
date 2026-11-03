@@ -55,11 +55,12 @@ A session that has grown too long hands its work to a new one and asks the owner
 
 6. **Pontos.** Write the title, summary and decisions with `pontos-save note title|summary|decisions --file <file>`, then read `pontos-save status`. Never redact: a blocked log stays in the spool and holds back only itself, and what was flagged is the owner's to judge (`pontos.md`). Never name an alert in the issue's comment, which is public.
 
-7. **The next session.** When blocked, skip this step. Otherwise open it in this session's working directory, with one line of prompt:
+7. **The next session.** When blocked, skip this step. Otherwise open it in this session's working directory, on this session's model (owner, 2026-11-03: the same work keeps the same model), with one line of prompt:
 
    ```bash
    claude-remote-session \
      --directory "<this session's working directory>" \
+     --model "<this session's exact model id>" \
      --prompt "Continue issue #<number> (<title>). Before anything else, read its body (and its parent's body, when it is a sub-issue), its rollover comment <comment URL> and every comment after that one, which may answer or change it. Start at the comment's next step. You take over from session <NATO name>, which does no more work on it; this is rollover <n>. An item waiting for the owner's go stays pending until the owner answers it on the issue."
    ```
 

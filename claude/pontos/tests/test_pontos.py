@@ -179,6 +179,52 @@ class Pontos(unittest.TestCase):
     self.assertTrue(self.pontos.check("`secret=google-oauth`abc123def"))
     self.assertTrue(self.pontos.check("token=correct-horse-battery! next"))
 
+  # The fixtures below are fake and built from parts, so that this file's own diff does not block a session's raw log.
+  QUOTED_VALUE = "fake alpha bravo charlie delta 12345"
+
+  def assert_value_hidden(self, text, kept):
+    self.assertTrue(self.pontos.check(text), kept)
+    self.assertEqual(self.pontos.redact(text), (kept, 1))
+    self.assertEqual(self.pontos.check(kept), [], kept)
+
+  def test_a_quoted_value_with_spaces_is_a_secret_after_every_label(self):
+    for label in ("token", "secret", "password", "passwd", "api_key", "api-key", "access_key"):
+      self.assert_value_hidden(f'{label} = "{self.QUOTED_VALUE}"', f'{label} = "[REDACTED]"')
+
+  def test_a_quoted_value_with_spaces_is_hidden_in_every_quote(self):
+    for quote in ('"', "'", '\\"', '\\\\\\"'):
+      self.assert_value_hidden(f"password={quote}{self.QUOTED_VALUE}{quote}, then", f"password={quote}[REDACTED]{quote}, then")
+      self.assert_value_hidden(f"{{{quote}password{quote}: {quote}{self.QUOTED_VALUE}{quote}}} end",
+                               f"{{{quote}password{quote}: {quote}[REDACTED]{quote}}} end")
+
+  def test_a_quoted_value_ends_at_its_own_closing_quote(self):
+    kept = 'password = "[REDACTED]" end'
+    self.assert_value_hidden('password = "fake \\" alpha bravo" end', kept)
+    self.assert_value_hidden("password = \"it's a fake value\" end", kept)
+    self.assert_value_hidden('password = \\"fake \\\\\\" alpha bravo\\" end', 'password = \\"[REDACTED]\\" end')
+    self.assert_value_hidden("password = 'fake \"alpha\" bravo' end", "password = '[REDACTED]' end")
+
+  def test_a_quoted_value_with_a_long_first_word_leaves_no_tail(self):
+    self.assertEqual(self.pontos.redact('password = "abcdefghijklmnop alpha bravo" end'), ('password = "[REDACTED]" end', 1))
+
+  def test_each_quoted_value_on_a_line_is_hidden(self):
+    self.assertEqual(self.pontos.redact(f'password="{self.QUOTED_VALUE}" token="{self.QUOTED_VALUE}" end'),
+                     ('password="[REDACTED]" token="[REDACTED]" end', 2))
+
+  def test_a_quoted_value_with_spaces_that_names_a_secret_is_still_a_secret(self):
+    self.assertTrue(self.pontos.check('secret = "see the vault entry"'))
+
+  def test_what_is_no_quoted_value_with_spaces_stays_as_it_was(self):
+    for text in ('password = ""', 'token = " "', 'password = "[REDACTED]"', 'token = "short"',
+                 # the closing quote ends the value: the next string is not part of it
+                 'token = "x" + "y z"', "the token: 'x' and 'y z'",
+                 # a quote not closed on its line takes nothing from the next one
+                 'secret: "open words\nnext line "here"',
+                 # no quote right after the separator
+                 'token = get("some words")'):
+      self.assertEqual(self.pontos.check(text), [], text)
+      self.assertEqual(self.pontos.redact(text), (text, 0), text)
+
   def test_an_owner_s_name_on_another_host_is_not_opted_in(self):
     self.assertEqual(self.pontos.repository_of("git@github.com:getnereus/nereus.git"), "getnereus/nereus")
     self.assertEqual(self.pontos.repository_of("https://github.com/smsilva/linux"), "smsilva/linux")

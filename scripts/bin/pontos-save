@@ -849,6 +849,24 @@ def command_retry(args):
   return 0
 
 
+LIVE_VALUE = "the live value of $"
+
+
+def proves_live_value(name, before):
+  """Whether this environment holds a value of that variable the check would have refused in the text."""
+  value = os.environ.get(name)
+  return value is not None and bool(SECRET_ENV.search(name)) and len(value) >= 12 and value in before
+
+
+def unproven(reasons, before, count):
+  """The reasons a re-check here cannot clear: the check reads the live values from this process's environment, which may not be the blocked session's.
+  A redact that replaced nothing clears nothing, and a live value stays blocked unless this environment's value of that variable was in the text."""
+  if not count:
+    return list(reasons)
+  return [reason for reason in reasons
+          if reason.startswith(LIVE_VALUE) and not proves_live_value(reason.removeprefix(LIVE_VALUE), before)]
+
+
 def command_redact(args):
   """Redacts what the check refused in one session's blocked files, checks them again, and uploads the ones that pass.
   Run it on any blocked file, without asking the owner (owner, 2026-11-04), one session at a time. The session is marked to be redacted on every later build
@@ -864,8 +882,10 @@ def command_redact(args):
     emails = own_emails(load(folder / "identity.json"))
     for key in list(state["blocked"]):
       path = folder / "out" / key
-      text, count = redact(path.read_text(), emails)
+      before = path.read_text()
+      text, count = redact(before, emails)
       problems = check(text, emails) + shrank(text, state.get("files", {}).get(key, {}))
+      problems = list(dict.fromkeys(problems + unproven(state["blocked"][key], before, count)))
       if args.dry_run:
         print(f"{key}: {count} place(s) to redact" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
         continue

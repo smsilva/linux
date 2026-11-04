@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True  # no __pycache__ next to the scripts
 BIN = pathlib.Path(__file__).resolve().parents[3] / "scripts/bin"
@@ -302,6 +303,63 @@ class Pontos(unittest.TestCase):
     self.pontos.command_redact(type("Args", (), {"session": self.session[:8], "dry_run": False}))
     blocked = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")["blocked"]
     self.assertIn("the log shrank", blocked["2026-10-29/x.md"][0])
+
+  def blocked_by_a_live_value(self, extra=""):
+    live = "live-value-of-the-token-1234567890"
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": live}):
+      self.pontos.write_spool(self.session, [("2026-10-29", "x.md", f"{live}{extra}")], set())
+    self.pontos.REMOTE = str(self.root / "drive")
+    return type("Args", (), {"session": self.session[:8], "dry_run": False})
+
+  def assert_held_back(self):
+    blocked = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")["blocked"]
+    self.assertIn("the live value of $GITHUB_TOKEN", blocked["2026-10-29/x.md"])
+    self.assertEqual(list((self.root / "drive").rglob("x.md")) if (self.root / "drive").exists() else [], [])
+
+  def test_redact_without_the_blocking_variable_keeps_the_file_back(self):
+    args = self.blocked_by_a_live_value()
+    with mock.patch.dict(os.environ):
+      os.environ.pop("GITHUB_TOKEN", None)
+      self.pontos.command_redact(args)
+    self.assert_held_back()
+
+  def test_redacting_something_else_does_not_clear_a_live_value_it_cannot_see(self):
+    args = self.blocked_by_a_live_value("\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz")
+    with mock.patch.dict(os.environ):
+      os.environ.pop("GITHUB_TOKEN", None)
+      self.pontos.command_redact(args)
+    self.assert_held_back()
+
+  def test_another_value_of_the_variable_does_not_clear_a_live_value(self):
+    args = self.blocked_by_a_live_value("\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz")
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "another-value-of-the-token-0987654321"}):
+      self.pontos.command_redact(args)
+    self.assert_held_back()
+
+  def held_back_with_this_value_of_the_variable(self, value):
+    args = self.blocked_by_a_live_value("\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz")
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": value}):
+      self.pontos.command_redact(args)
+    self.assert_held_back()
+
+  def test_an_empty_value_of_the_variable_does_not_clear_a_live_value(self):
+    self.held_back_with_this_value_of_the_variable("")
+
+  def test_a_short_value_of_the_variable_does_not_clear_a_live_value(self):
+    self.held_back_with_this_value_of_the_variable("live")
+
+  def test_the_session_s_own_value_clears_a_live_value(self):
+    args = self.blocked_by_a_live_value()
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "live-value-of-the-token-1234567890"}):
+      self.pontos.command_redact(args)
+    state = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
+    self.assertEqual(state.get("blocked", {}), {})
+
+  def test_redact_that_replaced_nothing_never_clears_a_block(self):
+    args = self.blocked_by_a_live_value()
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "another-value-of-the-token-0987654321"}):
+      self.pontos.command_redact(args)
+    self.assert_held_back()
 
   def test_redact_needs_exactly_one_session(self):
     self.assertEqual(self.pontos.command_redact(type("Args", (), {"session": "nope", "dry_run": True})), 1)

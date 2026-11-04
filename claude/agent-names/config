@@ -1,0 +1,4 @@
+# The names in force; ~/.config/agent-names/config, when it exists, goes on top of this file, key by key.
+lists=nereids
+scope=list
+order=random

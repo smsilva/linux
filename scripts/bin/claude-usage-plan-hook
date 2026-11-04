@@ -12,8 +12,9 @@ interval_hours="${CLAUDE_USAGE_PLAN_INTERVAL_HOURS:-1}"
 show_usage() {
   cat <<EOF
 
-  UserPromptSubmit hook: shows the weekly quota plan (claude-usage-plan) to
-  the owner as a system message, at most once every ${interval_hours} hour(s)
+  UserPromptSubmit hook: shows the weekly quota and today's goal, from
+  claude-usage-plan, to the owner as a one-line system message (the table does
+  not fit a phone), at most once every ${interval_hours} hour(s)
   (CLAUDE_USAGE_PLAN_INTERVAL_HOURS). The epoch of the last time it fired is
   kept in ${last_shown_file}.
 
@@ -58,10 +59,14 @@ if [[ "${last_shown}" =~ ^[0-9]+$ ]] && [[ $(( now - last_shown )) -lt $(( inter
 fi
 
 plan=$(claude-usage-plan 2>/dev/null) || exit 0
+today_goal=$(claude-usage-plan --today-goal 2>/dev/null) || exit 0
 
 mkdir --parents "${state_directory}"
 echo "${now}" > "${last_shown_file}"
 
+# One line: the phone app prefixes every line of a system message with the hook's name, which breaks a table.
+summary=$(grep --max-count=1 'Weekly quota' <<< "${plan}" | sed 's/^ *//')
+
 jq --null-input \
-  --arg message "${plan}" \
+  --arg message "${summary}; today's goal ${today_goal}%. Full plan: claude-usage-plan" \
   '{systemMessage: $message}'

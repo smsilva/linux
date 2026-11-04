@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${HOME}/.scripts/nato-name\" hook",
+            "command": "\"${HOME}/.scripts/agent-name\" hook",
             "timeout": 10
           },
           {
@@ -73,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${HOME}/.scripts/nato-name\" hook",
+            "command": "\"${HOME}/.scripts/agent-name\" hook",
             "timeout": 10
           },
           {

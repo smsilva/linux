@@ -61,20 +61,20 @@ if [[ "${tip_chance}" -gt 0 && $(( RANDOM % tip_chance )) -eq 0 ]]; then
   show_tips
 fi
 
-# A NATO phonetic name for the session (nato-name), reserved here so Claude Code shows it (--name); the
+# A name for the session (agent-name), reserved here so Claude Code shows it (--name); the
 # SessionStart hook takes the reservation over. Skipped when the name is given.
 PATH="${this_script_path%/*}:${PATH}"
 name_options=()
 window_renamed=""
-if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v nato-name > /dev/null; then
-  if NATO_NAME="$(nato-name acquire --session-id "launcher-${$}" --pid "${$}")"; then
-    export NATO_NAME
-    name_options=(--name "${NATO_NAME}")
-    session_name="${NATO_NAME}"
+if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v agent-name > /dev/null; then
+  if AGENT_NAME="$(agent-name acquire --session-id "launcher-${$}" --pid "${$}")"; then
+    export AGENT_NAME
+    name_options=(--name "${AGENT_NAME}")
+    session_name="${AGENT_NAME}"
 
     # The tmux window takes the session's name, unless it was named by hand (rename-window turns automatic-rename off).
     if [[ -n "${TMUX_PANE}" && "$(tmux display-message -p -t "${TMUX_PANE}" '#{automatic-rename}')" == "1" ]]; then
-      tmux rename-window -t "${TMUX_PANE}" "${NATO_NAME}" && window_renamed="true"
+      tmux rename-window -t "${TMUX_PANE}" "${AGENT_NAME}" && window_renamed="true"
     fi
   fi
 fi

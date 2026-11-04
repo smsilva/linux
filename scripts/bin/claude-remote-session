@@ -16,7 +16,7 @@ show_usage() {
 
       -h,  --help       Show this help
       -d,  --directory  Folder the session starts in (default: current folder)
-      -n,  --name       Name of the new tmux window (default: the session's NATO name, set by agent)
+      -n,  --name       Name of the new tmux window (default: the session's name, set by agent)
       -m,  --model      Model of the session (default: the one in Claude Code's settings)
       -p,  --prompt     First prompt of the session (default: none)
       -t,  --timeout    Seconds to wait for each step (default: 30)

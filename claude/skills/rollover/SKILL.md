@@ -38,7 +38,7 @@ Suggest `/rollover` only when much is left: several steps, files or PRs (owner, 
    ```markdown
    ## Rollover <n>
 
-   From session `<NATO name>`. Status: continues | blocked.
+   From session `<agent name>`. Status: continues | blocked.
 
    **Last step:** ...
 
@@ -65,9 +65,9 @@ Suggest `/rollover` only when much is left: several steps, files or PRs (owner, 
    claude-remote-session \
      --directory "<this session's working directory>" \
      --model "<this session's exact model id>" \
-     --prompt "Continue issue #<number> (<title>). Before anything else, read its body (and its parent's body, when it is a sub-issue), its rollover comment <comment URL> and every comment after that one, which may answer or change it. Start at the comment's next step. You take over from session <NATO name>, which does no more work on it; this is rollover <n>. An item waiting for the owner's go stays pending until the owner answers it on the issue."
+     --prompt "Continue issue #<number> (<title>). Before anything else, read its body (and its parent's body, when it is a sub-issue), its rollover comment <comment URL> and every comment after that one, which may answer or change it. Start at the comment's next step. You take over from session <agent name>, which does no more work on it; this is rollover <n>. An item waiting for the owner's go stays pending until the owner answers it on the issue."
    ```
 
    On failure, follow the `remote-session` skill's failure step and say that the handoff is on the issue.
 
-8. **Report** in pt-BR, in a few lines: the issue with its short description, the comment's URL, the status, the items waiting for the owner, the next session's NATO name and URL (`nato-name list`, the newest entry), this session's Pontos alert if any (kind and count, never the value, with `pontos-save redact --session <id 8>` for the owner to run or ask for), and that this session can be closed with `/exit`.
+8. **Report** in pt-BR, in a few lines: the issue with its short description, the comment's URL, the status, the items waiting for the owner, the next session's name and URL (`agent-name list`, the newest entry), this session's Pontos alert if any (kind and count, never the value, with `pontos-save redact --session <id 8>` for the owner to run or ask for), and that this session can be closed with `/exit`.

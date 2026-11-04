@@ -11,7 +11,7 @@ Nothing of value may stay only in the conversation: what was decided, found or l
 
 - Never push, merge, claim, release or delete anything here. Leftover worktrees and branches are reported, not proposed for cleanup (cleanup has its own rule in `workflow.md`).
 - More than ten items In Progress for the owner on the board: say so and ask which ones stay (`wip.md`).
-- Pontos: read its status and write the notes (title, summary, decisions) without putting them in the proposal; `pontos-save redact` only on the owner's word (`pontos.md`).
+- Pontos: read its status and write the notes (title, summary, decisions) without putting them in the proposal; a blocked file gets `pontos-save redact` at once, without asking, and the owner hears about it afterwards (`pontos.md`).
 - Delegate instead of repeating: an issue goes through the project's `issue` skill (else plain `gh issue create`), a handoff through the `handoff` skill (the project's, else the global one), a learning through `save-session-learnings`, a Pontos note through `pontos-save note`.
 
 ## Steps

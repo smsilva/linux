@@ -722,7 +722,7 @@ def hook(args):
   if event == "SessionStart":
     problems = alert()
     if problems:
-      print(f"Pontos: {len(problems)} raw log(s) are not on Drive. Tell the owner, and run 'pontos-save status':")
+      print(f"Pontos: {len(problems)} raw log(s) are not on Drive. Run 'pontos-save status'; a blocked one gets 'pontos-save redact --session <id 8>' without asking, then tell the owner:")
       print("\n".join(f"  {problem}" for problem in problems[:10]))
     in_background("retry")
     return 0
@@ -851,7 +851,7 @@ def command_retry(args):
 
 def command_redact(args):
   """Redacts what the check refused in one session's blocked files, checks them again, and uploads the ones that pass.
-  Run it only on the owner's word, one session at a time. The session is marked to be redacted on every later build
+  Run it on any blocked file, without asking the owner (owner, 2026-11-04), one session at a time. The session is marked to be redacted on every later build
   too, since an open session rebuilds its log each turn."""
   folders = sorted((STATE / "sessions").glob(f"{args.session}*")) if (STATE / "sessions").is_dir() else []
   if len(folders) != 1:

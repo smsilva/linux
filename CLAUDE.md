@@ -20,6 +20,7 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
 - `claude/` — Claude Code config (symlinked to `~/.claude/`):
   - `skills/` — Claude Code skills; third-party skills are symlinks → `~/.git/{owner}/{repo}/`; registry at `claude/skills/third-party.md`
   - to reinstall third-party skills on a new machine: `/skill-from-github-repository-update bootstrap`
+  - `archived/skills/` — skills out of use, outside what Claude Code scans; how to bring one back in its `README.md`
   - `agents/` — Claude Code custom agents
   - `rules/` — global user instructions, one topic per file (symlinked to `~/.claude/rules/`)
   - `CLAUDE.md` — kept for the `~/.claude/CLAUDE.md` symlink; content lives in `rules/`

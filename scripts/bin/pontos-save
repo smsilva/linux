@@ -57,6 +57,10 @@ The log:
 
 SECRETS = [
   re.compile(r"trycloudflare\.com/[0-9a-f]{16,}"),
+  # a quoted value with spaces, whole, up to its own closing quote (`\"` closes only a value opened with `\"`); before
+  # the next pattern, which would stop at the first space and leave the rest of the value behind
+  re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key)(\\*[\"'])?\s*[:=]\s*(?P<quote>\\*[\"'])"
+             r"(?P<value>[ \t]*(?:(?!(?<!\\)(?P=quote))\S)+[ \t](?:(?!(?<!\\)(?P=quote)).)*)(?<!\\)(?P=quote)"),
   re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|access[_-]?key)(\\?[\"'])?\s*[:=]\s*(\\?[\"'])?(?P<value>[A-Za-z0-9+/_.-]{12,})"),
   re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9+/_.=-]{20,}"),  # an Authorization header
   re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),  # a JWT
@@ -506,10 +510,15 @@ def names_a_secret(match):
 def hide(pattern, text):
   """Replaces each match of a secret's pattern from its first separator on, and the rest of the token after the
   match too: a secret longer than the pattern's charset (`password=abc$def...`) leaves nothing behind. A match
-  that is only a label (`aws_secret_access_key =`) hides the value that follows it."""
+  that is only a label (`aws_secret_access_key =`) hides the value that follows it. A quoted value is hidden up
+  to its closing quote, which stays with what follows it."""
   parts, last, count = [], 0, 0
   for match in pattern.finditer(text):
     if match.start() < last or names_a_secret(match):
+      continue
+    if "quote" in pattern.groupindex:
+      parts += [text[last:match.start("value")], REDACTED]
+      last, count = match.end("value"), count + 1
       continue
     found, end = match.group(0), match.end()
     label = SECRET_LABEL.match(found)

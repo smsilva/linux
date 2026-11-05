@@ -90,11 +90,16 @@ EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|u
 SECRET_ENV = re.compile(r"(?i)token|secret|password|passwd|key|credential")
 # the rest of a line, hidden with the secret
 SECRET_LINE = re.compile(r"[^\n]*")
+# a value's own opening quote: inside the match, right after a separator
+SECRET_OPENING_QUOTE = re.compile(r"[:=\s](\\*[\"'])")
+# or right before the match, for a pattern that starts at the value (`'ghp_...`)
+QUOTE_BEFORE_MATCH = re.compile(r"\\*[\"']$")
 # a private key's whole block, not only its first line
 PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
 REDACTED = "[REDACTED]"
-# in place of a line whose quotes are not in pairs or that ends in a backslash: its value may go on in the next lines,
-# which the redact cannot tell, so the check refuses this line and the log stays blocked for the owner
+# in place of a line that leaves a value's own quote open, whose quotes are not in pairs, that holds an escaped quote or
+# that ends in a backslash: its value may go on in the next lines, which the redact cannot tell, so the check refuses
+# this line and the log stays blocked for the owner
 REDACTED_OPEN_QUOTE = "[REDACTED: a quote left open on this line]"
 OPEN_QUOTE_LINE = re.compile(rf"^{re.escape(REDACTED_OPEN_QUOTE)}$", re.MULTILINE)
 
@@ -526,9 +531,25 @@ def ends_inside_a_quote(lines):
 
 def may_go_on(lines):
   """Whether what is hidden may go on in the next line: a quote of either kind in an odd count, one still open at the
-  end, or a backslash at the end. Any of them is enough, on purpose: an apostrophe also blocks, which costs the owner
-  a decision, not a secret."""
-  return lines.count('"') % 2 == 1 or lines.count("'") % 2 == 1 or ends_inside_a_quote(lines) or lines.rstrip().endswith("\\")
+  end, an escaped quote anywhere (a shell and Python read `\\'` apart), or a backslash at the end. Any of them is enough,
+  on purpose: an apostrophe also blocks, which costs the owner a decision, not a secret."""
+  return (lines.count('"') % 2 == 1 or lines.count("'") % 2 == 1 or ends_inside_a_quote(lines)
+          or "\\'" in lines or '\\"' in lines or lines.rstrip().endswith("\\"))
+
+
+def leaves_a_quote_open(match):
+  """Whether the value's own opening quote finds no matching quote after it on its line. Anchored on the match, since
+  a reading of the whole line pairs an apostrophe before the value with the value's own quote (`it's password='abc`)."""
+  text, line_end = match.string, SECRET_LINE.match(match.string, match.end()).end()
+  inside = SECRET_OPENING_QUOTE.search(match.group(0))
+  if inside:
+    quote, after = inside.group(1), match.start() + inside.end()
+  else:
+    before = QUOTE_BEFORE_MATCH.search(text, text.rfind("\n", 0, match.start()) + 1, match.start())
+    if not before:
+      return False
+    quote, after = before.group(0), match.start()
+  return not re.compile(rf"(?<!\\){re.escape(quote)}").search(text, after, line_end)
 
 
 def hide_lines(text):
@@ -539,16 +560,17 @@ def hide_lines(text):
   for pattern in SECRETS:
     for match in pattern.finditer(text):
       if not names_a_secret(match):
-        places.append([text.rfind("\n", 0, match.start()) + 1, SECRET_LINE.match(text, match.end()).end()])
+        places.append([text.rfind("\n", 0, match.start()) + 1, SECRET_LINE.match(text, match.end()).end(), leaves_a_quote_open(match)])
   merged = []
-  for start, end in sorted(places):
+  for start, end, left_open in sorted(places):
     if merged and start <= merged[-1][1]:
       merged[-1][1] = max(merged[-1][1], end)
+      merged[-1][2] = merged[-1][2] or left_open
     else:
-      merged.append([start, end])
+      merged.append([start, end, left_open])
   parts, last = [], 0
-  for start, end in merged:
-    parts += [text[last:start], REDACTED_OPEN_QUOTE if may_go_on(text[start:end]) else REDACTED]
+  for start, end, left_open in merged:
+    parts += [text[last:start], REDACTED_OPEN_QUOTE if left_open or may_go_on(text[start:end]) else REDACTED]
     last = end
   parts.append(text[last:])
   return "".join(parts), len(merged)

@@ -6,7 +6,7 @@ The raw log of every Claude Code session in the owner's repositories, on Google 
 
 | Piece | What it does |
 |---|---|
-| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `summarize` (the notes a session ended without, from its raw log, with `claude --print`), `release` (the owner, at a terminal: lets the lines the marker keeps blocked go), `status`, `retry` (also retries a failed `summarize`, three times at most), `redact` (hides what the check blocked behind `[REDACTED]`, then uploads), `upload`, `build` (one session by hand) |
+| `scripts/bin/pontos-save` | `hook` (called by the hooks in `claude/settings.json`), `note` (the agent's title, summary and decisions), `summarize` (the notes a session ended without, from its raw log, with `claude --print`), `release` (the owner at a terminal, or an agent the owner asked in its own session: lets the lines the marker keeps blocked go), `status`, `retry` (also retries a failed `summarize`, three times at most), `redact` (hides what the check blocked behind `[REDACTED]`, then uploads), `upload`, `build` (one session by hand) |
 | `scripts/bin/claude-guard-main-clone` | the `PreToolUse` hook that refuses commits and file edits in a main clone (`claude/rules/workflow.md`) |
 | `scripts/bin/claude-status-line` | shows `⚠ pontos` while a raw log is not on Drive |
 | `claude/pontos/allow-list` | repositories saved besides the owner's own (public names only) |

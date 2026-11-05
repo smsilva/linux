@@ -198,8 +198,10 @@ class Pontos(unittest.TestCase):
 
   def test_a_quoted_value_with_a_quote_inside_is_hidden(self):
     for text in ('password = "fake \\" alpha bravo" end', "password = \"it's a fake value\" end",
-                 'password = \\"fake \\\\\\" alpha bravo\\" end', "password = 'fake \"alpha\" bravo' end"):
-      self.assert_line_hidden(text)
+                 'password = \\"fake \\\\\\" alpha bravo\\" end'):  # an odd count: the marker, the safe side
+      self.assertTrue(self.pontos.check(text), text)
+      self.assertEqual(self.pontos.redact(text), (self.pontos.REDACTED_OPEN_QUOTE, 1), text)
+    self.assert_line_hidden("password = 'fake \"alpha\" bravo' end")
 
   def test_a_quoted_value_with_a_long_first_word_leaves_no_tail(self):
     self.assert_line_hidden('password = "abcdefghijklmnop alpha bravo" end')
@@ -308,6 +310,15 @@ class Pontos(unittest.TestCase):
                  "Bearer abcdefghijklmnopqrstuvwxyz FAKEWORD"):
       self.assertTrue(self.pontos.check(text), text)
       redacted, count = self.pontos.redact(f"before\n{text}\nafter")
+      self.assertEqual(count, 1, text)
+      self.assertIn(redacted, ("before\n[REDACTED]\nafter", f"before\n{self.pontos.REDACTED_OPEN_QUOTE}\nafter"), text)
+
+  def test_a_line_with_its_quotes_in_pairs_leaves_the_log_clean(self):
+    for text in ('''--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "FAKEWORD"''',
+                 '''{"a":{"password":"alpha bravo"},"secret":"FAKEWORD FAKEWORD"} end''',
+                 r'''{\"password\":\"alpha bravo\"} end''',
+                 "password=abcdefghijklmnop end", "Bearer abcdefghijklmnopqrstuvwxyz FAKEWORD"):
+      redacted, count = self.pontos.redact(f"before\n{text}\nafter")
       self.assertEqual((redacted, count), ("before\n[REDACTED]\nafter", 1), text)
       self.assertEqual(self.pontos.check(redacted), [], text)
 
@@ -320,7 +331,13 @@ class Pontos(unittest.TestCase):
   def test_a_quote_left_open_on_its_line_keeps_the_log_blocked(self):
     for text in ('password="abcdefghijklmnop\nFAKEWORD" end', "password='abcdefghijklmnop$qrs end\nFAKEWORD'",
                  'aws_secret_access_key = "wJal(rXUtnFEMI\nFAKEWORD"',
-                 'password="alpha bravo" token="abcdefghijklmnop\nFAKEWORD"'):
+                 'password="alpha bravo" token="abcdefghijklmnop\nFAKEWORD"',
+                 'password="abcdefghijklmnop"x"\nFAKEWORD" end',  # an odd count, whatever closes first
+                 """password='abcdefghijklmnop'"'"'\nFAKEWORD' end""",  # shlex quoting
+                 "password=abcdefghijklmnop\\\nFAKEWORD end",  # a backslash continuation
+                 "password=abcdefghijklmnop \\  \nFAKEWORD end",
+                 """--data '{"password":"abcdefghijklmnop"}\nFAKEWORD' end""",  # a quote opened before the match
+                 "it's password=abcdefghijklmnop\nFAKEWORD"):  # an apostrophe blocks too: the safe side
       redacted, count = self.pontos.redact(text)
       self.assertEqual(count, 1, text)
       self.assertTrue(redacted.startswith(f"{self.pontos.REDACTED_OPEN_QUOTE}\n"), text)

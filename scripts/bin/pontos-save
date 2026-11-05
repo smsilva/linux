@@ -94,6 +94,8 @@ SECRET_LABEL = re.compile(r"^[^:=\s]*[:=\s]+[\"'\\]*")
 SECRET_AFTER_LABEL = re.compile(r"\s*[\\\"']*")
 # the rest of a token after the match, hidden too
 SECRET_REST = re.compile(r"\S*")
+# the quote that opens a value, at the end of the words kept before it
+SECRET_OPENING_QUOTE = re.compile(r"\\*[\"']$")
 # a private key's whole block, not only its first line
 PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
 REDACTED = "[REDACTED]"
@@ -507,6 +509,16 @@ def names_a_secret(match):
   return bool(SECRET_NAME.fullmatch(value) and NAME_END.match(match.string, match.end()))
 
 
+def end_of_secret(text, end, kept):
+  """Where a secret ends: at the rest of its token or, when the words kept before it opened a quote, at that quote's
+  closing one inside the token. Hiding the closing quote too would leave the opening one to pair with the next quote
+  on the line, and the check would read everything between them as a quoted value with spaces."""
+  rest = SECRET_REST.match(text, end).end()
+  opened = SECRET_OPENING_QUOTE.search(kept)
+  closing = re.compile(rf"(?<!\\){re.escape(opened.group(0))}").search(text, end, rest) if opened else None
+  return closing.start() if closing else rest
+
+
 def hide(pattern, text):
   """Replaces each match of a secret's pattern from its first separator on, and the rest of the token after the
   match too: a secret longer than the pattern's charset (`password=abc$def...`) leaves nothing behind. A match
@@ -528,7 +540,7 @@ def hide(pattern, text):
       if text.startswith(REDACTED, after.end()):  # another pattern already hid this value
         continue
       keep, end = found + after.group(0), after.end()
-    end = SECRET_REST.match(text, end).end()
+    end = end_of_secret(text, end, keep)
     parts += [text[last:match.start()], keep, REDACTED]
     last, count = end, count + 1
   parts.append(text[last:])

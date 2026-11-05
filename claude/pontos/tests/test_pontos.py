@@ -317,9 +317,30 @@ class Pontos(unittest.TestCase):
       self.assertNotIn("bravo", redacted, text)
 
   def test_redact_of_a_token_that_goes_on_leaves_no_quote_for_the_check(self):
-    for text, kept in (("""token="$(curl --data '{"username":"evaluator"}' | cut)"; echo "done\"""", 'token=[REDACTED] | cut)"; echo "done"'),
-                       ('password="abcdefghijklmnop"FAKETAIL end "quoted"', 'password=[REDACTED] end "quoted"'),
-                       ('password="alpha bravo"FAKETAIL end "quoted"', 'password=[REDACTED] end "quoted"')):
+    for text, kept in (("""token="$(curl --data '{"username":"evaluator"}' | cut)"; echo "done\"""", 'token=[REDACTED]'),
+                       ('password="abcdefghijklmnop"FAKETAIL end "quoted"', 'password=[REDACTED]'),
+                       ('password="alpha bravo"FAKETAIL end "quoted"', 'password=[REDACTED]')):
+      redacted, _ = self.pontos.redact(text)
+      self.assertEqual(redacted, kept)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
+  def test_redact_of_a_value_it_cannot_close_hides_the_line_and_only_the_line(self):
+    for text in ('''password="abcdefghijklmnop"x FAKEWORD" end''',
+                 '''password="abcdefghijklmnop","a":FAKEWORD end''',
+                 '''password="abcdefghijklmnop","a":"x",FAKEWORD end''',
+                 '''password="abcdefghijklmnop"},FAKEWORD end''',
+                 """password='abcdefghijklmnop'"'"'alpha FAKEWORD' end""",
+                 '''password="alpha bravo"x FAKEWORD" end'''):
+      redacted, _ = self.pontos.redact(f"before\n{text}\nafter")
+      self.assertNotIn("FAKEWORD", redacted, text)
+      self.assertEqual(redacted, "before\npassword=[REDACTED]\nafter", text)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
+  def test_redact_hides_every_value_of_a_nested_json(self):
+    for text, kept in (('{"a":{"password":"alpha bravo"},"secret":"FAKEONE FAKETWO"} end', '{"a":{"password":"[REDACTED]"},"secret":"[REDACTED]"} end'),
+                       (r'{\"a\":{\"password\":\"alpha bravo\"},\"secret\":\"FAKEONE FAKETWO\"} end', r'{\"a\":{\"password\":\"[REDACTED]\"},\"secret\":\"[REDACTED]\"} end'),
+                       ('{"password":"alpha bravo","b":{"c":"d"},"n":1,"ok":true} end', '{"password":"[REDACTED]","b":{"c":"d"},"n":1,"ok":true} end'),
+                       ('{"password":"abcdefghijklmnop","list":["x"]} end', '{"password":"[REDACTED]","list":["x"]} end')):
       redacted, _ = self.pontos.redact(text)
       self.assertEqual(redacted, kept)
       self.assertEqual(self.pontos.check(redacted), [], text)
@@ -340,7 +361,7 @@ class Pontos(unittest.TestCase):
                        (r'\"password\":\"abcdefghijklmnop\" end \"quoted\"', r'\"password\":\"[REDACTED]\" end \"quoted\"'),
                        (r'password="abcdefghijklmnop\"qrs" end "quoted"', 'password="[REDACTED]" end "quoted"'),
                        ('aws_secret_access_key = "wJal(rXUtnFEMI" end "quoted"', 'aws_secret_access_key = "[REDACTED]" end "quoted"'),
-                       ('password="abcdefghijklmnop$qrs end', 'password=[REDACTED] end')):
+                       ('password="abcdefghijklmnop$qrs end', 'password=[REDACTED]')):
       redacted, _ = self.pontos.redact(text)
       self.assertEqual(redacted, kept)
       self.assertEqual(self.pontos.check(redacted), [], text)

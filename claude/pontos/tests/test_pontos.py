@@ -617,6 +617,60 @@ class Pontos(unittest.TestCase):
     self.assertEqual(printed.count("next: word"), self.pontos.RELEASE_WINDOW)
     self.assertIn("not shown", printed)
 
+  def test_release_reports_the_lines_only_after_the_upload(self):
+    self.marked_log()
+    seen = []
+    real = self.pontos.upload
+
+    def recording(session):
+      seen.append(sys.stdout.getvalue())
+      return real(session)
+
+    with mock.patch.object(self.pontos, "upload", recording):
+      code, printed = self.release("1\n")
+    self.assertEqual(code, 0)
+    self.assertIn("keep this terminal open", seen[0])
+    self.assertNotIn("line(s) released", seen[0])
+    self.assertIn("1 line(s) released", printed)
+
+  def test_release_says_when_the_log_did_not_reach_drive(self):
+    self.marked_log()
+    with mock.patch.object(self.pontos, "upload", lambda session: False):
+      code, printed = self.release("1\n")
+    self.assertEqual(code, 1)
+    self.assertIn("not on Drive yet", printed)
+    self.assertIn("pontos-save retry", printed)
+
+  def test_a_digest_no_longer_in_use_leaves_the_count(self):
+    me = self.marked_log()
+    self.release("1\n")
+    self.rewrite_transcript("it's password='abcdefghijklmnop\nANOTHERTAIL'\nthe line after")
+    self.assertTrue(self.pontos.write_spool(self.session, self.pontos.build_session(me), set()))
+    self.assertEqual([len(digests) for digests in self.state()["released"].values()], [0])
+    self.assertEqual(self.release("1\n")[0], 0)
+    self.assertEqual([len(digests) for digests in self.state()["released"].values()], [1])
+    copy = next(copy for copy in self.on_drive() if "ANOTHERTAIL" in copy)
+    self.assertIn("\nreleased_lines: 1", copy.split("\n---\n")[0])
+
+  def test_a_build_counts_only_the_digests_in_use(self):
+    me = self.marked_log()
+    self.release("1\n")
+    state = self.state()
+    key = next(iter(state["released"]))
+    state["released"][key].append("a digest of a line that is gone")
+    self.pontos.save(self.root / f"state/sessions/{self.session}/state.json", state)
+    self.pontos.write_spool(self.session, self.pontos.build_session(me), set())
+    self.assertEqual(len(self.state()["released"][key]), 1)
+    path = next((self.root / f"state/sessions/{self.session}/out").rglob("*.md"))
+    self.assertIn("\nreleased_lines: 1", path.read_text().split("\n---\n")[0])
+
+  def test_the_refusal_says_how_to_release_a_session_still_running(self):
+    self.marked_log()
+    self.rewrite_transcript(f"{self.MARKED}\n\nwritten after the last build")
+    with mock.patch("sys.stderr", new=io.StringIO()) as refused:
+      self.assertEqual(self.release("1\n")[0], 1)
+    self.assertIn("in one command", refused.getvalue())
+
   def test_release_keeps_a_live_value_blocked(self):
     live = "live-value-of-the-token-1234567890"
     hook = {"session_id": self.session, "cwd": str(self.main), "transcript_path": str(self.path)}

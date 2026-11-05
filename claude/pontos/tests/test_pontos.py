@@ -294,6 +294,17 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.check(r"grep 'aws_secret_access_key = \\[REDACTED\\]' in a log"), [])
     self.assertTrue(self.pontos.check(r"aws_secret_access_key = \"wJal(rXUtnFEMI\""))
 
+  def test_redact_keeps_the_closing_quote_so_its_own_result_passes_the_check(self):
+    for text, kept in (("""--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "done\"""", """--data '{"password":"[REDACTED]"}' | cut -c1-80; echo "done\""""),
+                       ("password='abcdefghijklmnop$qrs' end 'quoted'", "password='[REDACTED]' end 'quoted'"),
+                       (r'\"password\":\"abcdefghijklmnop\" end \"quoted\"', r'\"password\":\"[REDACTED]\" end \"quoted\"'),
+                       (r'password="abcdefghijklmnop\"qrs" end "quoted"', 'password="[REDACTED]" end "quoted"'),
+                       ('aws_secret_access_key = "wJal(rXUtnFEMI" end "quoted"', 'aws_secret_access_key = "[REDACTED]" end "quoted"'),
+                       ('password="abcdefghijklmnop$qrs end', 'password="[REDACTED] end')):
+      redacted, _ = self.pontos.redact(text)
+      self.assertEqual(redacted, kept)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
   def test_redact_never_clears_a_log_that_shrank(self):
     self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "### a\n### b\nghp_" + "a" * 36)], set())
     state = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")

@@ -664,12 +664,14 @@ class Pontos(unittest.TestCase):
     path = next((self.root / f"state/sessions/{self.session}/out").rglob("*.md"))
     self.assertIn("\nreleased_lines: 1", path.read_text().split("\n---\n")[0])
 
-  def test_the_refusal_says_how_to_release_a_session_still_running(self):
+  def test_the_refusal_never_sends_a_build_to_another_terminal(self):
+    # a build there, without the session's live values, would write them in clear, and a release would then match it
     self.marked_log()
     self.rewrite_transcript(f"{self.MARKED}\n\nwritten after the last build")
     with mock.patch("sys.stderr", new=io.StringIO()) as refused:
       self.assertEqual(self.release("1\n")[0], 1)
-    self.assertIn("in one command", refused.getvalue())
+    self.assertIn("never from another terminal", refused.getvalue())
+    self.assertNotIn("in one command", refused.getvalue())
 
   def test_release_keeps_a_live_value_blocked(self):
     live = "live-value-of-the-token-1234567890"

@@ -192,9 +192,12 @@ class Pontos(unittest.TestCase):
       self.assert_line_hidden(f'{label} = "{self.QUOTED_VALUE}"')
 
   def test_a_quoted_value_with_spaces_is_hidden_in_every_quote(self):
-    for quote in ('"', "'", '\\"', '\\\\\\"'):
+    for quote in ('"', "'"):
       self.assert_line_hidden(f"password={quote}{self.QUOTED_VALUE}{quote}, then")
       self.assert_line_hidden(f"{{{quote}password{quote}: {quote}{self.QUOTED_VALUE}{quote}}} end")
+    for quote in ('\\"', '\\\\\\"'):  # hidden too, and an escaped quote keeps the log blocked
+      self.assert_blocked(f"password={quote}{self.QUOTED_VALUE}{quote}, then")
+      self.assert_blocked(f"{{{quote}password{quote}: {quote}{self.QUOTED_VALUE}{quote}}} end")
 
   def test_a_quoted_value_with_a_quote_inside_is_hidden(self):
     for text in ('password = "fake \\" alpha bravo" end', "password = \"it's a fake value\" end",
@@ -316,7 +319,6 @@ class Pontos(unittest.TestCase):
   def test_a_line_with_its_quotes_in_pairs_leaves_the_log_clean(self):
     for text in ('''--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "FAKEWORD"''',
                  '''{"a":{"password":"alpha bravo"},"secret":"FAKEWORD FAKEWORD"} end''',
-                 r'''{\"password\":\"alpha bravo\"} end''',
                  "password=abcdefghijklmnop end", "Bearer abcdefghijklmnopqrstuvwxyz FAKEWORD"):
       redacted, count = self.pontos.redact(f"before\n{text}\nafter")
       self.assertEqual((redacted, count), ("before\n[REDACTED]\nafter", 1), text)
@@ -345,6 +347,36 @@ class Pontos(unittest.TestCase):
       self.assertEqual(self.pontos.redact(redacted), (redacted, 0), text)  # stays the same, stays blocked
     # the marker blocks only as a line of its own: code or prose that quotes it does not
     self.assertEqual(self.pontos.check(f'  MARKER = "{self.pontos.REDACTED_OPEN_QUOTE}"'), [])
+
+  def assert_blocked(self, text):
+    redacted, count = self.pontos.redact(text)
+    self.assertEqual(count, 1, text)
+    self.assertEqual(redacted.split("\n")[0], self.pontos.REDACTED_OPEN_QUOTE, text)
+    self.assertTrue(self.pontos.check(redacted), text)
+    self.assertEqual(self.pontos.redact(redacted), (redacted, 0), text)  # stays the same, stays blocked
+
+  def test_a_value_s_own_quote_left_open_blocks_whatever_comes_before_it(self):
+    for text in ("it's password='abcdefghijklmnop\nFAKEWORD'",  # the apostrophe evens the count
+                 """it's "x" password='abcdefghijklmnop\nFAKEWORD'""",
+                 "it's 'ghp_abcdefghijklmnopqrstuvwx\nFAKEWORD'",  # a value that starts the match: its quote is before it
+                 "it's 'Bearer abcdefghijklmnopqrstuvwxyz\nFAKEWORD'",
+                 "it's 'token=abcdefghijklmnop\nFAKEWORD'"):
+      self.assert_blocked(text)
+
+  def test_an_escaped_quote_on_a_hidden_line_blocks(self):
+    for text in ("password='abcdefghijklmnop\\'\nFAKEWORD'",  # closed for a shell, escaped for Python or JSON
+                 '{\\"password\\":\\"abcdefghijklmnop\\\\\\"\nFAKEWORD\\"}',  # the same, inside an escaped JSON
+                 'token=abcdefghijklmnop \\"FAKEWORD\\"',  # any escaped quote, even with nothing visibly open
+                 r'''{\"password\":\"alpha bravo\"} end'''):
+      self.assert_blocked(text)
+
+  def test_a_value_whose_quote_closes_on_its_line_stays_clean(self):
+    # the anchored check adds no block to these: the opening quote is found and closed, or the key's own quote closes
+    for text in ('''"token": abcdefghijklmnop''', """'token=abcdefghijklmnop' end""", """'ghp_abcdefghijklmnopqrstuvwx' end""",
+                 '''{"password":"abcdefghijklmnop"} end''', """password='alpha bravo' end"""):
+      redacted, count = self.pontos.redact(f"before\n{text}\nafter")
+      self.assertEqual((redacted, count), ("before\n[REDACTED]\nafter", 1), text)
+      self.assertEqual(self.pontos.check(redacted), [], text)
 
   def test_redact_never_clears_a_log_that_shrank(self):
     self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "### a\n### b\nghp_" + "a" * 36)], set())

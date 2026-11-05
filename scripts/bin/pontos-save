@@ -1048,7 +1048,7 @@ def command_release(args):
     in_use[key] = set()
     bodies[key] = log_parts(redact(text, emails, digests, used=in_use[key])[0])[1]
     if not path.is_file() or without_marker(log_parts(path.read_text())[1]) != without_marker(bodies[key]):
-      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again in its own environment (its next turn, or `pontos-save build`), then run this again; a session still running moves its transcript each turn, so start `build` and this in one command", file=sys.stderr)
+      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again: its next turn, or `pontos-save build` run from the session itself, never from another terminal, where a build without its live values writes them in clear. Then run this again", file=sys.stderr)
       return 1
   for key, listing in listings.items():
     print(key)

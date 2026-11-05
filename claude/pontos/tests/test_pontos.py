@@ -553,6 +553,70 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.state(), before)
     self.assertEqual(self.on_drive(), [])
 
+  def test_release_refuses_when_a_live_value_filled_a_whole_line(self):
+    # hidden as the bare `[REDACTED]` other lines also show: only its position tells it apart
+    live = "live-value-of-the-token-1234567890"
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": live}):
+      self.marked_log(f"{self.MARKED}\n\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz\n\n{live}")
+    before = self.state()
+    with mock.patch.dict(os.environ):
+      os.environ.pop("GITHUB_TOKEN", None)
+      self.assertEqual(self.release("1\n")[0], 1)
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_refuses_a_transcript_that_went_past_the_spool(self):
+    # never checked in the session's environment, so never uploaded from here
+    self.marked_log()
+    before = self.state()
+    self.rewrite_transcript(f"{self.MARKED}\n\nwritten after the last build")
+    self.assertEqual(self.release("1\n")[0], 1)
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_refuses_a_file_with_no_spool(self):
+    self.marked_log()
+    before = self.state()
+    next((self.root / f"state/sessions/{self.session}/out").rglob("*.md")).unlink()
+    self.assertEqual(self.release("1\n")[0], 1)
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_keeps_what_the_session_end_wrote_in_the_header(self):
+    me = self.marked_log()
+    path = next((self.root / f"state/sessions/{self.session}/out").rglob("*.md"))
+    path.write_text(path.read_text().replace("end_reason: null", 'end_reason: "clear"', 1))
+    self.assertEqual(self.release("1\n")[0], 0)
+    self.assertIn('end_reason: "clear"', self.on_drive()[0])
+
+  def test_a_second_release_counts_every_line_once_in_the_header(self):
+    me = self.marked_log()
+    self.release("1\n")
+    self.pontos.write_spool(self.session, self.pontos.build_session(me), set())
+    self.rewrite_transcript(f"{self.MARKED}\n\n### the next turn\nit's token='qrstuvwxyzabcdef\nFAKEWORD'")
+    self.pontos.write_spool(self.session, self.pontos.build_session(me), set())
+    self.assertEqual(self.release("1\n")[0], 0)
+    header = [copy for copy in self.on_drive() if "qrstuv" not in copy and "released_lines: 2" in copy]
+    self.assertEqual(len(header), 1)
+    self.assertEqual(header[0].split("\n---\n")[0].count("released_lines"), 1)
+
+  def test_a_changed_line_further_down_the_block_blocks_again(self):
+    lines = "it's password='abcdefghijklmnop\none\ntwo\nthree\nfour"
+    me = self.marked_log(lines)
+    self.release("1\n")
+    self.rewrite_transcript(lines.replace("four", "FAKEWORD'"))
+    self.assertTrue(self.pontos.write_spool(self.session, self.pontos.build_session(me), set()))
+
+  def test_release_lists_the_whole_block_and_says_when_it_goes_past_the_window(self):
+    self.marked_log("it's password='abcdefghijklmnop\none\ntwo\nthree\nfour")
+    self.assertIn("next: four", self.release("0\n")[1])
+    block = "\n".join("word" for _ in range(self.pontos.RELEASE_WINDOW + 5))
+    self.setUp()
+    self.marked_log(f"it's password='abcdefghijklmnop\n{block}")
+    printed = self.release("0\n")[1]
+    self.assertEqual(printed.count("next: word"), self.pontos.RELEASE_WINDOW)
+    self.assertIn("not shown", printed)
+
   def test_release_keeps_a_live_value_blocked(self):
     live = "live-value-of-the-token-1234567890"
     hook = {"session_id": self.session, "cwd": str(self.main), "transcript_path": str(self.path)}

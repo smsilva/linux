@@ -556,16 +556,11 @@ def leaves_a_quote_open(match):
 
 
 def next_lines(text, end):
-  """The two lines after the one that ends at `end`: where a value left open would go on."""
-  lines = []
-  for _ in range(2):
-    if end >= len(text):
-      break
-    stop = text.find("\n", end + 1)
-    stop = len(text) if stop < 0 else stop
-    lines.append(text[end + 1:stop])
-    end = stop
-  return lines
+  """The lines after the one that ends at `end`, up to the next turn: where a value left open could go on, since no
+  closing quote can be trusted to end it. A later turn, appended by the next build, does not change them."""
+  stop = text.find("\n### ", end)
+  block = text[end + 1:len(text) if stop < 0 else stop].rstrip()
+  return block.split("\n") if block else []
 
 
 def line_digest(text, start, end):
@@ -986,16 +981,26 @@ def command_redact(args):
   return 0
 
 
-def hidden_lines(text):
-  """The lines that hide something, whichever way."""
-  return {line.replace(REDACTED_OPEN_QUOTE, REDACTED) for line in text.splitlines() if "[REDACTED" in line}
+RELEASE_WINDOW = 10  # the next lines a listing shows of each marked line; it says how many more it left out
+RELEASED_LINES = re.compile(r"\nreleased_lines: [0-9]+")
+
+
+def log_parts(text):
+  """A log's YAML header and its body."""
+  head, mark, body = text.partition("\n---\n")
+  return (head, body) if mark and text.startswith("---\n") else ("", text)
+
+
+def without_marker(body):
+  return OPEN_QUOTE_LINE.sub(REDACTED, body)
 
 
 def command_release(args):
   """The owner's answer to a marker: lists the marked lines of one session's rebuild, masked, and on the count typed at
   a terminal records them by digest, so they lose the marker in this and every later build; a line that was not listed
-  still blocks. Works from a rebuild, whose lines may be more than the spool's. Refuses a rebuild that hides less than
-  the spool: this terminal may lack a live value of the blocked session. Nothing but the marker is released."""
+  still blocks. The digests need the rebuild, but what goes up is the spool, built and checked in the session's
+  environment: a rebuild whose body differs from it, marker aside, is refused, since it may have text never checked
+  there or lack a live value this terminal does not hold. Nothing but the marker is released."""
   if not sys.stdin.isatty():
     print("release needs a terminal: the owner runs it, an agent only when the owner asks in its own session", file=sys.stderr)
     return 1
@@ -1026,38 +1031,45 @@ def command_release(args):
   if not total:
     print(f"{folder.name[:8]}: no marked line in the rebuild")
     return 0
+  bodies = {}
   for day, name, text in built:
     key = f"{day}/{name}"
+    if key not in listings:
+      continue
     path = folder / "out" / key
-    digests = [*state.get("released", {}).get(key, []), *(digest for digest, _, _ in listings.get(key, []))]
-    if path.is_file() and hidden_lines(path.read_text()) - hidden_lines(redact(text, emails, digests)[0]):
-      print(f"{key}: a rebuild here hides less than the spool, nothing released: run this where the session's environment is", file=sys.stderr)
+    digests = [*state.get("released", {}).get(key, []), *(digest for digest, _, _ in listings[key])]
+    bodies[key] = log_parts(redact(text, emails, digests)[0])[1]
+    if not path.is_file() or without_marker(log_parts(path.read_text())[1]) != without_marker(bodies[key]):
+      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again in its own environment (its next turn, or `pontos-save build`), then run this again", file=sys.stderr)
       return 1
   for key, listing in listings.items():
     print(key)
     for _, shape, following in listing:
       print(f"  hidden: {shape}")
-      for line in following:
+      for line in following[:RELEASE_WINDOW]:
         print(f"    next: {line}")
-  print(f"Type {total} to release these {total} line(s); their next lines reach Drive as they are:", flush=True)
+      if len(following) > RELEASE_WINDOW:
+        print(f"    {len(following) - RELEASE_WINDOW} more line(s) of this turn not shown")
+  print(f"Type {total} to release these {total} line(s); their next lines, shown or not, reach Drive as they are:", flush=True)
   if sys.stdin.readline().strip() != str(total):
     print("nothing released")
     return 1
   released = state.setdefault("released", {})
-  for key, listing in listings.items():
-    released[key] = sorted({*released.get(key, []), *(digest for digest, _, _ in listing)})
-  save(folder / "state.json", state)
-  write_spool(folder.name, built, emails)
-  state = load(folder / "state.json")
-  rebuilt = {f"{day}/{name}" for day, name, _ in built}
-  for key, reasons in before.items():  # the check here cannot clear a live value, nor a file it did not rebuild
-    kept = [reason for reason in reasons if key not in rebuilt or reason.startswith(LIVE_VALUE)]
-    if kept:
-      state["blocked"][key] = list(dict.fromkeys(state["blocked"].get(key, []) + kept))
-  save(folder / "state.json", state)
-  for key in listings:
-    problems = state["blocked"].get(key)
+  for key, body in bodies.items():
+    released[key] = sorted({*released.get(key, []), *(digest for digest, _, _ in listings[key])})
+    path = folder / "out" / key
+    head = log_parts(path.read_text())[0]
+    if head:
+      body = f"{RELEASED_LINES.sub('', head)}\nreleased_lines: {len(released[key])}\n---\n{body}"
+    path.write_text(body)
+    # the check here cannot clear a live value
+    kept = [reason for reason in before.get(key, []) if reason.startswith(LIVE_VALUE)]
+    problems = list(dict.fromkeys(check(body, emails) + shrank(body, state.get("files", {}).get(key, {})) + kept))
+    state.setdefault("blocked", {}).pop(key, None)
+    if problems:
+      state["blocked"][key] = problems
     print(f"{key}: {len(released[key])} line(s) released" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
+  save(folder / "state.json", state)
   upload(folder.name)
   alert()
   return 0

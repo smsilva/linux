@@ -303,13 +303,44 @@ class Pontos(unittest.TestCase):
       self.assertNotIn("FAKETAIL", redacted, text)
       self.assertNotIn("abcdefghijklmnop", redacted, text)
 
+  def test_redact_leaves_no_tail_after_a_delimiter_or_a_value_with_spaces(self):
+    delimiters = [f'password="abcdefghijklmnop"{delimiter}FAKETAIL end' for delimiter in ",;}])|"]
+    for text in (*delimiters,
+                 '''password="abcdefghijklmnop","FAKETAIL" end''',  # a comma and a quote, with no key after them
+                 '''password="alpha bravo charlie"FAKETAIL end''',
+                 '''password="alpha bravo charlie",FAKETAIL end''',
+                 """password='alpha bravo'"'"'FAKETAIL end""",
+                 r'''\"password\":\"alpha bravo\"FAKETAIL end'''):
+      redacted, _ = self.pontos.redact(text)
+      self.assertNotIn("FAKETAIL", redacted, text)
+      self.assertNotIn("abcdefghijklmnop", redacted, text)
+      self.assertNotIn("bravo", redacted, text)
+
+  def test_redact_of_a_token_that_goes_on_leaves_no_quote_for_the_check(self):
+    for text, kept in (("""token="$(curl --data '{"username":"evaluator"}' | cut)"; echo "done\"""", 'token=[REDACTED] | cut)"; echo "done"'),
+                       ('password="abcdefghijklmnop"FAKETAIL end "quoted"', 'password=[REDACTED] end "quoted"'),
+                       ('password="alpha bravo"FAKETAIL end "quoted"', 'password=[REDACTED] end "quoted"')):
+      redacted, _ = self.pontos.redact(text)
+      self.assertEqual(redacted, kept)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
+  def test_redact_keeps_what_only_closes_a_value_or_opens_the_next_field(self):
+    for text, kept in (('{"password":"abcdefghijklmnop","name":"x"} end', '{"password":"[REDACTED]","name":"x"} end'),
+                       ('{"password":"alpha bravo","name":"x"} end', '{"password":"[REDACTED]","name":"x"} end'),
+                       (r'{\"password\":\"abcdefghijklmnop\",\"name\":\"x\"} end', r'{\"password\":\"[REDACTED]\",\"name\":\"x\"} end'),
+                       ("""'{"password":"alpha bravo"}' end""", """'{"password":"[REDACTED]"}' end"""),
+                       ('(password="abcdefghijklmnop"); end', '(password="[REDACTED]"); end')):
+      redacted, _ = self.pontos.redact(text)
+      self.assertEqual(redacted, kept)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
   def test_redact_keeps_the_closing_quote_so_its_own_result_passes_the_check(self):
     for text, kept in (("""--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "done\"""", """--data '{"password":"[REDACTED]"}' | cut -c1-80; echo "done\""""),
                        ("password='abcdefghijklmnop$qrs' end 'quoted'", "password='[REDACTED]' end 'quoted'"),
                        (r'\"password\":\"abcdefghijklmnop\" end \"quoted\"', r'\"password\":\"[REDACTED]\" end \"quoted\"'),
                        (r'password="abcdefghijklmnop\"qrs" end "quoted"', 'password="[REDACTED]" end "quoted"'),
                        ('aws_secret_access_key = "wJal(rXUtnFEMI" end "quoted"', 'aws_secret_access_key = "[REDACTED]" end "quoted"'),
-                       ('password="abcdefghijklmnop$qrs end', 'password="[REDACTED] end')):
+                       ('password="abcdefghijklmnop$qrs end', 'password=[REDACTED] end')):
       redacted, _ = self.pontos.redact(text)
       self.assertEqual(redacted, kept)
       self.assertEqual(self.pontos.check(redacted), [], text)

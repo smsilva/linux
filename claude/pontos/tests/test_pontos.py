@@ -294,6 +294,15 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.check(r"grep 'aws_secret_access_key = \\[REDACTED\\]' in a log"), [])
     self.assertTrue(self.pontos.check(r"aws_secret_access_key = \"wJal(rXUtnFEMI\""))
 
+  def test_redact_leaves_no_tail_of_a_value_that_goes_on_after_a_quote(self):
+    for text in ("""password='abcdefghijklmnop'"'"'FAKETAIL end""",  # shlex quoting
+                 '''password="abcdefghijklmnop"FAKETAIL end''',  # adjacent segments
+                 '''"password":"abcdefghijklmnop'"'"'FAKETAIL" end''',  # a quote of another kind inside
+                 r'''password="abcdefghijklmnop\"FAKETAIL" end'''):  # an escaped quote inside
+      redacted, _ = self.pontos.redact(text)
+      self.assertNotIn("FAKETAIL", redacted, text)
+      self.assertNotIn("abcdefghijklmnop", redacted, text)
+
   def test_redact_keeps_the_closing_quote_so_its_own_result_passes_the_check(self):
     for text, kept in (("""--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "done\"""", """--data '{"password":"[REDACTED]"}' | cut -c1-80; echo "done\""""),
                        ("password='abcdefghijklmnop$qrs' end 'quoted'", "password='[REDACTED]' end 'quoted'"),

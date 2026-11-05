@@ -96,6 +96,8 @@ SECRET_AFTER_LABEL = re.compile(r"\s*[\\\"']*")
 SECRET_REST = re.compile(r"\S*")
 # the quote that opens a value, at the end of the words kept before it
 SECRET_OPENING_QUOTE = re.compile(r"\\*[\"']$")
+# what may follow a closing quote inside a token; anything else goes on with the value
+SECRET_AFTER_CLOSING_QUOTE = ",;}])|"
 # a private key's whole block, not only its first line
 PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
 REDACTED = "[REDACTED]"
@@ -512,11 +514,15 @@ def names_a_secret(match):
 def end_of_secret(text, end, kept):
   """Where a secret ends: at the rest of its token or, when the words kept before it opened a quote, at that quote's
   closing one inside the token. Hiding the closing quote too would leave the opening one to pair with the next quote
-  on the line, and the check would read everything between them as a quoted value with spaces."""
+  on the line, and the check would read everything between them as a quoted value with spaces. A quote followed by
+  more of the value (`'abc'"'"'def`, `"abc"def`) closes nothing: the whole token is hidden, since leaving a piece of
+  a secret behind is worse than a log the check blocks again."""
   rest = SECRET_REST.match(text, end).end()
   opened = SECRET_OPENING_QUOTE.search(kept)
   closing = re.compile(rf"(?<!\\){re.escape(opened.group(0))}").search(text, end, rest) if opened else None
-  return closing.start() if closing else rest
+  if closing and (closing.end() == rest or text[closing.end()] in SECRET_AFTER_CLOSING_QUOTE):
+    return closing.start()
+  return rest
 
 
 def hide(pattern, text):

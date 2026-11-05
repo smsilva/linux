@@ -172,7 +172,7 @@ class Pontos(unittest.TestCase):
                  "password=correct-horse-battery-staple"):
       self.assertTrue(self.pontos.check(text), text)
       self.assertNotEqual(self.pontos.redact(text)[1], 0, text)
-    self.assertEqual(self.pontos.redact("secret=google-oauth-token=realsecret123456")[0], "secret=[REDACTED]")
+    self.assertEqual(self.pontos.redact("secret=google-oauth-token=realsecret123456")[0], "[REDACTED]")
     self.assertEqual(self.pontos.check('{"secret": "default/google-oauth"}, next'), [])
     # a name quoted in markdown, in a table or a sentence
     self.assertEqual(self.pontos.check("| 565 | `--param googleSecret=google-oauth` |"), [])
@@ -183,34 +183,29 @@ class Pontos(unittest.TestCase):
   # The fixtures below are fake and built from parts, so that this file's own diff does not block a session's raw log.
   QUOTED_VALUE = "fake alpha bravo charlie delta 12345"
 
-  def assert_value_hidden(self, text, kept):
-    self.assertTrue(self.pontos.check(text), kept)
-    self.assertEqual(self.pontos.redact(text), (kept, 1))
-    self.assertEqual(self.pontos.check(kept), [], kept)
+  def assert_line_hidden(self, text):
+    self.assertTrue(self.pontos.check(text), text)
+    self.assertEqual(self.pontos.redact(text), ("[REDACTED]", 1))
 
   def test_a_quoted_value_with_spaces_is_a_secret_after_every_label(self):
     for label in ("token", "secret", "password", "passwd", "api_key", "api-key", "access_key"):
-      self.assert_value_hidden(f'{label} = "{self.QUOTED_VALUE}"', f'{label} = "[REDACTED]"')
+      self.assert_line_hidden(f'{label} = "{self.QUOTED_VALUE}"')
 
   def test_a_quoted_value_with_spaces_is_hidden_in_every_quote(self):
     for quote in ('"', "'", '\\"', '\\\\\\"'):
-      self.assert_value_hidden(f"password={quote}{self.QUOTED_VALUE}{quote}, then", f"password={quote}[REDACTED]{quote}, then")
-      self.assert_value_hidden(f"{{{quote}password{quote}: {quote}{self.QUOTED_VALUE}{quote}}} end",
-                               f"{{{quote}password{quote}: {quote}[REDACTED]{quote}}} end")
+      self.assert_line_hidden(f"password={quote}{self.QUOTED_VALUE}{quote}, then")
+      self.assert_line_hidden(f"{{{quote}password{quote}: {quote}{self.QUOTED_VALUE}{quote}}} end")
 
-  def test_a_quoted_value_ends_at_its_own_closing_quote(self):
-    kept = 'password = "[REDACTED]" end'
-    self.assert_value_hidden('password = "fake \\" alpha bravo" end', kept)
-    self.assert_value_hidden("password = \"it's a fake value\" end", kept)
-    self.assert_value_hidden('password = \\"fake \\\\\\" alpha bravo\\" end', 'password = \\"[REDACTED]\\" end')
-    self.assert_value_hidden("password = 'fake \"alpha\" bravo' end", "password = '[REDACTED]' end")
+  def test_a_quoted_value_with_a_quote_inside_is_hidden(self):
+    for text in ('password = "fake \\" alpha bravo" end', "password = \"it's a fake value\" end",
+                 'password = \\"fake \\\\\\" alpha bravo\\" end', "password = 'fake \"alpha\" bravo' end"):
+      self.assert_line_hidden(text)
 
   def test_a_quoted_value_with_a_long_first_word_leaves_no_tail(self):
-    self.assertEqual(self.pontos.redact('password = "abcdefghijklmnop alpha bravo" end'), ('password = "[REDACTED]" end', 1))
+    self.assert_line_hidden('password = "abcdefghijklmnop alpha bravo" end')
 
   def test_each_quoted_value_on_a_line_is_hidden(self):
-    self.assertEqual(self.pontos.redact(f'password="{self.QUOTED_VALUE}" token="{self.QUOTED_VALUE}" end'),
-                     ('password="[REDACTED]" token="[REDACTED]" end', 2))
+    self.assert_line_hidden(f'password="{self.QUOTED_VALUE}" token="{self.QUOTED_VALUE}" end')
 
   def test_a_quoted_value_with_spaces_that_names_a_secret_is_still_a_secret(self):
     self.assertTrue(self.pontos.check('secret = "see the vault entry"'))
@@ -267,23 +262,21 @@ class Pontos(unittest.TestCase):
     self.assertIn(("upload", "--session", self.session), calls)
     self.assertEqual([key for key, _, _ in self.pontos.pending(self.session)], ["2026-10-29/x-agent.md"])
 
-  def test_redact_keeps_the_words_around_the_value_and_passes_the_check(self):
+  def test_redact_hides_a_secret_s_line_and_only_an_exact_value_in_place(self):
     (self.root / "config").mkdir(exist_ok=True)
     (self.root / "config/deny-list").write_text("Acme Corp\n")
     text = ("WWW-Authenticate: Bearer resource_metadata_location=\"https://x\"\n  token = os.environ.get(\"X\")\n"
             "write to someone@company.io or agent@example.com at Acme Corp")
     redacted, count = self.pontos.redact(text)
     self.assertEqual(count, 4)
-    self.assertIn("Bearer [REDACTED]", redacted)
-    self.assertIn("token = [REDACTED]\n", redacted)
-    self.assertIn("write to [REDACTED] or agent@example.com at [REDACTED]", redacted)
+    self.assertEqual(redacted, "[REDACTED]\n[REDACTED]\nwrite to [REDACTED] or agent@example.com at [REDACTED]")
     self.assertEqual(self.pontos.check(redacted), [])
 
   def test_redact_leaves_nothing_of_the_secret_behind(self):
     os.environ["SOME_TOKEN"] = "live(value)1234567890"
     self.addCleanup(os.environ.pop, "SOME_TOKEN")
-    for text, kept in (("password=abcdefghijklmnop$qrs(tuv) end", "password=[REDACTED] end"),
-                       ("aws_secret_access_key = wJal(rXUtnFEMI/K7MDENG end", "aws_secret_access_key = [REDACTED] end"),
+    for text, kept in (("password=abcdefghijklmnop$qrs(tuv) end", "[REDACTED]"),
+                       ("aws_secret_access_key = wJal(rXUtnFEMI/K7MDENG end", "[REDACTED]"),
                        ("-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nbody\n-----END RSA PRIVATE KEY-----\nend", "[REDACTED]\nend"),
                        ("token: live(value)1234567890 end", "token: [REDACTED] end")):
       redacted, _ = self.pontos.redact(text)
@@ -294,77 +287,47 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.check(r"grep 'aws_secret_access_key = \\[REDACTED\\]' in a log"), [])
     self.assertTrue(self.pontos.check(r"aws_secret_access_key = \"wJal(rXUtnFEMI\""))
 
-  def test_redact_leaves_no_tail_of_a_value_that_goes_on_after_a_quote(self):
-    for text in ("""password='abcdefghijklmnop'"'"'FAKETAIL end""",  # shlex quoting
-                 '''password="abcdefghijklmnop"FAKETAIL end''',  # adjacent segments
-                 '''"password":"abcdefghijklmnop'"'"'FAKETAIL" end''',  # a quote of another kind inside
-                 r'''password="abcdefghijklmnop\"FAKETAIL" end'''):  # an escaped quote inside
-      redacted, _ = self.pontos.redact(text)
-      self.assertNotIn("FAKETAIL", redacted, text)
-      self.assertNotIn("abcdefghijklmnop", redacted, text)
-
-  def test_redact_leaves_no_tail_after_a_delimiter_or_a_value_with_spaces(self):
-    delimiters = [f'password="abcdefghijklmnop"{delimiter}FAKETAIL end' for delimiter in ",;}])|"]
-    for text in (*delimiters,
-                 '''password="abcdefghijklmnop","FAKETAIL" end''',  # a comma and a quote, with no key after them
-                 '''password="alpha bravo charlie"FAKETAIL end''',
-                 '''password="alpha bravo charlie",FAKETAIL end''',
-                 """password='alpha bravo'"'"'FAKETAIL end""",
-                 r'''\"password\":\"alpha bravo\"FAKETAIL end'''):
-      redacted, _ = self.pontos.redact(text)
-      self.assertNotIn("FAKETAIL", redacted, text)
-      self.assertNotIn("abcdefghijklmnop", redacted, text)
-      self.assertNotIn("bravo", redacted, text)
-
-  def test_redact_of_a_token_that_goes_on_leaves_no_quote_for_the_check(self):
-    for text, kept in (("""token="$(curl --data '{"username":"evaluator"}' | cut)"; echo "done\"""", 'token=[REDACTED]'),
-                       ('password="abcdefghijklmnop"FAKETAIL end "quoted"', 'password=[REDACTED]'),
-                       ('password="alpha bravo"FAKETAIL end "quoted"', 'password=[REDACTED]')):
-      redacted, _ = self.pontos.redact(text)
-      self.assertEqual(redacted, kept)
+  def test_redact_hides_the_whole_line_whatever_its_quoting(self):
+    for text in ("""--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "FAKEWORD\"""",  # a closed value
+                 """token="$(curl --data '{"username":"FAKEWORD"}' | cut)"; echo "done\"""",  # a command in a value
+                 """password='abcdefghijklmnop'"'"'FAKEWORD end""",  # shlex quoting
+                 """password='abcdefghijklmnop'"'"' FAKEWORD' end""",  # shlex quoting, a space after it
+                 """password='alpha bravo'"'"'FAKEWORD end""",
+                 """password="abcdefghijklmnop"\\" FAKEWORD" end""",  # an escaped quote, a space after it
+                 """password="abcdefghijklmnop"FAKEWORD end""",  # adjacent segments
+                 """password="abcdefghijklmnop"x FAKEWORD" end""",
+                 """password="alpha bravo"x FAKEWORD" end""",
+                 """password="abcdefghijklmnop",FAKEWORD end""",  # a delimiter, then text
+                 """password="abcdefghijklmnop"},FAKEWORD end""",
+                 """password="abcdefghijklmnop","a":FAKEWORD end""",
+                 """password="abcdefghijklmnop","a":"FAKEWORD" end""",  # the next JSON field
+                 """{"a":{"password":"alpha bravo"},"secret":"FAKEWORD FAKEWORD"} end""",  # nested JSON
+                 r"""{\"a\":{\"password\":\"alpha bravo\"},\"secret\":\"FAKEWORD FAKEWORD\"} end""",
+                 r"""password=abcdefghijklmnop\ FAKEWORD end""",  # an escaped space
+                 """password=abcdefghijklmnop"alpha FAKEWORD" end""",  # a quote opened inside the value
+                 "Bearer abcdefghijklmnopqrstuvwxyz FAKEWORD"):
+      self.assertTrue(self.pontos.check(text), text)
+      redacted, count = self.pontos.redact(f"before\n{text}\nafter")
+      self.assertEqual((redacted, count), ("before\n[REDACTED]\nafter", 1), text)
       self.assertEqual(self.pontos.check(redacted), [], text)
 
-  def test_redact_of_a_value_it_cannot_close_hides_the_line_and_only_the_line(self):
-    for text in ('''password="abcdefghijklmnop"x FAKEWORD" end''',
-                 '''password="abcdefghijklmnop","a":FAKEWORD end''',
-                 '''password="abcdefghijklmnop","a":"x",FAKEWORD end''',
-                 '''password="abcdefghijklmnop"},FAKEWORD end''',
-                 """password='abcdefghijklmnop'"'"'alpha FAKEWORD' end""",
-                 '''password="alpha bravo"x FAKEWORD" end'''):
+  def test_redact_hides_every_line_a_match_runs_over(self):
+    for text in ("token:\nabcdefghijklmnop FAKEWORD", 'password="alpha bravo" token:\nabcdefghijklmnop FAKEWORD'):
       redacted, _ = self.pontos.redact(f"before\n{text}\nafter")
-      self.assertNotIn("FAKEWORD", redacted, text)
-      self.assertEqual(redacted, "before\npassword=[REDACTED]\nafter", text)
+      self.assertEqual(redacted, "before\n[REDACTED]\nafter", text)
       self.assertEqual(self.pontos.check(redacted), [], text)
 
-  def test_redact_hides_every_value_of_a_nested_json(self):
-    for text, kept in (('{"a":{"password":"alpha bravo"},"secret":"FAKEONE FAKETWO"} end', '{"a":{"password":"[REDACTED]"},"secret":"[REDACTED]"} end'),
-                       (r'{\"a\":{\"password\":\"alpha bravo\"},\"secret\":\"FAKEONE FAKETWO\"} end', r'{\"a\":{\"password\":\"[REDACTED]\"},\"secret\":\"[REDACTED]\"} end'),
-                       ('{"password":"alpha bravo","b":{"c":"d"},"n":1,"ok":true} end', '{"password":"[REDACTED]","b":{"c":"d"},"n":1,"ok":true} end'),
-                       ('{"password":"abcdefghijklmnop","list":["x"]} end', '{"password":"[REDACTED]","list":["x"]} end')):
-      redacted, _ = self.pontos.redact(text)
-      self.assertEqual(redacted, kept)
-      self.assertEqual(self.pontos.check(redacted), [], text)
-
-  def test_redact_keeps_what_only_closes_a_value_or_opens_the_next_field(self):
-    for text, kept in (('{"password":"abcdefghijklmnop","name":"x"} end', '{"password":"[REDACTED]","name":"x"} end'),
-                       ('{"password":"alpha bravo","name":"x"} end', '{"password":"[REDACTED]","name":"x"} end'),
-                       (r'{\"password\":\"abcdefghijklmnop\",\"name\":\"x\"} end', r'{\"password\":\"[REDACTED]\",\"name\":\"x\"} end'),
-                       ("""'{"password":"alpha bravo"}' end""", """'{"password":"[REDACTED]"}' end"""),
-                       ('(password="abcdefghijklmnop"); end', '(password="[REDACTED]"); end')):
-      redacted, _ = self.pontos.redact(text)
-      self.assertEqual(redacted, kept)
-      self.assertEqual(self.pontos.check(redacted), [], text)
-
-  def test_redact_keeps_the_closing_quote_so_its_own_result_passes_the_check(self):
-    for text, kept in (("""--data '{"password":"abcdefghijklmnop"}' | cut -c1-80; echo "done\"""", """--data '{"password":"[REDACTED]"}' | cut -c1-80; echo "done\""""),
-                       ("password='abcdefghijklmnop$qrs' end 'quoted'", "password='[REDACTED]' end 'quoted'"),
-                       (r'\"password\":\"abcdefghijklmnop\" end \"quoted\"', r'\"password\":\"[REDACTED]\" end \"quoted\"'),
-                       (r'password="abcdefghijklmnop\"qrs" end "quoted"', 'password="[REDACTED]" end "quoted"'),
-                       ('aws_secret_access_key = "wJal(rXUtnFEMI" end "quoted"', 'aws_secret_access_key = "[REDACTED]" end "quoted"'),
-                       ('password="abcdefghijklmnop$qrs end', 'password=[REDACTED]')):
-      redacted, _ = self.pontos.redact(text)
-      self.assertEqual(redacted, kept)
-      self.assertEqual(self.pontos.check(redacted), [], text)
+  def test_a_quote_left_open_on_its_line_keeps_the_log_blocked(self):
+    for text in ('password="abcdefghijklmnop\nFAKEWORD" end', "password='abcdefghijklmnop$qrs end\nFAKEWORD'",
+                 'aws_secret_access_key = "wJal(rXUtnFEMI\nFAKEWORD"',
+                 'password="alpha bravo" token="abcdefghijklmnop\nFAKEWORD"'):
+      redacted, count = self.pontos.redact(text)
+      self.assertEqual(count, 1, text)
+      self.assertTrue(redacted.startswith(f"{self.pontos.REDACTED_OPEN_QUOTE}\n"), text)
+      self.assertTrue(self.pontos.check(redacted), text)
+      self.assertEqual(self.pontos.redact(redacted), (redacted, 0), text)  # stays the same, stays blocked
+    # the marker blocks only as a line of its own: code or prose that quotes it does not
+    self.assertEqual(self.pontos.check(f'  MARKER = "{self.pontos.REDACTED_OPEN_QUOTE}"'), [])
 
   def test_redact_never_clears_a_log_that_shrank(self):
     self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "### a\n### b\nghp_" + "a" * 36)], set())
@@ -443,7 +406,7 @@ class Pontos(unittest.TestCase):
     self.assertEqual(self.pontos.command_redact(args), 0)
     state = self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
     self.assertEqual(state["blocked"], {})
-    self.assertEqual((self.root / "drive/raw/2026-10-29/x.md").read_text(), "Authorization: Bearer [REDACTED]")
+    self.assertEqual((self.root / "drive/raw/2026-10-29/x.md").read_text(), "[REDACTED]")
     self.assertFalse((self.root / "state/alert").exists())
     # an open session rebuilds its log each turn: the next build is redacted too, not blocked again
     self.assertEqual(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Bearer abcdefghijklmnopqrstuvwxyz, then more")], set()), {})

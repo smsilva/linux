@@ -88,25 +88,17 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_ALLOWED = re.compile(r"(?i)^git@|@(example\.(com|org|net)|anthropic\.com|users\.noreply\.github\.com)$")
 # environment variables whose live value must never reach Drive
 SECRET_ENV = re.compile(r"(?i)token|secret|password|passwd|key|credential")
-# what redact keeps of a secret's match: the words up to its first separator (`Bearer `, `token = `, `api_key": "`)
-SECRET_LABEL = re.compile(r"^[^:=\s]*[:=\s]+[\"'\\]*")
-# after a match that is only a label, the spaces and quote before its value
-SECRET_AFTER_LABEL = re.compile(r"\s*[\\\"']*")
-# the rest of a token after the match, hidden too
-SECRET_REST = re.compile(r"\S*")
-# the quote that opens a value, at the end of the words kept before it
-SECRET_OPENING_QUOTE = re.compile(r"\\*[\"']$")
-# what may follow a closing quote up to the end of its token: the next JSON fields, each a key and a plain value (its
-# own closing quote may be past the token, in a value with spaces), then only closing punctuation; anything else may
-# go on with the value
-SECRET_JSON_KEY = r"\\*[\"'][\w.-]+\\*[\"']:[{\[]*"
-SECRET_JSON_VALUE = r"(?:\\*[\"'][^\s\"'\\]*(?:\\*[\"'])?|-?\d+(?:\.\d+)?|true|false|null)"
-SECRET_AFTER_CLOSING_QUOTE = re.compile(rf"(?:[}}\]]*,[{{\[]*(?:{SECRET_JSON_KEY})+{SECRET_JSON_VALUE})*[,;}}\])|\"'\\]*")
-# the rest of a line, hidden when a quote does not say where a value ends
+# the rest of a line, hidden with the secret
 SECRET_LINE = re.compile(r"[^\n]*")
+# a quote that opens a value, right after a separator
+SECRET_OPENING_QUOTE = re.compile(r"[:=\s](\\*[\"'])")
 # a private key's whole block, not only its first line
 PRIVATE_KEY_BLOCK = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.DOTALL)
 REDACTED = "[REDACTED]"
+# in place of a line whose value opens a quote and does not close it: it may go on in the next lines, which the
+# redact cannot tell, so the check refuses this line and the log stays blocked for the owner
+REDACTED_OPEN_QUOTE = "[REDACTED: a quote left open on this line]"
+OPEN_QUOTE_LINE = re.compile(rf"^{re.escape(REDACTED_OPEN_QUOTE)}$", re.MULTILINE)
 
 
 def run(*command, cwd=None):
@@ -500,6 +492,8 @@ def check(text, own_emails=()):
   for word in denied():
     if re.search(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", text):
       problems.append(f"a name of the deny-list: {word[:3]}...")
+  if OPEN_QUOTE_LINE.search(text):
+    problems.append("a value whose quote stays open on its line: it may go on in the next lines")
   return sorted(set(problems))
 
 
@@ -517,61 +511,43 @@ def names_a_secret(match):
   return bool(SECRET_NAME.fullmatch(value) and NAME_END.match(match.string, match.end()))
 
 
-def closes_a_value(text, after_quote):
-  """Whether the quote that ends at `after_quote` closes a value: what is left of its token only closes it or holds
-  the next JSON fields. A quote followed by anything else (`'abc'"'"'def`, `"abc"def`, `"abc",def`) closes nothing."""
-  return bool(SECRET_AFTER_CLOSING_QUOTE.fullmatch(text, after_quote, SECRET_REST.match(text, after_quote).end()))
-
-
-def end_of_secret(text, end, kept):
-  """Where a secret ends, and the words to keep before it. With no quote in those words, it ends with its token. With
-  a quote and its closing one inside the token, it ends at that closing quote, which stays. Otherwise nothing says
-  where the value ends, so the rest of the line goes, and the opening quote too: alone, it would pair with a later
-  quote and the check would read a quoted value with spaces. A log loses a line; a secret on Drive is worse."""
-  rest = SECRET_REST.match(text, end).end()
-  opened = SECRET_OPENING_QUOTE.search(kept)
+def leaves_a_quote_open(match):
+  """Whether the value of a secret's match opens a quote that its line never closes."""
+  opened = SECRET_OPENING_QUOTE.search(match.group(0))
   if not opened:
-    return rest, kept
-  closing = re.compile(rf"(?<!\\){re.escape(opened.group(0))}").search(text, end, rest)
-  if closing and closes_a_value(text, closing.end()):
-    return closing.start(), kept
-  return SECRET_LINE.match(text, end).end(), SECRET_OPENING_QUOTE.sub("", kept)
+    return False
+  closing = re.compile(rf"(?<!\\){re.escape(opened.group(1))}")
+  return not closing.search(match.string, match.start() + opened.end(), SECRET_LINE.match(match.string, match.end()).end())
 
 
-def hide(pattern, text):
-  """Replaces each match of a secret's pattern from its first separator on, and the rest of the token after the
-  match too: a secret longer than the pattern's charset (`password=abc$def...`) leaves nothing behind. A match
-  that is only a label (`aws_secret_access_key =`) hides the value that follows it. A quoted value is hidden up
-  to its closing quote, which stays with what follows it."""
-  parts, last, count = [], 0, 0
-  for match in pattern.finditer(text):
-    if match.start() < last or names_a_secret(match):
-      continue
-    if "quote" in pattern.groupindex:
-      closed = closes_a_value(text, match.end())
-      parts += [text[last:match.start("value" if closed else "quote")], REDACTED]
-      last = match.end("value") if closed else SECRET_LINE.match(text, match.end()).end()
-      count += 1
-      continue
-    found, end = match.group(0), match.end()
-    label = SECRET_LABEL.match(found)
-    keep = label.group(0) if label else ""
-    if label and label.end() == len(found):
-      after = SECRET_AFTER_LABEL.match(text, end)
-      if text.startswith(REDACTED, after.end()):  # another pattern already hid this value
-        continue
-      keep, end = found + after.group(0), after.end()
-    end, keep = end_of_secret(text, end, keep)
-    parts += [text[last:match.start()], keep, REDACTED]
-    last, count = end, count + 1
+def hide_lines(text):
+  """Replaces each line with a secret's match, and every line a match runs over, whole. Where a value ends cannot be
+  told from a line of shell or JSON (quotes inside it, escapes, adjacent segments), so no word around it stays: a log
+  loses a line, and a secret on Drive is worse. Returns the text and how many places changed."""
+  places = []
+  for pattern in SECRETS:
+    for match in pattern.finditer(text):
+      if not names_a_secret(match):
+        places.append([text.rfind("\n", 0, match.start()) + 1, SECRET_LINE.match(text, match.end()).end(), leaves_a_quote_open(match)])
+  merged = []
+  for start, end, left_open in sorted(places):
+    if merged and start <= merged[-1][1]:
+      merged[-1][1] = max(merged[-1][1], end)
+      merged[-1][2] = merged[-1][2] or left_open
+    else:
+      merged.append([start, end, left_open])
+  parts, last = [], 0
+  for start, end, left_open in merged:
+    parts += [text[last:start], REDACTED_OPEN_QUOTE if left_open else REDACTED]
+    last = end
   parts.append(text[last:])
-  return "".join(parts), count
+  return "".join(parts), len(merged)
 
 
 def redact(text, own_emails=()):
-  """Replaces what the check refuses with [REDACTED], keeping the words around it: the value of a secret
-  (`Bearer [REDACTED]`, `token = [REDACTED]`), a private key's whole block, a foreign e-mail, a live secret,
-  a name of the deny-list. Returns the text and how many places changed."""
+  """Replaces what the check refuses with [REDACTED]: the whole line of a secret's pattern, a private key's whole
+  block, and in place, since their ends are known, a foreign e-mail, a live secret, a name of the deny-list. Returns
+  the text and how many places changed."""
   count = 0
 
   def whole(match):
@@ -587,9 +563,8 @@ def redact(text, own_emails=()):
   for word in denied():
     text = re.sub(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", whole, text)
   text = PRIVATE_KEY_BLOCK.sub(whole, text)
-  for pattern in SECRETS:
-    text, found = hide(pattern, text)
-    count += found
+  text, found = hide_lines(text)
+  count += found
   own = {email.lower() for email in own_emails}
   text = EMAIL.sub(lambda match: match.group(0) if EMAIL_ALLOWED.search(match.group(0)) or match.group(0).lower() in own else whole(match), text)
   return text, count

@@ -460,6 +460,141 @@ class Pontos(unittest.TestCase):
     # an open session rebuilds its log each turn: the next build is redacted too, not blocked again
     self.assertEqual(self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "Bearer abcdefghijklmnopqrstuvwxyz, then more")], set()), {})
 
+  MARKED = "it's password='abcdefghijklmnop\nFAKEWORD'\nthe line after"
+
+  def rewrite_transcript(self, text):
+    transcript(self.path, [{"type": "user", "timestamp": "2026-10-29T13:00:00Z", "version": "2.1.312", "cwd": str(self.main),
+                            "message": {"role": "user", "content": text}}])
+
+  def marked_log(self, text=MARKED):
+    """A session whose log the redact left blocked by the marker."""
+    self.rewrite_transcript(text)
+    hook = {"session_id": self.session, "cwd": str(self.main), "transcript_path": str(self.path)}
+    me = self.pontos.me_of(self.session, hook)
+    self.pontos.REMOTE = str(self.root / "drive")
+    self.pontos.write_spool(self.session, self.pontos.build_session(me), set())
+    with mock.patch("sys.stdout", new=io.StringIO()):
+      self.pontos.command_redact(type("Args", (), {"session": self.session[:8], "dry_run": False}))
+    self.assertTrue(self.state()["blocked"])
+    return me
+
+  def state(self):
+    return self.pontos.load(self.root / f"state/sessions/{self.session}/state.json")
+
+  def on_drive(self):
+    return [path.read_text() for path in (self.root / "drive").rglob("*.md")] if (self.root / "drive").exists() else []
+
+  def release(self, typed):
+    """Runs release as from a terminal where the owner types `typed`; returns its exit code and what it printed."""
+    class Terminal(io.StringIO):
+      def isatty(self):
+        return True
+    with mock.patch("sys.stdin", new=Terminal(typed)), mock.patch("sys.stdout", new=io.StringIO()) as printed:
+      code = self.pontos.command_release(type("Args", (), {"session": self.session[:8]}))
+    return code, printed.getvalue()
+
+  def test_release_without_a_terminal_refuses_and_changes_nothing(self):
+    self.marked_log()
+    before = self.state()
+    done = subprocess.run([sys.executable, str(BIN / "pontos-save"), "release", "--session", self.session[:8]],
+                          stdin=subprocess.DEVNULL, capture_output=True, text=True, env={**os.environ, "PONTOS_REMOTE": str(self.root / "drive")})
+    self.assertEqual(done.returncode, 1)
+    self.assertIn("terminal", done.stderr)
+    self.assertEqual(done.stdout, "")  # no listing either
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_clears_the_marker_uploads_and_a_rebuild_keeps_passing(self):
+    me = self.marked_log()
+    code, _ = self.release("1\n")
+    self.assertEqual(code, 0)
+    self.assertEqual(self.state()["blocked"], {})
+    text = self.on_drive()[0]
+    self.assertNotIn(self.pontos.REDACTED_OPEN_QUOTE, text)
+    self.assertIn("[REDACTED]\nFAKEWORD'\nthe line after", text)  # the next line stays as the owner looked at it
+    self.assertIn("\nreleased_lines: 1", text.split("\n---\n")[0])
+    self.assertEqual(self.pontos.write_spool(self.session, self.pontos.build_session(me), set()), {})
+    printed = io.StringIO()
+    with mock.patch("sys.stdout", new=printed):
+      self.pontos.command_status(type("Args", (), {"limit": 15}))
+    self.assertIn("1 line(s) released", printed.getvalue())
+
+  def test_release_needs_the_count_typed(self):
+    self.marked_log()
+    before = self.state()
+    for typed in ("", "y\n", "2\n"):
+      code, _ = self.release(typed)
+      self.assertEqual(code, 1, typed)
+      self.assertEqual(self.state(), before, typed)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_a_new_marked_line_blocks_again_after_a_release(self):
+    me = self.marked_log()
+    self.release("1\n")
+    self.rewrite_transcript(f"{self.MARKED}\nit's token='qrstuvwxyzabcdef\nFAKEWORD'")
+    self.assertTrue(self.pontos.write_spool(self.session, self.pontos.build_session(me), set()))
+
+  def test_a_released_line_with_another_next_line_blocks_again(self):
+    me = self.marked_log()
+    self.release("1\n")
+    self.rewrite_transcript("it's password='abcdefghijklmnop\nANOTHERTAIL'\nthe line after")
+    self.assertTrue(self.pontos.write_spool(self.session, self.pontos.build_session(me), set()))
+
+  def test_release_refuses_a_rebuild_that_hides_less_than_the_spool(self):
+    live = "live-value-of-the-token-1234567890"
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": live}):
+      self.marked_log(f"{self.MARKED}\nthe value {live} here")
+    before = self.state()
+    with mock.patch.dict(os.environ):
+      os.environ.pop("GITHUB_TOKEN", None)  # another terminal: the rebuild would upload the live value in clear
+      code, printed = self.release("1\n")
+    self.assertEqual(code, 1)
+    self.assertEqual(printed, "")
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_keeps_a_live_value_blocked(self):
+    live = "live-value-of-the-token-1234567890"
+    hook = {"session_id": self.session, "cwd": str(self.main), "transcript_path": str(self.path)}
+    self.rewrite_transcript(f"{self.MARKED}\n{live}")
+    me = self.pontos.me_of(self.session, hook)
+    self.pontos.REMOTE = str(self.root / "drive")
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": live}):
+      self.pontos.write_spool(self.session, self.pontos.build_session(me), set())
+    with mock.patch.dict(os.environ), mock.patch("sys.stdout", new=io.StringIO()):
+      os.environ.pop("GITHUB_TOKEN", None)
+      self.pontos.command_redact(type("Args", (), {"session": self.session[:8], "dry_run": False}))
+      self.release("1\n")
+    self.assertIn("the live value of $GITHUB_TOKEN", self.state()["blocked"][next(iter(self.state()["blocked"]))])
+    self.assertEqual(self.on_drive(), [])
+
+  def test_release_keeps_a_log_that_shrank_blocked(self):
+    self.marked_log()
+    state = self.state()
+    state["files"] = {key: {"turns": 99} for key in state["blocked"]}
+    self.pontos.save(self.root / f"state/sessions/{self.session}/state.json", state)
+    self.release("1\n")
+    self.assertIn("the log shrank", self.state()["blocked"][next(iter(self.state()["blocked"]))][0])
+
+  def test_release_lists_the_lines_and_prints_no_value(self):
+    self.marked_log()
+    _, printed = self.release("0\n")
+    self.assertIn("the line after", printed)  # plain words give the owner the context
+    for value in ("abcdefghijklmnop", "FAKEWORD", "password"):
+      self.assertNotIn(value, printed)
+
+  def test_release_with_no_marker_changes_nothing(self):
+    self.pontos.write_spool(self.session, [("2026-10-29", "x.md", "plain")], set())
+    self.assertEqual(self.release("")[0], 0)
+    self.assertEqual(self.state()["blocked"], {})
+
+  def test_release_never_clears_a_marker_on_a_transcript_it_cannot_read(self):
+    self.marked_log()
+    before = self.state()
+    self.path.unlink()
+    self.assertEqual(self.release("1\n")[0], 1)
+    self.assertEqual(self.state(), before)
+
   def end_session(self, calls):
     self.pontos.in_background = lambda *args: calls.append(args)
     stdin = sys.stdin

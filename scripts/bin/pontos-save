@@ -997,7 +997,7 @@ def command_release(args):
   still blocks. Works from a rebuild, whose lines may be more than the spool's. Refuses a rebuild that hides less than
   the spool: this terminal may lack a live value of the blocked session. Nothing but the marker is released."""
   if not sys.stdin.isatty():
-    print("release needs a terminal: the owner runs it, an agent never does", file=sys.stderr)
+    print("release needs a terminal: the owner runs it, an agent only when the owner asks in its own session", file=sys.stderr)
     return 1
   folders = sorted((STATE / "sessions").glob(f"{args.session}*")) if (STATE / "sessions").is_dir() else []
   if len(folders) != 1:

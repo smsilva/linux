@@ -579,11 +579,12 @@ def masked(text, spans=()):
   return "".join(parts) + plain(text[last:])
 
 
-def hide_lines(text, released=(), listing=None):
+def hide_lines(text, released=(), listing=None, used=None):
   """Replaces each line with a secret's match, and every line a match runs over, whole. Where a value ends cannot be
   told from a line of shell or JSON (quotes inside it, escapes, adjacent segments), so no word around it stays: a log
   loses a line, and a secret on Drive is worse. A line the owner released (`line_digest`) needs no marker; each one that
-  still does goes to `listing`, with its digest and shape. Returns the text and how many places changed."""
+  still does goes to `listing`, with its digest and shape, and each digest that matched goes to `used`. Returns the text
+  and how many places changed."""
   places = []
   for pattern in SECRETS:
     for match in pattern.finditer(text):
@@ -599,7 +600,11 @@ def hide_lines(text, released=(), listing=None):
       merged.append([start, end, left_open, spans])
   parts, last = [], 0
   for start, end, left_open, spans in merged:
-    marked = (left_open or may_go_on(text[start:end])) and line_digest(text, start, end) not in released
+    marked = left_open or may_go_on(text[start:end])
+    if marked and line_digest(text, start, end) in released:
+      marked = False
+      if used is not None:
+        used.add(line_digest(text, start, end))
     if marked and listing is not None:
       shape = masked(text[start:end], [(first - start, min(last_char, end) - start) for first, last_char in spans])
       listing.append((line_digest(text, start, end), shape, [masked(line) for line in next_lines(text, end)]))
@@ -609,7 +614,7 @@ def hide_lines(text, released=(), listing=None):
   return "".join(parts), len(merged)
 
 
-def redact(text, own_emails=(), released=(), listing=None):
+def redact(text, own_emails=(), released=(), listing=None, used=None):
   """Replaces what the check refuses with [REDACTED]: the whole line of a secret's pattern, a private key's whole
   block, and in place, since their ends are known, a foreign e-mail, a live secret, a name of the deny-list. Returns
   the text and how many places changed."""
@@ -628,7 +633,7 @@ def redact(text, own_emails=(), released=(), listing=None):
   for word in denied():
     text = re.sub(rf"(?i)(?<!\w){re.escape(word)}(?!\w)", whole, text)
   text = PRIVATE_KEY_BLOCK.sub(whole, text)
-  text, found = hide_lines(text, released, listing)
+  text, found = hide_lines(text, released, listing, used)
   count += found
   own = {email.lower() for email in own_emails}
   text = EMAIL.sub(lambda match: match.group(0) if EMAIL_ALLOWED.search(match.group(0)) or match.group(0).lower() in own else whole(match), text)
@@ -649,12 +654,14 @@ def write_spool(session, built, own_emails):
   blocked = {}
   for day, name, text in built:
     if state.get("redact"):
-      released = state.get("released", {}).get(f"{day}/{name}", [])
-      text, count = redact(text, own_emails, released)
+      released, used = state.get("released", {}).get(f"{day}/{name}", []), set()
+      text, count = redact(text, own_emails, released, used=used)
       if count:  # never silent: status lists what a later build hid
         state.setdefault("redacted", {})[f"{day}/{name}"] = count
-      if released and text.startswith("---\n"):
-        text = text.replace("\n---\n", f"\nreleased_lines: {len(released)}\n---\n", 1)
+      if released:  # a digest whose text changed releases nothing any more: it leaves the count, and the record
+        state["released"][f"{day}/{name}"] = sorted(used)
+      if used and text.startswith("---\n"):
+        text = text.replace("\n---\n", f"\nreleased_lines: {len(used)}\n---\n", 1)
     path = out / day / name
     path.parent.mkdir(exist_ok=True)
     path.write_text(text)
@@ -1031,16 +1038,17 @@ def command_release(args):
   if not total:
     print(f"{folder.name[:8]}: no marked line in the rebuild")
     return 0
-  bodies = {}
+  bodies, in_use = {}, {}
   for day, name, text in built:
     key = f"{day}/{name}"
     if key not in listings:
       continue
     path = folder / "out" / key
     digests = [*state.get("released", {}).get(key, []), *(digest for digest, _, _ in listings[key])]
-    bodies[key] = log_parts(redact(text, emails, digests)[0])[1]
+    in_use[key] = set()
+    bodies[key] = log_parts(redact(text, emails, digests, used=in_use[key])[0])[1]
     if not path.is_file() or without_marker(log_parts(path.read_text())[1]) != without_marker(bodies[key]):
-      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again in its own environment (its next turn, or `pontos-save build`), then run this again", file=sys.stderr)
+      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again in its own environment (its next turn, or `pontos-save build`), then run this again; a session still running moves its transcript each turn, so start `build` and this in one command", file=sys.stderr)
       return 1
   for key, listing in listings.items():
     print(key)
@@ -1054,9 +1062,9 @@ def command_release(args):
   if sys.stdin.readline().strip() != str(total):
     print("nothing released")
     return 1
-  released = state.setdefault("released", {})
+  released, report = state.setdefault("released", {}), []
   for key, body in bodies.items():
-    released[key] = sorted({*released.get(key, []), *(digest for digest, _, _ in listings[key])})
+    released[key] = sorted(in_use[key])
     path = folder / "out" / key
     head = log_parts(path.read_text())[0]
     if head:
@@ -1068,10 +1076,15 @@ def command_release(args):
     state.setdefault("blocked", {}).pop(key, None)
     if problems:
       state["blocked"][key] = problems
-    print(f"{key}: {len(released[key])} line(s) released" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
+    report.append(f"{key}: {len(released[key])} line(s) released" + (f", still blocked: {'; '.join(problems)}" if problems else ""))
   save(folder / "state.json", state)
-  upload(folder.name)
+  print("uploading, keep this terminal open", flush=True)
+  uploaded = upload(folder.name)
   alert()
+  print("\n".join(report))
+  if not uploaded or pending(folder.name):
+    print(f"{folder.name[:8]}: not on Drive yet: run `pontos-save retry`")
+    return 1
   return 0
 
 

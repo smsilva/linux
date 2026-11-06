@@ -337,8 +337,7 @@ class Pontos(unittest.TestCase):
                  'password="abcdefghijklmnop"x"\nFAKEWORD" end',  # an odd count, whatever closes first
                  """password='abcdefghijklmnop'"'"'\nFAKEWORD' end""",  # shlex quoting
                  "password=abcdefghijklmnop\\\nFAKEWORD end",  # a backslash continuation
-                 "password=abcdefghijklmnop \\  \nFAKEWORD end",
-                 """--data '{"password":"abcdefghijklmnop"}\nFAKEWORD' end""",  # a quote opened before the match
+                 """--data '{"password":"abcdefghijklmnop"}\nFAKEWORD end""",  # a quote opened before, never closed
                  "it's password=abcdefghijklmnop\nFAKEWORD"):  # an apostrophe blocks too: the safe side
       redacted, count = self.pontos.redact(text)
       self.assertEqual(count, 1, text)
@@ -354,6 +353,51 @@ class Pontos(unittest.TestCase):
     self.assertEqual(redacted.split("\n")[0], self.pontos.REDACTED_OPEN_QUOTE, text)
     self.assertTrue(self.pontos.check(redacted), text)
     self.assertEqual(self.pontos.redact(redacted), (redacted, 0), text)  # stays the same, stays blocked
+
+  def test_a_closed_value_inside_a_quote_that_closes_on_a_later_line_leaves_the_log_clean(self):
+    # the value ends on its line (its own quote closed, then a space, a delimiter or the line's end); what stays open is
+    # a wrapper around it (a Python ''' or """ string, an outer shell quote, a backslash continuation), and it closes
+    # further down the turn, so nothing of the value is on the next lines
+    for text in ('''rep(\'\'\'echo "Admission refuses" password="$(kubectl get secret alpha | base64 --decode)"\n\'\'\', \'\'\'other\'\'\')''',
+                 '''run("""token = "fake alpha bravo charlie" \nend""")''',
+                 '''curl --fail --user "probes:${password}" \\\n  --header "Accept: x" \\\n  "http://example.com/v2/"''',
+                 # a shell line inside a Python string, the way a test script holds it
+                 '''digest="$(curl --fail --user "probes:${password}" \\\\\n\'\'\'\nassert a\n\'\'\'  "http://example.com" | cut)"''',
+                 """--data '{"password":"abcdefghijklmnop"}\nFAKEWORD' end""",  # an outer quote opened before the match
+                 "password=abcdefghijklmnop \\  \nFAKEWORD end"):  # the value ended at a space
+      redacted, count = self.pontos.redact(f"before\n{text}")
+      self.assertEqual(count, 1, text)
+      self.assertEqual(redacted.split("\n")[1], "[REDACTED]", text)
+      self.assertEqual(self.pontos.check(redacted), [], text)
+
+  # a Bash call's block, holding a Python script whose ''' string opened above the hidden line
+  FENCED = ("### 10:00 agent\n\n`Bash`:\n\n```bash\npython3 - <<'EOF'\nrep('''x = 1\n"
+            'digest="$(curl --fail --user "probes:${password}" \\\\\n  "http://example.com/v2/" | cut)"\n'
+            "{close}EOF\n```\n  → ok, 10 chars of output\n\nit's done")
+
+  def test_a_line_inside_a_code_block_whose_quotes_pair_leaves_the_log_clean(self):
+    # the block is what a shell reads: its quotes pair, an apostrophe inside a word aside, so nothing runs out of it
+    redacted, count = self.pontos.redact(self.FENCED.replace("{close}", "''', '''it's new''')\n"))
+    self.assertEqual(count, 1)
+    self.assertIn("\n[REDACTED]\n", redacted)
+    self.assertEqual(self.pontos.check(redacted), [])
+
+  def test_a_line_inside_a_code_block_whose_quotes_do_not_pair_keeps_the_log_blocked(self):
+    redacted, count = self.pontos.redact(self.FENCED.replace("{close}", ""))  # the ''' never closes in the block
+    self.assertEqual(count, 1)
+    self.assertIn(f"\n{self.pontos.REDACTED_OPEN_QUOTE}\n", redacted)
+    self.assertTrue(self.pontos.check(redacted))
+
+  def test_a_wrapper_quote_that_never_closes_or_a_value_that_goes_on_keeps_the_log_blocked(self):
+    for text in ('''rep(\'\'\'password="fake alpha bravo charlie"\nFAKEWORD''',  # the ''' never closes in the turn
+                 '''rep(\'\'\'password="fake alpha bravo charlie"\nFAKEWORD\n### next turn\n\'\'\')''',
+                 '''curl --fail --user "probes:${password}" \\''',  # a continuation with nothing after it
+                 '''curl --fail --user "probes:${password}"\\\nFAKEWORD end''',  # the continuation glued to the value
+                 '''rep(\'\'\'password="abcdefghijklmnop qrs\nFAKEWORD delta" \'\'\')''',  # the value itself spans lines
+                 """password="abcdefghijklmnop"'\nFAKEWORD' end""",  # an adjacent segment on the next line
+                 '''password="alpha bravo" token=\\\nabcdefghijklmnop end''',  # a secret the continuation joins
+                 '''rep(\'\'\'password="fake alpha bravo" \\"\nFAKEWORD\'\'\')'''):  # an escaped quote
+      self.assert_blocked(text)
 
   def test_a_value_s_own_quote_left_open_blocks_whatever_comes_before_it(self):
     for text in ("it's password='abcdefghijklmnop\nFAKEWORD'",  # the apostrophe evens the count

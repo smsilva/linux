@@ -101,6 +101,14 @@ REDACTED = "[REDACTED]"
 # that ends in a backslash: its value may go on in the next lines, which the redact cannot tell, so the check refuses
 # this line and the log stays blocked for the owner
 REDACTED_OPEN_QUOTE = "[REDACTED: a quote left open on this line]"
+# unless every value on it ends there (VALUE_DELIMITER after it) and what stays open closes within the next
+# CONTINUATION_LINES of its turn: a wrapper around the value (a Python ''' string, a shell `\` continuation), not the value
+VALUE_DELIMITER = re.compile(r"[ \t;|&)},\]]")
+CONTINUATION_LINES = 200
+# an apostrophe inside a word (`it's`), no quote
+WORD_APOSTROPHE = re.compile(r"(?<=[A-Za-z])'(?=[A-Za-z])")
+# a code block's fence: a Bash call's command is one
+FENCE = re.compile(r"^```[^\n]*", re.MULTILINE)
 OPEN_QUOTE_LINE = re.compile(rf"^{re.escape(REDACTED_OPEN_QUOTE)}$", re.MULTILINE)
 # what `release` may show of a line: plain short lowercase words give the context; any other token shows as its length
 MASK_TOKEN = re.compile(r"[^\s\"'`\\(){}\[\],;:|]+")
@@ -540,19 +548,90 @@ def may_go_on(lines):
           or "\\'" in lines or '\\"' in lines or lines.rstrip().endswith("\\"))
 
 
+def own_quote(match):
+  """The value's own opening quote and where its value starts, or None for a value with no quote."""
+  inside = SECRET_OPENING_QUOTE.search(match.group(0))
+  if inside:
+    return inside.group(1), match.start() + inside.end()
+  text = match.string
+  before = QUOTE_BEFORE_MATCH.search(text, text.rfind("\n", 0, match.start()) + 1, match.start())
+  return (before.group(0), match.start()) if before else None
+
+
+def closing_quote_end(match):
+  """Where the value's own closing quote ends on its line: None for a value with no quote, -1 when it stays open."""
+  quote = own_quote(match)
+  if not quote:
+    return None
+  text, line_end = match.string, SECRET_LINE.match(match.string, match.end()).end()
+  closing = re.compile(rf"(?<!\\){re.escape(quote[0])}").search(text, quote[1], line_end)
+  return closing.end() if closing else -1
+
+
 def leaves_a_quote_open(match):
   """Whether the value's own opening quote finds no matching quote after it on its line. Anchored on the match, since
   a reading of the whole line pairs an apostrophe before the value with the value's own quote (`it's password='abc`)."""
-  text, line_end = match.string, SECRET_LINE.match(match.string, match.end()).end()
-  inside = SECRET_OPENING_QUOTE.search(match.group(0))
-  if inside:
-    quote, after = inside.group(1), match.start() + inside.end()
-  else:
-    before = QUOTE_BEFORE_MATCH.search(text, text.rfind("\n", 0, match.start()) + 1, match.start())
-    if not before:
+  return closing_quote_end(match) == -1
+
+
+def ends_on_its_line(match):
+  """Whether the value surely ends on its line: after it (past its own closing quote, or past the match when that goes
+  further) comes a space or a delimiter, or the line's end right at its closing quote. A quote, a backslash or more text
+  right after it is a segment a shell joins to it."""
+  closing = closing_quote_end(match)
+  if closing == -1:
+    return False
+  end = max(closing or 0, match.end())
+  if end == SECRET_LINE.match(match.string, end).end():
+    return end == closing
+  return bool(VALUE_DELIMITER.match(match.string, end))
+
+
+def without_continuations(text):
+  return text.replace("\\\n", "")
+
+
+def quotes_pair(text):
+  """Whether both quote counts are even, an apostrophe inside a word aside (`it's`), with no backslash at the end."""
+  plain = WORD_APOSTROPHE.sub("", text)
+  return plain.count('"') % 2 == 0 and plain.count("'") % 2 == 0 and not text.rstrip().endswith("\\")
+
+
+def joins_a_secret(hidden, joined):
+  """Whether the lines, read as one with their backslash continuations joined, hold a match that starts on the hidden
+  line and runs past it (`token=\\` and the value on the next line)."""
+  head = without_continuations(hidden + "\n")
+  boundary = len(head) - 1 if head.endswith("\n") else len(head)
+  return any(match.start() < boundary < match.end() and not names_a_secret(match)
+             for pattern in SECRETS for match in pattern.finditer(without_continuations(joined)))
+
+
+def closes_further_down(text, start, end):
+  """Whether a hidden line that may go on is only wrapped by quotes or a backslash that close further down (a Python
+  ''' string, a shell line continued with `\\`), with no secret joined to it. Inside a code block (a Bash call), the
+  block is what a shell reads: its quotes must pair, from its first line to its last. Elsewhere, the lines after it,
+  within CONTINUATION_LINES of its turn, until the quotes pair. The counts, not a shell reading: a line inside a Python
+  string starts that reading in the middle of a quote. An escaped quote on the hidden line never clears (a shell and
+  Python read it apart)."""
+  hidden = text[start:end]
+  if "\\'" in hidden or '\\"' in hidden:
+    return False
+  turn = text.rfind("\n### ", 0, start) + 1
+  fences = [fence.end() for fence in FENCE.finditer(text, turn, start)]
+  if len(fences) % 2:
+    stop = text.find("\n### ", end)
+    close = FENCE.search(text, end, len(text) if stop < 0 else stop)
+    if not close:
       return False
-    quote, after = before.group(0), match.start()
-  return not re.compile(rf"(?<!\\){re.escape(quote)}").search(text, after, line_end)
+    block_start = text.find("\n", fences[-1]) + 1
+    joined = text[start:close.start()].rstrip("\n")
+    return quotes_pair(text[block_start:close.start()].rstrip("\n")) and not joins_a_secret(hidden, joined)
+  lines = next_lines(text, end)[:CONTINUATION_LINES]
+  for count in range(1, len(lines) + 1):
+    joined = "\n".join([hidden, *lines[:count]])
+    if quotes_pair(joined):
+      return not joins_a_secret(hidden, joined)
+  return False
 
 
 def next_lines(text, end):
@@ -589,18 +668,20 @@ def hide_lines(text, released=(), listing=None, used=None):
   for pattern in SECRETS:
     for match in pattern.finditer(text):
       if not names_a_secret(match):
-        places.append([text.rfind("\n", 0, match.start()) + 1, SECRET_LINE.match(text, match.end()).end(), leaves_a_quote_open(match), [match.span()]])
+        places.append([text.rfind("\n", 0, match.start()) + 1, SECRET_LINE.match(text, match.end()).end(),
+                       leaves_a_quote_open(match), [match.span()], ends_on_its_line(match)])
   merged = []
-  for start, end, left_open, spans in sorted(places):
+  for start, end, left_open, spans, ended in sorted(places):
     if merged and start <= merged[-1][1]:
       merged[-1][1] = max(merged[-1][1], end)
       merged[-1][2] = merged[-1][2] or left_open
       merged[-1][3] += spans
+      merged[-1][4] = merged[-1][4] and ended
     else:
-      merged.append([start, end, left_open, spans])
+      merged.append([start, end, left_open, spans, ended])
   parts, last = [], 0
-  for start, end, left_open, spans in merged:
-    marked = left_open or may_go_on(text[start:end])
+  for start, end, left_open, spans, ended in merged:
+    marked = left_open or (may_go_on(text[start:end]) and not (ended and closes_further_down(text, start, end)))
     if marked and line_digest(text, start, end) in released:
       marked = False
       if used is not None:

@@ -11,8 +11,8 @@ gdrive_watch_service_file="${HOME}/.config/systemd/user/gdrive-request-watch.ser
 cat <<EOF > "${gdrive_watch_service_file}"
 [Unit]
 Description=Watch the Google Drive bridge request file and notify the tmux session
-After=rclone-dump-mental-prompts.service
-Wants=rclone-dump-mental-prompts.service
+After=rclone-pontos.service
+Wants=rclone-pontos.service
 
 [Service]
 ExecStart=%h/.scripts/gdrive-request-watch

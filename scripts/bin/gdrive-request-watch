@@ -14,7 +14,7 @@ show_usage() {
     Options:
 
       -h, --help       Show this help
-      -d, --directory  Bridge folder holding pedido.md (default: ~/gdrive/dump-mental-prompts/ponte)
+      -d, --directory  Bridge folder holding pedido.md (default: ~/gdrive/pontos/beach)
       -t, --target     tmux target for send-keys (default: mind)
       -i, --interval   Seconds between checks (default: 10)
 
@@ -58,7 +58,7 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
   shift
 done
 
-directory="${directory:-${HOME}/gdrive/dump-mental-prompts/ponte}"
+directory="${directory:-${HOME}/gdrive/pontos/beach}"
 target="${target:-mind}"
 interval="${interval:-10}"
 

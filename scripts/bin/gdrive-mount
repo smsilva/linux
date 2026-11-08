@@ -12,7 +12,8 @@ show_usage() {
 
       -h, --help     Show this help
       -r, --remote   rclone remote name (default: gdrive)
-      -f, --folder   Google Drive folder, also the name under ~/gdrive (default: dump-mental-prompts)
+      -f, --folder   Google Drive folder (default: #pontos). The unit name and the mount point use the folder name
+                     without characters systemd forbids in unit names: #pontos -> rclone-pontos.service, ~/gdrive/pontos
 
     Environment:
 
@@ -57,10 +58,18 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
 done
 
 remote="${remote:-gdrive}"
-folder="${folder:-dump-mental-prompts}"
+folder="${folder:-#pontos}"
 
-mount_point="${HOME}/gdrive/${folder}"
-service_name="rclone-${folder}.service"
+# systemd unit names allow only letters, digits and ":-_.\": drop anything else (#pontos -> pontos)
+mount_name="${folder//[^A-Za-z0-9_.-]/}"
+
+if [[ -z "${mount_name}" ]]; then
+  echo "Invalid folder: ${folder}"
+  exit 1
+fi
+
+mount_point="${HOME}/gdrive/${mount_name}"
+service_name="rclone-${mount_name}.service"
 service_file="${HOME}/.config/systemd/user/${service_name}"
 
 if ! which rclone > /dev/null || ! which fusermount3 > /dev/null || ! which jq > /dev/null; then
@@ -104,9 +113,9 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStartPre=/usr/bin/mkdir -p %h/gdrive/${folder}
-ExecStart=$(which rclone) mount ${remote}:${folder} %h/gdrive/${folder} --vfs-cache-mode writes --poll-interval 15s
-ExecStop=$(which fusermount3) -u %h/gdrive/${folder}
+ExecStartPre=/usr/bin/mkdir -p %h/gdrive/${mount_name}
+ExecStart=$(which rclone) mount "${remote}:${folder}" %h/gdrive/${mount_name} --vfs-cache-mode writes --poll-interval 15s
+ExecStop=$(which fusermount3) -u %h/gdrive/${mount_name}
 Restart=on-failure
 RestartSec=10
 

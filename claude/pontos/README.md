@@ -18,6 +18,12 @@ The raw log of every Claude Code session in the owner's repositories, on Google 
 
 A log holds a YAML header (identity: machine, users, repository, branch, worktree, model, trace), then the owner's words verbatim (never translated), the agent's replies in full, tool calls by name and arguments with their exit status and output size (outputs left out), subagents' prompts and reports in full, a timestamp and model per turn, and the notes.
 
+## What else lives in `#pontos`
+
+- `#pontos/raw/<YYYY-MM-DD>/` also holds the owner's voice notes, `HHMM-voice-<slug>`, next to the Claude Code logs; the classification of a note is its sibling `HHMM-voice-<slug>-classification.md`.
+- `#pontos/silver/classification/` holds the daily classification run (rules, state and reports).
+- `#pontos/beach/` holds the work orders and the material shared with the voice session (`replies/`, `opinions/`, `proposals/`, `references/`, `bridge/`); it replaces the Drive folder `dump-mental-prompts`, removed on 2026-11-08.
+
 ## Opt-in and privacy
 
 Only repositories of `smsilva`, `getnereus` and `wasp-foundry` are saved; another one only when listed in `claude/pontos/allow-list` (public: only names that may be public) or `~/.config/pontos/allow-list` (local). Client and employer work never reaches the Drive.

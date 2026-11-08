@@ -247,6 +247,35 @@ class Grades(unittest.TestCase):
     self.assertEqual(check.render(results, [], [], [], [], counts, datetime.datetime(2026, 11, 8, 5, 30), grades)[2], 1)
 
 
+class Accuracy(unittest.TestCase):
+  def line(self, name, grade, grader="sonnet", classified_at="2026-11-08T13:00:00-03:00"):
+    return json.dumps({"file": RAW_PREFIX + name, "grade": grade, "grader": grader, "classified_at": classified_at})
+
+  def test_the_latest_grade_counts_and_silvio_counts_double(self):
+    text = "\n".join([self.line("a", "wrong"), self.line("a", "good"), self.line("b", "wrong", "silvio"),
+                       self.line("c", "acceptable")])
+    scores = check.accuracy(text)
+    self.assertEqual((scores["good"], scores["total"], scores["classifications"]), (2, 4, 3))
+    self.assertEqual(scores["sample_rate"], 20)
+
+  def test_the_window_leaves_older_classifications_out(self):
+    text = "\n".join([self.line("old", "wrong", classified_at="2026-11-01T10:00:00-03:00"), self.line("new", "good")])
+    scores = check.accuracy(text, check.parse_time("2026-11-05T00:00:00-03:00"))
+    self.assertEqual((scores["good"], scores["total"]), (1, 1))
+
+  def test_the_sample_rate_follows_the_accuracy(self):
+    good = [self.line(str(index), "good") for index in range(19)]
+    self.assertEqual(check.accuracy("\n".join(good + [self.line("x", "wrong")]))["sample_rate"], 5)
+    self.assertEqual(check.accuracy("\n".join(good[:9] + [self.line("x", "wrong")]))["sample_rate"], 10)
+    self.assertEqual(check.accuracy("\n".join(good[:5]))["sample_rate"], 20)
+
+  def test_the_grade_files_are_the_main_file_and_one_per_run(self):
+    entries = [{"Path": "classification/grades/run-b.jsonl"}, {"Path": "classification/classification-grades.jsonl"},
+               {"Path": "classification/grades/run-a.jsonl"}, {"Path": "classification/grades/notes.md"}]
+    self.assertEqual(check.grade_files(entries), ["classification/classification-grades.jsonl",
+                                                  "classification/grades/run-a.jsonl", "classification/grades/run-b.jsonl"])
+
+
 RAW_PREFIX = "#pontos/raw/"
 
 

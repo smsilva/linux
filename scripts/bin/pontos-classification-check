@@ -14,7 +14,8 @@ each, downloads only the classification files (and the .html notes, for the CSS 
 - for information: an old `source:` path (before 2026-11-08), notes newer than the last watermark (not yet classified).
 
 The report goes to `#pontos/silver/classification/<today>/NN-check-report.md` (the next free NN of the day's run files),
-ending with a machine-readable `flagged:` list for the reviewer. Exit 1 when there are errors.
+ending with a machine-readable `flagged:` list for the reviewer (classifications already graded in
+classification-grades.jsonl for the same classified_at are left out, unless their latest grade is wrong). Exit 1 when there are errors.
 
 A systemd user timer runs it daily (scripts/utilities/pontos/). Rule: ~/.claude/rules/pontos.md.
 """
@@ -224,6 +225,31 @@ def front_matter(text):
   return None
 
 
+def moment(value):
+  """A classified_at value as one comparable string: YAML may parse it to a datetime, a grade keeps it as text."""
+  parsed = parse_time(str(value).replace(" ", "T")) if value else None
+  return parsed.isoformat() if parsed else None
+
+
+def graded(text):
+  """The classifications already graded, from classification-grades.jsonl: {(path, classified_at)} whose latest grade is not wrong.
+
+  A grader: silvio line wins over any other line for the same classification; otherwise the last line wins."""
+  latest = {}
+  for line in (text or "").splitlines():
+    try:
+      grade = json.loads(line)
+    except ValueError:
+      continue
+    if not isinstance(grade, dict) or not str(grade.get("file", "")).startswith(RAW_PREFIX):
+      continue
+    key = (grade["file"][len(RAW_PREFIX):], moment(grade.get("classified_at")))
+    if key[1] is None or (latest.get(key, {}).get("grader") == "silvio" and grade.get("grader") != "silvio"):
+      continue
+    latest[key] = grade
+  return frozenset(key for key, grade in latest.items() if grade.get("grade") != "wrong")
+
+
 def majority(projects):
   counts = collections.Counter(project for project in projects if project).most_common()
   if not counts or (len(counts) > 1 and counts[0][1] == counts[1][1]):
@@ -323,7 +349,7 @@ def check_classification(path, text, raw_files, topics, note_text=None, extracto
     errors = [(kind, detail) for kind, detail in errors if kind in ("yaml-parse", "yaml-unquoted-hash")]
     if old:
       info.append(("legacy-schema", "; ".join(old)))
-  return {"errors": errors, "flags": flags, "info": info}
+  return {"errors": errors, "flags": flags, "info": info, "classified_at": moment(data.get("classified_at"))}
 
 
 # --- the report ------------------------------------------------------------------------------------------------------
@@ -339,15 +365,18 @@ def table(rows):
   return lines
 
 
-def render(results, extra_errors, missing, pending, orphans, counts, generated_at):
-  """The Markdown report; results: {raw path: check_classification()}."""
+def render(results, extra_errors, missing, pending, orphans, counts, generated_at, already_graded=frozenset()):
+  """The Markdown report; results: {raw path: check_classification()}; already_graded: graded(), left out of review."""
   by_kind = collections.defaultdict(list)
   flags_by_kind = collections.defaultdict(list)
-  legacy, old_schema = [], []
+  legacy, old_schema, left_out = [], [], []
   for path, result in sorted(results.items()):
     shown = RAW_PREFIX + path
     for kind, detail in result["errors"]:
       by_kind[kind].append((shown, detail))
+    if result["flags"] and (path, result.get("classified_at")) in already_graded:
+      left_out.append(shown)
+      continue
     for kind, detail in result["flags"]:
       flags_by_kind[kind].append((shown, detail))
     legacy += [(shown, detail) for kind, detail in result["info"] if kind == "legacy-source"]
@@ -368,7 +397,8 @@ def render(results, extra_errors, missing, pending, orphans, counts, generated_a
     "",
     f"- voice notes: {counts['notes']}; classifications checked: {counts['classifications']}",
     f"- errors: {error_total}" + (" (" + ", ".join(f"{kind} {len(by_kind[kind])}" for kind in ERROR_KINDS if by_kind.get(kind)) + ")" if error_total else ""),
-    f"- for review: {sum(len(rows) for rows in flags_by_kind.values())}; flagged paths: {len(flagged)}",
+    f"- for review: {sum(len(rows) for rows in flags_by_kind.values())}; flagged paths: {len(flagged)}; "
+    f"already graded, left out: {len(left_out)}",
     f"- coverage: {len(missing)} missing, {len(pending)} pending (newer than the watermark {counts['watermark']})",
     f"- informational: {len(legacy)} classifications with an old source path (before {NEW_PATHS_SINCE}), "
     f"{len(old_schema)} of them with the old schema; {counts.get('legacy_names', 0)} siblings of non-.md notes under the old name",
@@ -433,7 +463,9 @@ def run(remote, dry_run):
   now = datetime.datetime.now().astimezone()
   counts = {"notes": len(notes), "classifications": len(classifications),
             "watermark": watermark.isoformat() if watermark else "none", "legacy_names": len(legacy_names)}
-  report, errors, flagged = render(results, extra, missing, pending, orphans, counts, now)
+  grades = rclone("cat", f"{remote}/{SILVER}/classification-grades.jsonl") if any(
+    entry["Path"] == "classification/classification-grades.jsonl" for entry in silver_entries) else ""
+  report, errors, flagged = render(results, extra, missing, pending, orphans, counts, now, graded(grades))
 
   day = f"{now:%Y-%m-%d}"
   target = f"{remote}/{SILVER}/{day}/{next_number(silver_entries, day)}-check-report.md"

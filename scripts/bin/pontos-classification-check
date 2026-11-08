@@ -15,7 +15,9 @@ each, downloads only the classification files (and the .html notes, for the CSS 
 
 The report goes to `#pontos/silver/classification/<today>/NN-check-report.md` (the next free NN of the day's run files),
 ending with a machine-readable `flagged:` list for the reviewer (classifications already graded in
-classification-grades.jsonl for the same classified_at are left out, unless their latest grade is wrong). Exit 1 when there are errors.
+the grade files for the same classified_at are left out, unless their latest grade is wrong). It also computes the Haiku
+accuracy and the review's sample rate (the rules' "Accuracy" section, last 4 watermarks), so the run only reads them.
+Grade files: classification-grades.jsonl plus one file per run, grades/<run_id>.jsonl. Exit 1 when there are errors.
 
 A systemd user timer runs it daily (scripts/utilities/pontos/). Rule: ~/.claude/rules/pontos.md.
 """
@@ -58,6 +60,10 @@ UNQUOTED_HASH = re.compile(r"^([\w-]+):\s+#")
 WATERMARK = re.compile(r"^classification-watermark-\d{8}-\d{4}\.md$")
 LAST_CLASSIFIED = re.compile(r"last_classified_at:\s*(\S+)")
 RUN_FILE = re.compile(r"^(\d{2})-")
+GRADES = "classification/classification-grades.jsonl"
+RUN_GRADES = re.compile(r"^classification/grades/[^/]+\.jsonl$")
+WINDOW_RUNS = 4
+MIN_GRADES = 10
 ERROR_KINDS = ["yaml-parse", "yaml-unquoted-hash", "keys", "type", "enum", "topic-unknown", "source", "day", "time",
                "issue-ref-format", "issue-ref-css-colour", "coverage-missing", "orphan-classification",
                "duplicate-folder", "duplicate-file"]
@@ -192,11 +198,22 @@ def next_number(entries, day):
   return f"{max(numbers) + 1:02d}"
 
 
+def watermarks(entries):
+  """The watermark file names, oldest first."""
+  return sorted(entry["Path"].split("/")[-1] for entry in entries
+                if entry["Path"].startswith("classification/") and entry["Path"].count("/") == 1
+                and WATERMARK.match(entry["Path"].split("/")[-1]))
+
+
 def latest_watermark(entries):
-  names = sorted(entry["Path"].split("/")[-1] for entry in entries
-                 if entry["Path"].startswith("classification/") and entry["Path"].count("/") == 1
-                 and WATERMARK.match(entry["Path"].split("/")[-1]))
+  names = watermarks(entries)
   return names[-1] if names else None
+
+
+def grade_files(entries):
+  """The grade files: classification-grades.jsonl first, then one file per run under grades/, by name."""
+  paths = [entry["Path"] for entry in entries if not entry.get("IsDir")]
+  return ([GRADES] if GRADES in paths else []) + sorted(path for path in paths if RUN_GRADES.match(path))
 
 
 def watermark_time(text):
@@ -231,8 +248,8 @@ def moment(value):
   return parsed.isoformat() if parsed else None
 
 
-def graded(text):
-  """The classifications already graded, from classification-grades.jsonl: {(path, classified_at)} whose latest grade is not wrong.
+def latest_grades(text):
+  """{(path, classified_at): grade line} with the latest grade of each classification, from the grade lines.
 
   A grader: silvio line wins over any other line for the same classification; otherwise the last line wins."""
   latest = {}
@@ -247,7 +264,35 @@ def graded(text):
     if key[1] is None or (latest.get(key, {}).get("grader") == "silvio" and grade.get("grader") != "silvio"):
       continue
     latest[key] = grade
-  return frozenset(key for key, grade in latest.items() if grade.get("grade") != "wrong")
+  return latest
+
+
+def graded(text):
+  """The classifications already graded: {(path, classified_at)} whose latest grade is not wrong."""
+  return frozenset(key for key, grade in latest_grades(text).items() if grade.get("grade") != "wrong")
+
+
+def accuracy(text, since=None):
+  """The Haiku accuracy of the rules' "Accuracy" section: the latest grade per classification classified at or after
+  `since` (the 4th newest watermark's last_classified_at), good or acceptable over the total, silvio counting double.
+
+  Returns {"accuracy": float or None, "good": weighted, "total": weighted, "classifications": n, "sample_rate": int}."""
+  good = total = count = 0
+  for (_, classified_at), grade in latest_grades(text).items():
+    if since and parse_time(classified_at) < since:
+      continue
+    weight = 2 if grade.get("grader") == "silvio" else 1
+    count += 1
+    total += weight
+    good += weight if grade.get("grade") in ("good", "acceptable") else 0
+  value = good / total if total else None
+  if value is None or count < MIN_GRADES or value < 0.90:
+    rate = 20
+  elif value < 0.95:
+    rate = 10
+  else:
+    rate = 5
+  return {"accuracy": value, "good": good, "total": total, "classifications": count, "sample_rate": rate}
 
 
 def majority(projects):
@@ -365,7 +410,7 @@ def table(rows):
   return lines
 
 
-def render(results, extra_errors, missing, pending, orphans, counts, generated_at, already_graded=frozenset()):
+def render(results, extra_errors, missing, pending, orphans, counts, generated_at, already_graded=frozenset(), scores=None):
   """The Markdown report; results: {raw path: check_classification()}; already_graded: graded(), left out of review."""
   by_kind = collections.defaultdict(list)
   flags_by_kind = collections.defaultdict(list)
@@ -403,6 +448,24 @@ def render(results, extra_errors, missing, pending, orphans, counts, generated_a
     f"- informational: {len(legacy)} classifications with an old source path (before {NEW_PATHS_SINCE}), "
     f"{len(old_schema)} of them with the old schema; {counts.get('legacy_names', 0)} siblings of non-.md notes under the old name",
     "",
+  ]
+  if scores:
+    shown = f"{scores['accuracy']:.1%}" if scores["accuracy"] is not None else "none"
+    lines += [
+      "## Accuracy",
+      "",
+      f"_The rules' \"Accuracy\" section, over the classifications made since {counts.get('window', 'the first run')} "
+      f"(the last {WINDOW_RUNS} watermarks); the run reads these two values and does not compute them._",
+      "",
+      "```yaml",
+      f"haiku_accuracy: {shown}",
+      f"weighted: {scores['good']}/{scores['total']}",
+      f"classifications_graded: {scores['classifications']}",
+      f"sample_rate: {scores['sample_rate']}%",
+      "```",
+      "",
+    ]
+  lines += [
     "## Errors",
     "",
   ]
@@ -463,9 +526,12 @@ def run(remote, dry_run):
   now = datetime.datetime.now().astimezone()
   counts = {"notes": len(notes), "classifications": len(classifications),
             "watermark": watermark.isoformat() if watermark else "none", "legacy_names": len(legacy_names)}
-  grades = rclone("cat", f"{remote}/{SILVER}/classification-grades.jsonl") if any(
-    entry["Path"] == "classification/classification-grades.jsonl" for entry in silver_entries) else ""
-  report, errors, flagged = render(results, extra, missing, pending, orphans, counts, now, graded(grades))
+  grades = "\n".join(rclone("cat", f"{remote}/silver/{path}") for path in grade_files(silver_entries))
+  names = watermarks(silver_entries)
+  since = watermark_time(rclone("cat", f"{remote}/{SILVER}/{names[-WINDOW_RUNS]}")) if len(names) >= WINDOW_RUNS else None
+  counts["window"] = since.isoformat() if since else "the first run"
+  scores = accuracy(grades, since)
+  report, errors, flagged = render(results, extra, missing, pending, orphans, counts, now, graded(grades), scores)
 
   day = f"{now:%Y-%m-%d}"
   target = f"{remote}/{SILVER}/{day}/{next_number(silver_entries, day)}-check-report.md"
@@ -480,6 +546,7 @@ def run(remote, dry_run):
     finally:
       os.unlink(handle.name)
     print(f"report....: {target}")
+  print(f"accuracy..: {scores['accuracy']:.1%}" if scores["accuracy"] is not None else "accuracy..: none")
   print(f"errors....: {errors}\nflagged...: {flagged}\nmissing...: {len(missing)}\npending...: {len(pending)}")
   return 1 if errors else 0
 

@@ -15,3 +15,4 @@
   - The order on screen is 🟢, 🟠, 🔴. Numbers start at 1 on the first item that asks for action and follow the screen across the colors.
   - 🔴 always waits for the owner's answer. A 🟠 the owner does not mention counts as accepted, only after every 🔴 is answered; never act on one before that.
   - The summary ends with the agent's weighing, not a sample reply: one line per 🔴, with the recommendation and its reason in as few words as possible.
+- Remote sessions (driven through Remote Control, from the phone or claude.ai/code): whenever a task ends with something that needs the owner's answer (a decision, an approval, a `/ship`), send a `PushNotification`, one line under 200 characters that leads with what the owner must answer (owner, 2026-11-08).

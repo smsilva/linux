@@ -217,5 +217,38 @@ class Listing(unittest.TestCase):
     self.assertTrue(report.rstrip().endswith('  - "#pontos/raw/2026-11-08/0913-voice-page.html"\n```'))
 
 
+class Grades(unittest.TestCase):
+  LOW = GOOD.replace("confidence: high", "confidence: low")
+
+  def grade(self, grade, classified_at="2026-11-08T13:00:00-03:00", grader="sonnet"):
+    return json.dumps({"file": RAW_PREFIX + PATH, "grade": grade, "grader": grader, "classified_at": classified_at})
+
+  def flagged(self, grades_text):
+    results = {PATH: check.check_classification(PATH, self.LOW, RAW, TOPICS)}
+    counts = {"notes": 1, "classifications": 1, "watermark": "none"}
+    return check.render(results, [], [], [], [], counts, datetime.datetime(2026, 11, 8, 5, 30), check.graded(grades_text))
+
+  def test_a_graded_classification_leaves_the_flagged_list(self):
+    report, _, flagged = self.flagged(self.grade("acceptable") + "\n")
+    self.assertEqual(flagged, 0)
+    self.assertIn("already graded, left out: 1", report)
+
+  def test_a_changed_classification_is_flagged_again(self):
+    self.assertEqual(self.flagged(self.grade("good", "2026-11-07T04:00:00-03:00"))[2], 1)
+
+  def test_the_latest_wrong_grade_keeps_it_flagged_and_silvio_wins(self):
+    self.assertEqual(self.flagged(self.grade("good") + "\n" + self.grade("wrong"))[2], 1)
+    self.assertEqual(self.flagged(self.grade("good", grader="silvio") + "\n" + self.grade("wrong"))[2], 0)
+
+  def test_errors_stay_flagged_and_bad_lines_are_ignored(self):
+    results = {PATH: check.check_classification(PATH, GOOD.replace('["#462"]', "[#462]"), RAW, TOPICS)}
+    counts = {"notes": 1, "classifications": 1, "watermark": "none"}
+    grades = check.graded("not json\n" + self.grade("good") + "\n")
+    self.assertEqual(check.render(results, [], [], [], [], counts, datetime.datetime(2026, 11, 8, 5, 30), grades)[2], 1)
+
+
+RAW_PREFIX = "#pontos/raw/"
+
+
 if __name__ == "__main__":
   unittest.main()

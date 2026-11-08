@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+"""Check the daily classification of the owner's voice notes, deterministically, and write a report to Drive.
+
+The classification (a cloud routine, a model following `classification-rules.md`) writes, next to each voice note
+`#pontos/raw/<day>/HHMM-voice-<slug>.<ext>`, a sibling `<prefix>-classification.md` (`<prefix>-<ext>-classification.md`
+for any other extension than .md) with a YAML front matter. This check lists `#pontos/raw` and `#pontos/silver` once
+each, downloads only the classification files (and the .html notes, for the CSS colours), and checks:
+
+- errors: the YAML parses (a `#462` left unquoted is a comment); the exact key set; the enums; topics in topics.yaml;
+  source is the existing raw note; day and time follow the file name; issue_refs are `#123` or github.com URLs and no CSS
+  colour; every voice note has a sibling (coverage); no sibling without its note; no duplicate folder or file (Drive
+  allows two with the same name);
+- for review: project `other`, no topics, confidence low, a project other than the majority project of its topics;
+- for information: an old `source:` path (before 2026-11-08), notes newer than the last watermark (not yet classified).
+
+The report goes to `#pontos/silver/classification/<today>/NN-check-report.md` (the next free NN of the day's run files),
+ending with a machine-readable `flagged:` list for the reviewer. Exit 1 when there are errors.
+
+A systemd user timer runs it daily (scripts/utilities/pontos/). Rule: ~/.claude/rules/pontos.md.
+"""
+import argparse
+import collections
+import datetime
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import tempfile
+
+import yaml
+
+REMOTE = os.environ.get("PONTOS_REMOTE", "gdrive:#pontos")
+RAW_PREFIX = "#pontos/raw/"
+SILVER = "silver/classification"
+KEYS = ["source", "source_modified_at", "classified_by", "classified_at", "rules_version", "day", "time", "topics",
+        "topics_proposed", "project", "type", "tone", "confidence", "to_refs", "issue_refs"]
+LISTS = ("topics", "topics_proposed", "to_refs", "issue_refs")
+ENUMS = {
+  "project": {"Nereus", "Triton", "Glauco", "library", "apartment", "PlatformCon", "talks", "personal", "other"},
+  "type": {"idea", "decision", "task", "question", "reference", "personal-note"},
+  "tone": {"excited", "curious", "neutral", "frustrated", "worried", "tired", "reflective"},
+  "confidence": {"high", "medium", "low"},
+}
+# classifications before this day may still carry the old source paths (dump-mental-prompts/sessions/...)
+NEW_PATHS_SINCE = "2026-11-08"
+DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+VOICE = re.compile(r"^(\d{2})(\d{2})-voice-")
+CLASSIFICATION = "-classification.md"
+ISSUE = re.compile(r"^#\d+$")
+GITHUB_ISSUE = re.compile(r"^https?://(?:www\.)?github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+$")
+# a value that starts with `#`: YAML reads it as a comment, the value is lost
+UNQUOTED_HASH = re.compile(r"^([\w-]+):\s+#")
+WATERMARK = re.compile(r"^classification-watermark-\d{8}-\d{4}\.md$")
+LAST_CLASSIFIED = re.compile(r"last_classified_at:\s*(\S+)")
+RUN_FILE = re.compile(r"^(\d{2})-")
+ERROR_KINDS = ["yaml-parse", "yaml-unquoted-hash", "keys", "type", "enum", "topic-unknown", "source", "day", "time",
+               "issue-ref-format", "issue-ref-css-colour", "coverage-missing", "orphan-classification",
+               "duplicate-folder", "duplicate-file"]
+
+
+def load_extractor():
+  """pontos-extract-refs, the sibling script: the same rules the classification uses for issue_refs."""
+  path = pathlib.Path(__file__).resolve().parent / "pontos-extract-refs"
+  loader = importlib.machinery.SourceFileLoader("pontos_extract_refs", str(path))
+  module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+  loader.exec_module(module)
+  return module
+
+
+def rclone(*arguments):
+  done = subprocess.run(["rclone", *arguments], capture_output=True, text=True)
+  if done.returncode != 0:
+    raise RuntimeError(f"rclone {arguments[0]} failed: {done.stderr.strip()[-500:]}")
+  return done.stdout
+
+
+def listing(remote, folder):
+  return json.loads(rclone("lsjson", "--recursive", f"{remote}/{folder}") or "[]")
+
+
+# --- the listing -----------------------------------------------------------------------------------------------------
+
+
+def day_entry(path):
+  """A file directly in a day folder (not in .prev/): (day, name), or None."""
+  parts = path.split("/")
+  if len(parts) == 2 and DAY.match(parts[0]):
+    return parts[0], parts[1]
+  return None
+
+
+def is_note(name):
+  return bool(VOICE.match(name)) and not name.endswith(CLASSIFICATION) and not name.endswith(".prev.md")
+
+
+def is_classification(name):
+  return bool(VOICE.match(name)) and name.endswith(CLASSIFICATION)
+
+
+def sibling(path):
+  """The classification of a note: `<prefix>-classification.md`, `<prefix>-<ext>-classification.md` for non-.md."""
+  folder, name = path.rsplit("/", 1)
+  stem, _, extension = name.rpartition(".")
+  if not stem:
+    return f"{folder}/{name}{CLASSIFICATION}"
+  if extension.lower() == "md":
+    return f"{folder}/{stem}{CLASSIFICATION}"
+  return f"{folder}/{stem}-{extension.lower()}{CLASSIFICATION}"
+
+
+def notes_of(path):
+  """The notes a classification may belong to: `<stem>.md`, or `<base>.<ext>` for `<base>-<ext>-classification.md`."""
+  stem = path[:-len(CLASSIFICATION)]
+  candidates = [f"{stem}.md"]
+  base, _, extension = stem.rpartition("-")
+  if base and extension.isalnum():
+    candidates.append(f"{base}.{extension}")
+  return [candidate for candidate in candidates if sibling(candidate) == path]
+
+
+def split_raw(entries):
+  """The notes {path: modtime} and the classification paths of the raw listing."""
+  notes, classifications = {}, []
+  for entry in entries:
+    if entry.get("IsDir"):
+      continue
+    found = day_entry(entry["Path"])
+    if not found:
+      continue
+    if is_classification(found[1]):
+      classifications.append(entry["Path"])
+    elif is_note(found[1]):
+      notes[entry["Path"]] = entry.get("ModTime", "")
+  return notes, sorted(set(classifications))
+
+
+def duplicates(entries, folder):
+  """Paths Drive holds twice: (kind, path, detail)."""
+  counts = collections.Counter((entry["Path"], bool(entry.get("IsDir"))) for entry in entries)
+  return [("duplicate-folder" if is_dir else "duplicate-file", f"#pontos/{folder}/{path}", f"{count} copies")
+          for (path, is_dir), count in sorted(counts.items()) if count > 1]
+
+
+def parse_time(value):
+  try:
+    return datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+  except ValueError:
+    return None
+
+
+def legacy_sibling(path):
+  """The old name of a non-.md note's classification, before `-<ext>-classification.md`: `<prefix>-classification.md`."""
+  folder, name = path.rsplit("/", 1)
+  stem = name.rpartition(".")[0]
+  return f"{folder}/{stem}{CLASSIFICATION}" if stem and not name.lower().endswith(".md") else None
+
+
+def coverage(notes, classifications, watermark):
+  """(missing, pending, orphans, legacy): notes without a sibling (pending when newer than the watermark), siblings
+  without a note, and siblings under the old name of a non-.md note's classification."""
+  present = set(classifications)
+  expected = {sibling(path): path for path in notes}
+  old_names = {legacy_sibling(path): path for path in notes if legacy_sibling(path) and legacy_sibling(path) not in expected}
+  missing, pending = [], []
+  for path, modtime in sorted(notes.items()):
+    if sibling(path) in present or legacy_sibling(path) in present:
+      continue
+    modified = parse_time(modtime)
+    if watermark and modified and modified > watermark:
+      pending.append(path)
+    else:
+      missing.append(path)
+  orphans = [path for path in classifications if path not in expected and path not in old_names]
+  legacy = [path for path in classifications if path not in expected and path in old_names]
+  return missing, pending, orphans, legacy
+
+
+def next_number(entries, day):
+  """The next free NN of the day's run files in silver/classification/<day>/."""
+  numbers = [0]
+  for entry in entries:
+    parts = entry["Path"].split("/")
+    if len(parts) == 3 and parts[:2] == ["classification", day] and not entry.get("IsDir"):
+      found = RUN_FILE.match(parts[2])
+      if found:
+        numbers.append(int(found.group(1)))
+  return f"{max(numbers) + 1:02d}"
+
+
+def latest_watermark(entries):
+  names = sorted(entry["Path"].split("/")[-1] for entry in entries
+                 if entry["Path"].startswith("classification/") and entry["Path"].count("/") == 1
+                 and WATERMARK.match(entry["Path"].split("/")[-1]))
+  return names[-1] if names else None
+
+
+def watermark_time(text):
+  found = LAST_CLASSIFIED.search(text or "")
+  return parse_time(found.group(1)) if found else None
+
+
+# --- one classification ----------------------------------------------------------------------------------------------
+
+
+def topics_index(text):
+  """{slug: project} of topics.yaml, without the vetoed ones."""
+  data = yaml.safe_load(text) or {}
+  return {topic["slug"]: topic.get("project") for topic in data.get("topics") or []
+          if isinstance(topic, dict) and topic.get("slug") and topic.get("status") != "vetoed"}
+
+
+def front_matter(text):
+  """The front matter's text, or None."""
+  lines = text.replace("\r\n", "\n").split("\n")
+  if not lines or lines[0].strip() != "---":
+    return None
+  for index, line in enumerate(lines[1:], start=1):
+    if line.strip() == "---":
+      return "\n".join(lines[1:index])
+  return None
+
+
+def majority(projects):
+  counts = collections.Counter(project for project in projects if project).most_common()
+  if not counts or (len(counts) > 1 and counts[0][1] == counts[1][1]):
+    return None
+  return counts[0][0]
+
+
+def check_classification(path, text, raw_files, topics, note_text=None, extractor=None):
+  """Check one classification `<day>/<name>` against the rules: {"errors", "flags", "info"}, each a list of (kind, detail)."""
+  errors, flags, info = [], [], []
+  day, name = path.split("/", 1)
+  header = front_matter(text)
+  if header is None:
+    return {"errors": [("yaml-parse", "no front matter between --- lines")], "flags": flags, "info": info}
+  for line in header.split("\n"):
+    found = UNQUOTED_HASH.match(line)
+    if found:
+      errors.append(("yaml-unquoted-hash", f"`{line.strip()}`: an unquoted # makes the value a comment"))
+  try:
+    data = yaml.safe_load(header)
+  except yaml.YAMLError as error:
+    mark = getattr(error, "problem_mark", None)
+    where = f" (line {mark.line + 2})" if mark else ""
+    errors.append(("yaml-parse", f"{getattr(error, 'problem', None) or type(error).__name__}{where}"))
+    return {"errors": errors, "flags": flags, "info": info}
+  if not isinstance(data, dict):
+    errors.append(("yaml-parse", "the front matter is not a mapping"))
+    return {"errors": errors, "flags": flags, "info": info}
+
+  source = str(data.get("source") or "")
+  classified = str(data.get("classified_at") or data.get("day") or "")[:10]
+  legacy = "source" in data and not source.startswith(RAW_PREFIX) and bool(classified) and classified < NEW_PATHS_SINCE
+  missing = [key for key in KEYS if key not in data]
+  extra = [key for key in data if key not in KEYS]
+  if missing or extra:
+    errors.append(("keys", "; ".join(part for part in (missing and f"missing {', '.join(missing)}",
+                                                       extra and f"extra {', '.join(map(str, extra))}") if part)))
+  for key in LISTS:
+    if key in data and not isinstance(data[key], list):
+      errors.append(("type", f"{key} is {type(data[key]).__name__}, not a list"))
+  for key, allowed in ENUMS.items():
+    if key in data and data[key] not in allowed:
+      errors.append(("enum", f"{key}: {data[key]!r}"))
+
+  chosen = data.get("topics") if isinstance(data.get("topics"), list) else []
+  unknown = [str(topic) for topic in chosen if topic not in topics]
+  if unknown:
+    errors.append(("topic-unknown", ", ".join(unknown)))
+
+  # source: the raw note itself; an old path (dump-mental-prompts/...) only before NEW_PATHS_SINCE
+  expected = [note for note in notes_of(path) if note in raw_files]
+  if source.startswith(RAW_PREFIX):
+    relative = source[len(RAW_PREFIX):]
+    if relative not in raw_files:
+      errors.append(("source", f"{source} does not exist"))
+    elif expected and relative not in expected:
+      errors.append(("source", f"{source} is not this sibling's note ({RAW_PREFIX}{expected[0]})"))
+  elif "source" in data:
+    if legacy:
+      info.append(("legacy-source", source))
+    else:
+      errors.append(("source", f"{source!r} is not a {RAW_PREFIX} path"))
+
+  if "day" in data and str(data["day"]) != day:
+    errors.append(("day", f"{data['day']} is not the folder's {day}"))
+  clock = VOICE.match(name)
+  if "time" in data:
+    want = None if clock.group(0).startswith("0000") else f"{clock.group(1)}:{clock.group(2)}"
+    got = data["time"]
+    if isinstance(got, int) and not isinstance(got, bool):
+      errors.append(("time", f"unquoted time read as the number {got} (want \"{want}\")"))
+    elif got != want:
+      errors.append(("time", f"{got!r}, want {want!r}"))
+
+  refs = data.get("issue_refs") if isinstance(data.get("issue_refs"), list) else []
+  found_in_note = None
+  if note_text is not None and extractor is not None:
+    found_in_note = set(extractor.extract(note_text, is_html=True)["issue_refs"])
+  for ref in refs:
+    if not isinstance(ref, str) or not (ISSUE.match(ref) or GITHUB_ISSUE.match(ref)):
+      errors.append(("issue-ref-format", repr(ref)))
+    elif found_in_note is not None and ISSUE.match(ref) and ref not in found_in_note and ref in note_text:
+      errors.append(("issue-ref-css-colour", f"{ref} appears in the note only as CSS or markup"))
+
+  if data.get("project") == "other":
+    flags.append(("project-other", "project is other"))
+  if isinstance(data.get("topics"), list) and not data["topics"]:
+    flags.append(("topics-empty", "no topics"))
+  if data.get("confidence") == "low":
+    flags.append(("confidence-low", "confidence low"))
+  usual = majority([topics.get(topic) for topic in chosen if topic in topics])
+  if usual and data.get("project") in ENUMS["project"] and data.get("project") != usual:
+    flags.append(("project-differs", f"project {data.get('project')}, its topics say {usual}"))
+  if legacy:
+    # a classification of the old rules (old source path, before NEW_PATHS_SINCE): its schema is information, not errors
+    old = [f"{kind}: {detail}" for kind, detail in errors if kind not in ("yaml-parse", "yaml-unquoted-hash")]
+    errors = [(kind, detail) for kind, detail in errors if kind in ("yaml-parse", "yaml-unquoted-hash")]
+    if old:
+      info.append(("legacy-schema", "; ".join(old)))
+  return {"errors": errors, "flags": flags, "info": info}
+
+
+# --- the report ------------------------------------------------------------------------------------------------------
+
+
+def escape(detail):
+  return str(detail).replace("|", "\\|").replace("\n", " ")
+
+
+def table(rows):
+  lines = ["| Path | Detail |", "| --- | --- |"]
+  lines += [f"| `{path}` | {escape(detail)} |" for path, detail in rows]
+  return lines
+
+
+def render(results, extra_errors, missing, pending, orphans, counts, generated_at):
+  """The Markdown report; results: {raw path: check_classification()}."""
+  by_kind = collections.defaultdict(list)
+  flags_by_kind = collections.defaultdict(list)
+  legacy, old_schema = [], []
+  for path, result in sorted(results.items()):
+    shown = RAW_PREFIX + path
+    for kind, detail in result["errors"]:
+      by_kind[kind].append((shown, detail))
+    for kind, detail in result["flags"]:
+      flags_by_kind[kind].append((shown, detail))
+    legacy += [(shown, detail) for kind, detail in result["info"] if kind == "legacy-source"]
+    old_schema += [shown for kind, _ in result["info"] if kind == "legacy-schema"]
+  for kind, path, detail in extra_errors:
+    by_kind[kind].append((path, detail))
+  by_kind["coverage-missing"] += [(RAW_PREFIX + path, f"no {sibling(path).rsplit('/', 1)[1]}") for path in missing]
+  by_kind["orphan-classification"] += [(RAW_PREFIX + path, "no voice note for this sibling") for path in orphans]
+
+  error_total = sum(len(rows) for rows in by_kind.values())
+  flagged = sorted({path for rows in list(by_kind.values()) + list(flags_by_kind.values()) for path, _ in rows})
+  lines = [
+    f"# Classification check, {generated_at:%Y-%m-%d %H:%M}",
+    "",
+    "_Written by `pontos-classification-check` (smsilva/linux, scripts/bin): deterministic, no model._",
+    "",
+    "## Numbers",
+    "",
+    f"- voice notes: {counts['notes']}; classifications checked: {counts['classifications']}",
+    f"- errors: {error_total}" + (" (" + ", ".join(f"{kind} {len(by_kind[kind])}" for kind in ERROR_KINDS if by_kind.get(kind)) + ")" if error_total else ""),
+    f"- for review: {sum(len(rows) for rows in flags_by_kind.values())}; flagged paths: {len(flagged)}",
+    f"- coverage: {len(missing)} missing, {len(pending)} pending (newer than the watermark {counts['watermark']})",
+    f"- informational: {len(legacy)} classifications with an old source path (before {NEW_PATHS_SINCE}), "
+    f"{len(old_schema)} of them with the old schema; {counts.get('legacy_names', 0)} siblings of non-.md notes under the old name",
+    "",
+    "## Errors",
+    "",
+  ]
+  if not error_total:
+    lines += ["None.", ""]
+  for kind in ERROR_KINDS + sorted(set(by_kind) - set(ERROR_KINDS)):
+    if by_kind.get(kind):
+      lines += [f"### {kind} ({len(by_kind[kind])})", ""] + table(by_kind[kind]) + [""]
+  lines += ["## For review", ""]
+  if not flags_by_kind:
+    lines += ["None.", ""]
+  for kind in sorted(flags_by_kind):
+    lines += [f"### {kind} ({len(flags_by_kind[kind])})", ""] + table(flags_by_kind[kind]) + [""]
+  lines += ["## Information", "", f"- pending, not yet classified: {len(pending)}"]
+  lines += [f"  - `{RAW_PREFIX}{path}`" for path in pending]
+  lines += [f"- old source paths: {len(legacy)}; with the old schema (keys, enums, day, time not checked as errors): {len(old_schema)}",
+            f"- siblings of non-.md notes under the old name `<prefix>-classification.md`: {counts.get('legacy_names', 0)}", ""]
+  lines += ["## Flagged", "", "```yaml", "flagged:" + ("" if flagged else " []")]
+  lines += [f"  - \"{path}\"" for path in flagged]
+  lines += ["```", ""]
+  return "\n".join(lines), error_total, len(flagged)
+
+
+# --- the run ---------------------------------------------------------------------------------------------------------
+
+
+def run(remote, dry_run):
+  raw_entries = listing(remote, "raw")
+  silver_entries = listing(remote, "silver")
+  notes, classifications = split_raw(raw_entries)
+  raw_files = {entry["Path"] for entry in raw_entries if not entry.get("IsDir")}
+  html_notes = {sibling(path): path for path in notes if path.lower().endswith((".html", ".htm"))}
+  topics = topics_index(rclone("cat", f"{remote}/{SILVER}/topics.yaml"))
+  watermark_name = latest_watermark(silver_entries)
+  watermark = watermark_time(rclone("cat", f"{remote}/{SILVER}/{watermark_name}")) if watermark_name else None
+
+  extractor = load_extractor()
+  results = {}
+  with tempfile.TemporaryDirectory(prefix="pontos-check-") as directory:
+    folder = pathlib.Path(directory)
+    wanted = folder / "files-from.txt"
+    wanted.write_text("\n".join(classifications + sorted(html_notes.values())) + "\n")
+    rclone("copy", f"{remote}/raw", str(folder / "raw"), "--files-from", str(wanted), "--no-traverse",
+           "--transfers", "16", "--checkers", "16")
+    for path in classifications:
+      local = folder / "raw" / path
+      if not local.exists():
+        results[path] = {"errors": [("yaml-parse", "could not download the file")], "flags": [], "info": []}
+        continue
+      note_text = None
+      if path in html_notes and (folder / "raw" / html_notes[path]).exists():
+        note_text = (folder / "raw" / html_notes[path]).read_text(encoding="utf-8", errors="replace")
+      results[path] = check_classification(path, local.read_text(encoding="utf-8", errors="replace"), raw_files,
+                                           topics, note_text, extractor)
+
+  missing, pending, orphans, legacy_names = coverage(notes, classifications, watermark)
+  extra = duplicates(raw_entries, "raw") + duplicates(silver_entries, "silver")
+  now = datetime.datetime.now().astimezone()
+  counts = {"notes": len(notes), "classifications": len(classifications),
+            "watermark": watermark.isoformat() if watermark else "none", "legacy_names": len(legacy_names)}
+  report, errors, flagged = render(results, extra, missing, pending, orphans, counts, now)
+
+  day = f"{now:%Y-%m-%d}"
+  target = f"{remote}/{SILVER}/{day}/{next_number(silver_entries, day)}-check-report.md"
+  if dry_run:
+    print(report)
+    print(f"(dry run: would upload to {target})", file=sys.stderr)
+  else:
+    with tempfile.NamedTemporaryFile("w", suffix=".md", prefix="pontos-check-", delete=False) as handle:
+      handle.write(report)
+    try:
+      rclone("copyto", handle.name, target)
+    finally:
+      os.unlink(handle.name)
+    print(f"report....: {target}")
+  print(f"errors....: {errors}\nflagged...: {flagged}\nmissing...: {len(missing)}\npending...: {len(pending)}")
+  return 1 if errors else 0
+
+
+def main(argv=None):
+  parser = argparse.ArgumentParser(description="Check the voice notes' classification on Drive and write a report to silver.")
+  parser.add_argument("--remote", default=REMOTE, help="the Pontos rclone remote (default: %(default)s, env PONTOS_REMOTE)")
+  parser.add_argument("--dry-run", action="store_true", help="print the report instead of uploading it")
+  arguments = parser.parse_args(argv)
+  try:
+    return run(arguments.remote, arguments.dry_run)
+  except RuntimeError as error:
+    print(f"pontos-classification-check: {error}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+  sys.exit(main())

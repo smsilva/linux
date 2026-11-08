@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Extract the references of the owner's voice notes: the fixed, deterministic part of the daily classification.
+
+For each note file it prints one JSON line {"file", "to_refs", "issue_refs", "source_urls"}:
+- to_refs: order ids (YYYYMMDD-HHMM) and the names of other notes (`*.md`, `*.html` tokens, without fragments);
+- issue_refs: `#123` outside CSS (a `<style>` block, a `style=` attribute, a CSS declaration or rule, a colour in an
+  attribute value), plus github.com issue and pull request URLs;
+- source_urls: http(s) URLs, deduplicated, trailing punctuation stripped.
+
+An .html note loses its <style> and <script> blocks and its tags before the extraction (the http(s) links of its
+`href`/`src` attributes are kept as source_urls).
+
+Pure Python standard library, a single file, no rclone: the cloud classification routine runs it in its sandbox
+(published to `#pontos/silver/classification/tools/pontos-extract-refs.py`). Rule: ~/.claude/rules/pontos.md.
+"""
+import argparse
+import html
+import json
+import pathlib
+import re
+import sys
+
+STYLE_BLOCK = re.compile(r"<style\b[^>]*>.*?(?:</style\s*>|\Z)", re.IGNORECASE | re.DOTALL)
+SCRIPT_BLOCK = re.compile(r"<script\b[^>]*>.*?(?:</script\s*>|\Z)", re.IGNORECASE | re.DOTALL)
+COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.DOTALL)
+STYLE_ATTRIBUTE = re.compile(r"""\bstyle\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)""", re.IGNORECASE)
+# an attribute whose value is a colour: fill="#111", bgcolor='#555'
+COLOUR_ATTRIBUTE = re.compile(r"""\b[\w:-]+\s*=\s*["']?#[0-9a-fA-F]{3,8}\b["']?""")
+# a CSS rule's block of declarations (`.card { color: #111; }`), even in a Markdown note: a `;` tells it from JSON
+CSS_RULE = re.compile(r"\{[^{}]*?[\w-]+\s*:[^{};]*;[^{}]*\}")
+# a CSS declaration with a hex colour: `color: #555;`, `border: 1px solid #111`, `--accent: #222` (a colour property
+# only, so `Fixes: #123` stays an issue)
+CSS_DECLARATION = re.compile(r"(?:--[\w-]+|\b[a-z-]*(?:colou?r|background|border|fill|stroke|outline|shadow|accent)[a-z-]*)"
+                             r"\s*:\s*(?:[\w().,%-]+\s+){0,4}#[0-9a-fA-F]{3,8}\b(?:\s*!important)?\s*;?", re.IGNORECASE)
+HREF = re.compile(r"""\b(?:href|src)\s*=\s*["']?(https?://[^"'\s>]+)""", re.IGNORECASE)
+TAG = re.compile(r"<[^>]+>")
+
+URL = re.compile(r"https?://[^\s<>\"'`]+")
+TRAILING = ".,;:!?'\"`*_>"
+GITHUB_ISSUE = re.compile(r"^https?://(?:www\.)?github\.com/[\w.-]+/[\w.-]+/(?:issues|pull)/\d+$")
+# `#123` not glued to a word, an entity (&#123;), a path or another `#`
+ISSUE = re.compile(r"(?<![\w&/#])#(\d+)\b(?![\w-])")
+ORDER = re.compile(r"\b\d{8}-\d{4}\b")
+# a file name token: the last part of a path, up to `.md` or `.html`, never followed by more of a name
+NOTE_NAME = re.compile(r"(?<![\w.-])(?:[\w.~-]+/)*([\w][\w.-]*\.(?:md|html))(?![\w-]|\.\w)", re.IGNORECASE)
+
+
+def unique(items):
+  return list(dict.fromkeys(items))
+
+
+def clean_url(url):
+  """Strip the punctuation that ends a sentence, and a closing bracket the URL did not open."""
+  while url:
+    if url[-1] in TRAILING:
+      url = url[:-1]
+    elif url[-1] == ")" and url.count("(") < url.count(")"):
+      url = url[:-1]
+    elif url[-1] == "]" and url.count("[") < url.count("]"):
+      url = url[:-1]
+    else:
+      break
+  return url
+
+
+def without_css(text):
+  for pattern in (STYLE_BLOCK, SCRIPT_BLOCK, COMMENT, STYLE_ATTRIBUTE, COLOUR_ATTRIBUTE, CSS_RULE, CSS_DECLARATION):
+    text = pattern.sub(" ", text)
+  return text
+
+
+def extract(text, is_html=False):
+  """The references of one note's text."""
+  links = []
+  if is_html:
+    text = STYLE_BLOCK.sub(" ", SCRIPT_BLOCK.sub(" ", COMMENT.sub(" ", text)))
+    links = [clean_url(html.unescape(url)) for url in HREF.findall(text)]
+    text = html.unescape(TAG.sub(" ", STYLE_ATTRIBUTE.sub(" ", text)))
+  text = without_css(text)
+  urls = unique([clean_url(url) for url in URL.findall(text)] + links)
+  urls = [url for url in urls if url not in ("http://", "https://")]
+  bare = URL.sub(" ", text)
+  issues = [f"#{number}" for number in ISSUE.findall(bare)] + [url for url in urls if GITHUB_ISSUE.match(url)]
+  to_refs = ORDER.findall(bare) + [match.group(1) for match in NOTE_NAME.finditer(bare)]
+  return {"to_refs": unique(to_refs), "issue_refs": unique(issues), "source_urls": unique(urls)}
+
+
+def extract_file(path):
+  path = pathlib.Path(path)
+  text = path.read_text(encoding="utf-8", errors="replace")
+  return {"file": str(path), **extract(text, is_html=path.suffix.lower() in (".html", ".htm"))}
+
+
+def main(argv=None):
+  parser = argparse.ArgumentParser(description="Print the to_refs, issue_refs and source_urls of voice notes, one JSON line per file.")
+  parser.add_argument("files", nargs="+", help="note files (.md, .html, any text)")
+  parser.add_argument("--pretty", action="store_true", help="indent the JSON (one object per file)")
+  arguments = parser.parse_args(argv)
+  status = 0
+  for name in arguments.files:
+    try:
+      result = extract_file(name)
+    except OSError as error:
+      print(f"pontos-extract-refs: {name}: {error.strerror}", file=sys.stderr)
+      status = 1
+      continue
+    print(json.dumps(result, ensure_ascii=False, indent=2 if arguments.pretty else None))
+  return status
+
+
+if __name__ == "__main__":
+  sys.exit(main())

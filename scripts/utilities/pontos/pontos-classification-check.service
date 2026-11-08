@@ -1,0 +1,12 @@
+[Unit]
+Description=Pontos: check the daily classification of the voice notes and write a report to silver
+Documentation=file://%h/git/linux/claude/pontos/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/git/linux/scripts/bin/pontos-classification-check
+# exit 1 means the check found errors (written to the report), not a failed run
+SuccessExitStatus=1
+Nice=10

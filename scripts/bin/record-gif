@@ -1,0 +1,258 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  Records a monitor or a window of the X11 desktop with ffmpeg, until q is
+  pressed in this terminal (or for a fixed duration), then turns the recording
+  into a GIF with its own color palette. Prints the GIF's path.
+
+    Options:
+
+      -h,  --help           Show this help
+      -m,  --monitor        Monitor to record, by its xrandr name (default: the primary one)
+      -w,  --window         Click a window to record it instead of a monitor
+      -l,  --list-monitors  List the monitors and exit
+      -o,  --output         Path of the GIF (default: ~/Videos/record-gif-<date>-<time>.gif)
+      -d,  --delay          Seconds to wait before recording starts (default: 3)
+      -t,  --duration       Stop after these many seconds instead of waiting for q (default: none)
+      -f,  --fps            Frames per second of the GIF (default: 12)
+      -s,  --scale          Width of the GIF in pixels, height follows (default: 1024)
+      -k,  --keep-video     Keep the lossless .mkv next to the GIF (default: false)
+
+    Examples:
+
+      # Record the primary monitor until q is pressed
+      ${this_script_name}
+
+      # Record the DP-1 monitor, a smaller GIF for Google Chat
+      ${this_script_name} \\
+        --monitor DP-1 \\
+        --fps 8 \\
+        --scale 800
+
+      # Click the window to record, stop after 20 seconds
+      ${this_script_name} \\
+        --window \\
+        --duration 20
+
+EOF
+}
+
+list_monitors() {
+  xrandr --listmonitors | tail --lines=+2
+}
+
+# Prints "<width> <height> <x> <y>" for a monitor of xrandr --listmonitors
+monitor_geometry() {
+  local name="${1}"
+  local line
+  local pattern='([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+([0-9]+)\+([0-9]+)[[:space:]]+([^[:space:]]+)$'
+
+  while read -r line; do
+    if [[ "${line}" =~ ${pattern} ]]; then
+      if [[ "${BASH_REMATCH[5]}" == "${name}" || ( -z "${name}" && "${line}" == *'*'* ) ]]; then
+        echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} ${BASH_REMATCH[4]}"
+        return 0
+      fi
+    fi
+  done < <(list_monitors)
+
+  return 1
+}
+
+# Prints "<width> <height> <x> <y>" for the window the person clicks
+window_geometry() {
+  local info
+  info="$(xwininfo)" || return 1
+
+  awk '
+    /Absolute upper-left X:/ { x = $NF }
+    /Absolute upper-left Y:/ { y = $NF }
+    /^ *Width:/              { w = $NF }
+    /^ *Height:/             { h = $NF }
+    END { if (w && h) print w, h, x, y; else exit 1 }
+  ' <<< "${info}"
+}
+
+monitor=""
+use_window=false
+output_file=""
+delay_seconds="3"
+duration_seconds=""
+fps="12"
+scale_width="1024"
+keep_video=false
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -m | --monitor )
+      shift
+      monitor="${1}"
+      ;;
+
+    -w | --window )
+      use_window=true
+      ;;
+
+    -l | --list-monitors )
+      list_monitors
+      exit 0
+      ;;
+
+    -o | --output )
+      shift
+      output_file="${1}"
+      ;;
+
+    -d | --delay )
+      shift
+      delay_seconds="${1}"
+      ;;
+
+    -t | --duration )
+      shift
+      duration_seconds="${1}"
+      ;;
+
+    -f | --fps )
+      shift
+      fps="${1}"
+      ;;
+
+    -s | --scale )
+      shift
+      scale_width="${1}"
+      ;;
+
+    -k | --keep-video )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        keep_video="${2}"
+        shift
+      else
+        keep_video=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+for command_name in ffmpeg xrandr xwininfo; do
+  if ! command -v "${command_name}" > /dev/null; then
+    echo "${this_script_name}: ${command_name} is not installed" >&2
+    exit 1
+  fi
+done
+
+if [[ -z "${DISPLAY}" ]]; then
+  echo "${this_script_name}: DISPLAY is not set; this script records an X11 desktop" >&2
+  exit 1
+fi
+
+if [[ "${XDG_SESSION_TYPE}" == "wayland" ]]; then
+  echo "${this_script_name}: this is a Wayland session; ffmpeg x11grab only records X11 windows" >&2
+fi
+
+for number in "${delay_seconds}" "${fps}" "${scale_width}" ${duration_seconds:+"${duration_seconds}"}; do
+  if [[ ! "${number}" =~ ^[0-9]+$ ]]; then
+    echo "${this_script_name}: not a whole number: ${number}" >&2
+    exit 1
+  fi
+done
+
+if [[ "${use_window}" == "true" ]]; then
+  echo "Click the window to record"
+  geometry="$(window_geometry)" || {
+    echo "${this_script_name}: could not read the window's geometry" >&2
+    exit 1
+  }
+else
+  geometry="$(monitor_geometry "${monitor}")" || {
+    echo "${this_script_name}: monitor not found: ${monitor:-primary}; the monitors are:" >&2
+    list_monitors >&2
+    exit 1
+  }
+fi
+
+read -r width height x y <<< "${geometry}"
+
+# libx264 needs even dimensions
+width="$(( width / 2 * 2 ))"
+height="$(( height / 2 * 2 ))"
+
+if [[ -z "${output_file}" ]]; then
+  mkdir --parents "${HOME}/Videos"
+  output_file="${HOME}/Videos/record-gif-$(date +%Y%m%d-%H%M%S).gif"
+fi
+
+video_file="${output_file%.gif}.mkv"
+
+if [[ "${delay_seconds}" -gt 0 ]]; then
+  echo "Recording ${width}x${height}+${x}+${y} in ${delay_seconds} seconds"
+  sleep "${delay_seconds}"
+fi
+
+if [[ -n "${duration_seconds}" ]]; then
+  echo "Recording for ${duration_seconds} seconds"
+else
+  echo "Recording: press q in this terminal to stop"
+fi
+
+# Lossless and fast while recording, so the capture keeps up; the GIF is made afterwards
+ffmpeg \
+  -hide_banner \
+  -loglevel error \
+  -stats \
+  -y \
+  -video_size "${width}x${height}" \
+  -framerate 30 \
+  -f x11grab \
+  -draw_mouse 1 \
+  -i "${DISPLAY}+${x},${y}" \
+  ${duration_seconds:+-t "${duration_seconds}"} \
+  -c:v libx264 \
+  -preset ultrafast \
+  -crf 0 \
+  "${video_file}"
+
+if [[ ! -s "${video_file}" ]]; then
+  echo "${this_script_name}: nothing was recorded" >&2
+  exit 1
+fi
+
+echo "Making the GIF"
+
+ffmpeg \
+  -hide_banner \
+  -loglevel error \
+  -y \
+  -i "${video_file}" \
+  -vf "fps=${fps},scale=${scale_width}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
+  "${output_file}" < /dev/null || exit 1
+
+if [[ "${keep_video}" == "true" ]]; then
+  echo "Video: ${video_file}"
+else
+  rm --force "${video_file}"
+fi
+
+echo "GIF: ${output_file} ($(du --human-readable "${output_file}" | cut --fields=1))"

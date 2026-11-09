@@ -22,7 +22,7 @@ show_usage() {
       -d,  --delay          Seconds to wait before recording starts (default: 3)
       -t,  --duration       Stop after these many seconds instead of waiting for q (default: none)
       -f,  --fps            Frames per second of the GIF (default: 12)
-      -s,  --scale          Width of the GIF in pixels, height follows (default: 1024)
+      -s,  --scale          Width of the GIF in pixels, height follows (default: 1440)
       -k,  --keep-video     Keep the lossless .mkv next to the GIF (default: false)
 
     Examples:
@@ -86,7 +86,7 @@ output_file=""
 delay_seconds="3"
 duration_seconds=""
 fps="12"
-scale_width="1024"
+scale_width="1440"
 keep_video=false
 
 while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do

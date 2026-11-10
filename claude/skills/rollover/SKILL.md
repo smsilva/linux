@@ -1,6 +1,6 @@
 ---
 name: rollover
-description: The owner's manual trigger to carry a session's work over to a fresh remote session ("rollover", "/rollover"). Writes the handoff on the current issue and the Pontos notes without asking, records what needs the owner's go as pending, and opens the next session, unless a decision blocks the next step.
+description: The owner's manual trigger to carry a session's work over to a fresh anchored session ("rollover", "/rollover"). Writes the handoff on the current issue and the Pontos notes without asking, records what needs the owner's go as pending, and opens the next session, unless a decision blocks the next step.
 disable-model-invocation: true
 ---
 
@@ -62,12 +62,12 @@ Suggest `/rollover` only when much is left: several steps, files or PRs (owner, 
 7. **The next session.** When blocked, skip this step. Otherwise open it in this session's working directory, on this session's model (owner, 2026-11-03: the same work keeps the same model), with one line of prompt:
 
    ```bash
-   claude-remote-session \
+   claude-anchored-session \
      --directory "<this session's working directory>" \
      --model "<this session's exact model id>" \
      --prompt "Continue issue #<number> (<title>). Before anything else, read its body (and its parent's body, when it is a sub-issue), its rollover comment <comment URL> and every comment after that one, which may answer or change it. Start at the comment's next step. You take over from session <agent name>, which does no more work on it; this is rollover <n>. An item waiting for the owner's go stays pending until the owner answers it on the issue."
    ```
 
-   On failure, follow the `remote-session` skill's failure step and say that the handoff is on the issue.
+   On failure, follow the `anchored-session` skill's failure step and say that the handoff is on the issue.
 
 8. **Report** in pt-BR, in a few lines: the issue with its short description, the comment's URL, the status, the items waiting for the owner, the next session's name and URL (`agent-name list`, the newest entry), this session's Pontos alert if any (kind and count, never the value, with `pontos-save redact --session <id 8>` for the owner to run or ask for), and that this session can be closed with `/exit`.

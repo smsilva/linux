@@ -26,4 +26,4 @@ The reference is the Atlantic hurricane names, kept by a World Meteorological Or
 
 ## The launcher
 
-`agent` reserves the name before Claude Code starts and passes it as `--name`, so other sessions see it in `ListAgents` and the owner sees it in the session list. It also names the tmux window after the session, unless the window was named by hand, and gives the window back to tmux's own name when the session ends. It turns on Remote Control under that name by default (`--local`, `-L`, leaves it off, and so does `AGENT_REMOTE=false` in the environment); `claude-remote-session` does the same in a new window.
+`agent` reserves the name before Claude Code starts and passes it as `--name`, so other sessions see it in `ListAgents` and the owner sees it in the session list. It also names the tmux window after the session, unless the window was named by hand, and gives the window back to tmux's own name when the session ends. It turns on Remote Control under that name by default (`--local`, `-L`, leaves it off, and so does `AGENT_REMOTE=false` in the environment); `claude-anchored-session` does the same in a new window.

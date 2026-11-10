@@ -1,14 +1,14 @@
 ---
-name: remote-session
-description: Use when the owner asks for a new remote Claude session ("cria uma nova sessão remota", "abre outra sessão do Claude com remote control", "nova sessão remota", "new remote session"), to drive it from the phone or claude.ai/code. Opens a new tmux window, starts `agent` in it and turns on `/remote-control`, through the `claude-remote-session` script.
+name: anchored-session
+description: Use when the owner asks for a new anchored Claude session ("cria uma sessão ancorada", "nova sessão ancorada", "abre outra sessão ancorada", "new anchored session") or, by the old phrases, a new remote session ("cria uma nova sessão remota", "nova sessão remota", "abre outra sessão do Claude com remote control", "new remote session"), to drive it from the phone or claude.ai/code. Opens a new tmux window, starts `agent` in it and turns on `/remote-control`, through the `claude-anchored-session` script (`claude-anchored-session` still works).
 ---
 
-# New remote Claude session
+# New anchored Claude session
 
-The owner works from the phone through the Claude app and wants more sessions to drive from there. One script does every step the same way each time (the deterministic pillar):
+An **anchored session** runs on the owner's machine in a tmux window and is steered remotely (Remote Control, from the phone or claude.ai/code); it is not a cloud session. The owner works from the phone through the Claude app and wants more anchored sessions to drive from there. One script does every step the same way each time (the deterministic pillar):
 
 ```bash
-claude-remote-session \
+claude-anchored-session \
   --directory "<folder>" \
   --name "<window name>"
 ```

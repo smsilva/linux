@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+
+# The Claude Code sessions alive on this machine, each with its role (getnereus/nereus#1340): a peer, this
+# session itself, or a helper another session started (a plugin's hook running a headless
+# `claude`), named after its origin, so no agent takes a helper for a peer in a worktree.
+
+show_usage() {
+  cat <<EOF
+Usage: claude-peers [--sessions <dir>]
+
+Lists every live session of Claude Code's session registry, one per line:
+
+  NAME  ROLE  ORIGIN  PANE  CWD
+
+ROLE is
+  peer    a session of its own (ORIGIN -)
+  self    the session that runs this command, or its subagent (ORIGIN -)
+  helper  a session whose process descends from another session's: started by one of its
+          hooks, for example the security-guidance plugin's review after a git commit or push.
+          ORIGIN is <parent session>/<hook>: the plugin's name, else the hook's script.
+          A helper is not a peer: never message it or wait for it; it ends by itself.
+
+Options:
+  --sessions <dir>  Claude Code's session registry (default: CLAUDE_SESSIONS_DIR, else ~/.claude/sessions)
+  -h, --help        Show this help
+
+Examples:
+  claude-peers
+  claude-peers | awk '\$2 == "helper"'
+EOF
+}
+
+sessions_dir="${CLAUDE_SESSIONS_DIR:-${HOME}/.claude/sessions}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --sessions) sessions_dir="${2?}"; shift 2 ;;
+    -h | --help) show_usage; exit 0 ;;
+    *) echo "claude-peers: unknown option $1 (see --help)" >&2; exit 1 ;;
+  esac
+done
+
+parent_of() {
+  ps -o ppid= -p "${1?}" 2> /dev/null | tr -d ' '
+}
+
+# The process ids from a process up to init, the process itself first.
+ancestors() {
+  local pid="${1?}"
+  while [[ -n "${pid}" && "${pid}" != "0" && "${pid}" != "1" ]]; do
+    echo "${pid}"
+    pid="$(parent_of "${pid}")"
+  done
+}
+
+# The name of the hook whose command line is given: a plugin's name, else the script's file name.
+hook_name() {
+  local args="${1?}"
+  local word
+  if [[ "${args}" =~ /plugins/cache/[^/]+/([^/]+)/ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return
+  fi
+  for word in ${args}; do
+    if [[ "${word}" == */* && "${word}" != -* ]]; then
+      word="${word##*/}"
+      echo "${word%.*}"
+      return
+    fi
+  done
+  echo "${args%% *}"
+}
+
+declare -A names
+declare -A records
+for file in "${sessions_dir}"/*.json; do
+  [[ -f "${file}" ]] || continue
+  record="$(jq --raw-output '[.pid, (.name // "-"), (.tmux // "-"), (.cwd // "-")] | @tsv' "${file}" 2> /dev/null)" || continue
+  IFS=$'\t' read -r pid name _ _ <<< "${record}"
+  if ! [[ "${pid}" =~ ^[0-9]+$ ]] || ! kill -0 "${pid}" 2> /dev/null; then
+    continue
+  fi
+  names["${pid}"]="${name}"
+  records["${pid}"]="${record}"
+done
+
+mapfile -t own_line < <(ancestors "$$")
+
+printf '%-40s %-7s %-40s %-12s %s\n' NAME ROLE ORIGIN PANE CWD
+for pid in "${!records[@]}"; do
+  IFS=$'\t' read -r _ name pane cwd <<< "${records[${pid}]}"
+  role="peer"
+  origin="-"
+  child=""
+  for holder in $(ancestors "$(parent_of "${pid}")"); do
+    if [[ -n "${names[${holder}]:-}" ]]; then
+      role="helper"
+      origin="${names[${holder}]}/$(hook_name "$(ps -o args= -p "${child:-${pid}}" 2> /dev/null)")"
+      break
+    fi
+    child="${holder}"
+  done
+  if [[ "${role}" == "peer" ]] && printf '%s\n' "${own_line[@]}" | grep --quiet --line-regexp "${pid}"; then
+    role="self"
+  fi
+  printf '%-40s %-7s %-40s %-12s %s\n' "${name}" "${role}" "${origin}" "${pane}" "${cwd}"
+done | sort --key=2,2 --key=1,1

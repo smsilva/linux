@@ -133,7 +133,7 @@
     "docs@flow-cloud-hub": false,
     "hostinger@claude-plugins-official": false,
     "nats-channel@synadia-plugins": false,
-    "planning@flow-cloud-hub": true,
+    "planning@flow-cloud-hub": false,
     "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true

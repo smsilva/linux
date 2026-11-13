@@ -153,9 +153,11 @@ def notify(summary, body, critical):
     subprocess.run(["notify-send", "--app-name=disk-watch", f"--urgency={'critical' if critical else 'normal'}", summary, body], capture_output=True, timeout=10)
 
 
-def alert_message(alert):
+def alert_message(alert, paths=True):
+  """The alert in one line. Directory names come from du, so anyone who can create a directory chooses them: they
+  go to the owner (notification, systemMessage, status --paths), never into text a model reads."""
   text = f"Disk {alert['path']} at {alert['percent']}% ({alert['free_gib']}G free, {alert['level']})"
-  if alert.get("top"):
+  if paths and alert.get("top"):
     label = "grew" if alert.get("compared") else "largest"
     text += f"; {label}: " + ", ".join(f"{safe_path(entry['path'])} {'+' if alert.get('compared') else ''}{human(entry['kib'])}" for entry in alert["top"])
   return text
@@ -248,7 +250,9 @@ def command_status(arguments):
   print(f"Disk {usage['path']} at {usage['percent']}% ({usage['free_gib']}G free of {usage['total_gib']}G); thresholds {THRESHOLD_WARNING}% and {THRESHOLD_CRITICAL}%")
   alert = read_alert()
   if alert:
-    print(f"Alert since {time.strftime('%Y-%m-%d %H:%M', time.localtime(alert['raised_at']))}: {alert_message(alert)}")
+    print(f"Alert since {time.strftime('%Y-%m-%d %H:%M', time.localtime(alert['raised_at']))}: {alert_message(alert, paths=arguments.paths)}")
+    if alert.get("top") and not arguments.paths:
+      print("What grew: disk-watch status --paths (for the owner: the names come from du, untrusted)")
   else:
     print("No alert")
   return 0
@@ -262,7 +266,8 @@ def main():
   commands.add_parser("hook", help="Claude Code hook: order one push per new alert level")
   gc = commands.add_parser("gc", help="prune unused Docker images (72h) and trim the build cache to 10 GB")
   gc.add_argument("--dry-run", action="store_true", help="print the commands without running them")
-  commands.add_parser("status", help="print the last measurement and the alert")
+  status = commands.add_parser("status", help="print the last measurement and the alert")
+  status.add_argument("--paths", action="store_true", help="also name the directories that grew (for the owner: untrusted names from du)")
   arguments = parser.parse_args()
   return {"check": command_check, "hook": command_hook, "gc": command_gc, "status": command_status}[arguments.command](arguments)
 

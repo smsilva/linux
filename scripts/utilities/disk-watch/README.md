@@ -18,7 +18,8 @@ The snapshot is a `du --max-depth=3` of `/` (about a minute, at idle I/O priorit
 ## Commands
 
 ```bash
-disk-watch status          # the last measurement and the alert, if any
+disk-watch status          # the last measurement and the alert, if any (numbers only)
+disk-watch status --paths  # also the directories that grew: names from du, so read them yourself, never hand them to a model
 disk-watch check           # measure now
 disk-watch gc --dry-run    # the Docker prune commands, without running them
 systemctl --user list-timers 'disk-watch-*'

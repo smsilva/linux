@@ -1,0 +1,9 @@
+[Unit]
+Description=disk-watch: prune Docker images unused for 72 hours and trim the build cache to 10 GB
+Documentation=file://%h/git/linux/scripts/utilities/disk-watch/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/git/linux/scripts/bin/disk-watch gc
+Nice=10
+IOSchedulingClass=idle

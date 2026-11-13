@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+"""disk-watch: watch the root disk, raise an alert before it fills, keep Docker's leftovers in check.
+
+Commands:
+
+  check  (the 15-minute timer) measure the disk; at the warning or critical threshold write the alert file, which the
+         status line shows (claude-status-line) and the hook turns into one push; below the warning threshold remove
+         it. When an alert is raised or escalates, a desktop notification and a snapshot of the largest directories,
+         compared with the previous snapshot, name what grew.
+  hook   (Claude Code UserPromptSubmit and SessionStart hook) when an alert is new for its level, the first session
+         to see it gets the order to send one PushNotification; every other session stays quiet.
+  gc     (the daily timer) prune Docker images unused for 72 hours and trim the build cache to 10 GB.
+  status print the last measurement and the alert, if any.
+
+State lives in ${XDG_STATE_HOME:-~/.local/state}/disk-watch/.
+"""
+
+import argparse
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+import sys
+import time
+
+GIB = 1024 ** 3
+
+
+def environment_int(name, default):
+  try:
+    return int(os.environ.get(name, default))
+  except ValueError:
+    return default
+
+
+PATH = os.environ.get("DISK_WATCH_PATH", "/")
+THRESHOLD_WARNING = environment_int("DISK_WATCH_THRESHOLD_WARNING", 80)
+THRESHOLD_CRITICAL = environment_int("DISK_WATCH_THRESHOLD_CRITICAL", 90)
+SNAPSHOT_ROOT = os.environ.get("DISK_WATCH_SNAPSHOT_ROOT", "/")
+SNAPSHOT_DEPTH = environment_int("DISK_WATCH_SNAPSHOT_DEPTH", 3)
+SNAPSHOT_MAX_AGE_SECONDS = environment_int("DISK_WATCH_SNAPSHOT_MAX_AGE_HOURS", 24) * 3600
+TOP = 5
+STATE = pathlib.Path(os.environ.get("XDG_STATE_HOME") or pathlib.Path.home() / ".local" / "state") / "disk-watch"
+ALERT_FILE = STATE / "alert"
+USAGE_FILE = STATE / "usage.json"
+SNAPSHOT_FILE = STATE / "sizes.tsv"
+SNAPSHOT_PREVIOUS_FILE = STATE / "sizes.previous.tsv"
+LEVELS = {"warning": 1, "critical": 2}
+
+
+def measure():
+  usage = shutil.disk_usage(PATH)
+  percent = round(usage.used * 100 / usage.total)
+  return {"path": PATH, "percent": percent, "free_gib": round(usage.free / GIB, 1), "total_gib": round(usage.total / GIB, 1), "measured_at": int(time.time())}
+
+
+def level_of(percent):
+  if percent >= THRESHOLD_CRITICAL:
+    return "critical"
+  if percent >= THRESHOLD_WARNING:
+    return "warning"
+  return None
+
+
+def read_alert():
+  try:
+    return json.loads(ALERT_FILE.read_text())
+  except (OSError, ValueError):
+    return None
+
+
+def write_atomically(path, text):
+  temporary = path.with_name(path.name + ".tmp")
+  temporary.write_text(text)
+  temporary.replace(path)
+
+
+def printable(text):
+  return "".join(character if character.isprintable() else "?" for character in text)
+
+
+def take_snapshot():
+  """du of the snapshot root, one line per directory down to the depth: kibibytes and path."""
+  command = ["du", "--null", "--one-file-system", "--block-size=1K", f"--max-depth={SNAPSHOT_DEPTH}", SNAPSHOT_ROOT]
+  if os.geteuid() != 0 and SNAPSHOT_ROOT == "/" and shutil.which("sudo"):
+    command = ["sudo", "--non-interactive"] + command
+  if shutil.which("ionice"):
+    command = ["ionice", "--class", "3"] + command
+  result = subprocess.run(["nice"] + command, capture_output=True, text=True, timeout=900)
+  sizes = {}
+  for record in result.stdout.split("\0"):
+    size, _, directory = record.partition("\t")
+    if size.isdigit() and directory:
+      sizes[printable(directory)] = int(size)
+  if not sizes:
+    return None
+  if SNAPSHOT_FILE.exists():
+    SNAPSHOT_FILE.replace(SNAPSHOT_PREVIOUS_FILE)
+  write_atomically(SNAPSHOT_FILE, "".join(f"{size}\t{directory}\n" for directory, size in sorted(sizes.items())))
+  return sizes
+
+
+def read_sizes(path):
+  sizes = {}
+  try:
+    for line in path.read_text().splitlines():
+      size, _, directory = line.partition("\t")
+      if size.isdigit():
+        sizes[directory] = int(size)
+  except OSError:
+    pass
+  return sizes
+
+
+def is_ancestor(ancestor, directory):
+  return directory != ancestor and directory.startswith(ancestor.rstrip("/") + "/")
+
+
+def top_directories(current, previous):
+  """The directories that grew most since the previous snapshot (the largest, without one), most specific first:
+  a directory is left out when a listed child explains its growth."""
+  root = SNAPSHOT_ROOT.rstrip("/") or "/"
+  if previous:
+    deltas = {d: size - previous.get(d, 0) for d, size in current.items() if d != root and size > previous.get(d, 0)}
+  else:
+    deltas = {d: size for d, size in current.items() if d != root}
+  chosen = []
+  for directory in sorted(deltas, key=lambda d: (-deltas[d], d)):
+    children = [c for c in chosen if is_ancestor(directory, c)]
+    if children and sum(deltas[c] for c in children) >= 0.8 * deltas[directory]:
+      continue
+    chosen = [c for c in chosen if not is_ancestor(c, directory)]
+    chosen.append(directory)
+    if len(chosen) == TOP:
+      break
+  return [{"path": d, "kib": deltas[d]} for d in chosen], bool(previous)
+
+
+def safe_path(path):
+  """A path from du is data, not text to trust: shown to the owner only, at most 80 printable characters."""
+  cleaned = printable(path)
+  return cleaned if len(cleaned) <= 80 else cleaned[:77] + "..."
+
+
+def human(kib):
+  gib = kib / 1024 ** 2
+  return f"{gib:.1f}G" if gib >= 1 else f"{kib / 1024:.0f}M"
+
+
+def notify(summary, body, critical):
+  if shutil.which("notify-send"):
+    subprocess.run(["notify-send", "--app-name=disk-watch", f"--urgency={'critical' if critical else 'normal'}", summary, body], capture_output=True, timeout=10)
+
+
+def alert_message(alert):
+  text = f"Disk {alert['path']} at {alert['percent']}% ({alert['free_gib']}G free, {alert['level']})"
+  if alert.get("top"):
+    label = "grew" if alert.get("compared") else "largest"
+    text += f"; {label}: " + ", ".join(f"{safe_path(entry['path'])} {'+' if alert.get('compared') else ''}{human(entry['kib'])}" for entry in alert["top"])
+  return text
+
+
+def command_check(arguments):
+  STATE.mkdir(parents=True, exist_ok=True)
+  usage = measure()
+  write_atomically(USAGE_FILE, json.dumps(usage) + "\n")
+  level = level_of(usage["percent"])
+  previous_alert = read_alert()
+
+  if level is None:
+    if previous_alert:
+      ALERT_FILE.unlink(missing_ok=True)
+      for marker in STATE.glob("pushed-*"):
+        marker.unlink(missing_ok=True)
+      print(f"cleared: {usage['percent']}%")
+    snapshot_age = time.time() - SNAPSHOT_FILE.stat().st_mtime if SNAPSHOT_FILE.exists() else None
+    if not arguments.no_snapshot and (snapshot_age is None or snapshot_age > SNAPSHOT_MAX_AGE_SECONDS):
+      take_snapshot()
+    return 0
+
+  raised = previous_alert is None or LEVELS[level] > LEVELS.get(previous_alert.get("level"), 0)
+  alert = {**usage, "level": level, "raised_at": previous_alert.get("raised_at") if previous_alert and not raised else usage["measured_at"]}
+  if raised and not arguments.no_snapshot:
+    previous_sizes = read_sizes(SNAPSHOT_FILE)
+    current_sizes = take_snapshot()
+    if current_sizes:
+      alert["top"], alert["compared"] = top_directories(current_sizes, previous_sizes)
+  elif previous_alert:
+    alert["top"], alert["compared"] = previous_alert.get("top", []), previous_alert.get("compared", False)
+  write_atomically(ALERT_FILE, json.dumps(alert) + "\n")
+  if raised:
+    notify(f"Disk at {usage['percent']}%", alert_message(alert), level == "critical")
+  print(alert_message(alert))
+  return 0
+
+
+def command_hook(arguments):
+  try:
+    event = json.load(sys.stdin).get("hook_event_name", "UserPromptSubmit")
+  except ValueError:
+    event = "UserPromptSubmit"
+  alert = read_alert()
+  if not alert or alert.get("level") not in LEVELS:
+    return 0
+  marker = STATE / f"pushed-{alert['level']}"
+  try:
+    os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+  except FileExistsError:
+    return 0
+  message = alert_message(alert)
+  push = f"Disco em {alert['percent']}% ({alert['free_gib']}G livres): rode `disk-watch status` e veja o que cresceu"
+  print(json.dumps({
+    "systemMessage": message,
+    "hookSpecificOutput": {
+      "hookEventName": event,
+      "additionalContext": (
+        f"disk-watch: the disk {alert['path']} is at {alert['percent']}% ({alert['free_gib']}G free, {alert['level']}). This session is the one chosen to tell the owner: send one PushNotification now, "
+        f"before anything else, with this text: \"{push}\". Then go on with the owner's request. Before starting a "
+        "k3d cluster or a scene, check `disk-watch status` (k3s marks DiskPressure and evicts pods near a full disk)."
+      ),
+    },
+  }))
+  return 0
+
+
+def command_gc(arguments):
+  commands = [
+    ["docker", "image", "prune", "--all", "--force", "--filter", "until=72h"],
+    ["docker", "builder", "prune", "--force", "--max-used-space", "10GB"],
+  ]
+  before = measure()
+  for command in commands:
+    if arguments.dry_run:
+      print(" ".join(command))
+      continue
+    result = subprocess.run(command, capture_output=True, text=True, timeout=1800)
+    last_line = (result.stdout.strip().splitlines() or [result.stderr.strip()])[-1:]
+    print(f"{' '.join(command[:3])}: {' '.join(last_line)}")
+  if not arguments.dry_run:
+    after = measure()
+    print(f"disk {before['percent']}% -> {after['percent']}% ({after['free_gib']}G free)")
+  return 0
+
+
+def command_status(arguments):
+  usage = measure()
+  print(f"Disk {usage['path']} at {usage['percent']}% ({usage['free_gib']}G free of {usage['total_gib']}G); thresholds {THRESHOLD_WARNING}% and {THRESHOLD_CRITICAL}%")
+  alert = read_alert()
+  if alert:
+    print(f"Alert since {time.strftime('%Y-%m-%d %H:%M', time.localtime(alert['raised_at']))}: {alert_message(alert)}")
+  else:
+    print("No alert")
+  return 0
+
+
+def main():
+  parser = argparse.ArgumentParser(prog="disk-watch", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+  commands = parser.add_subparsers(dest="command", required=True)
+  check = commands.add_parser("check", help="measure, raise or clear the alert")
+  check.add_argument("--no-snapshot", action="store_true", help="skip the du snapshot of the largest directories")
+  commands.add_parser("hook", help="Claude Code hook: order one push per new alert level")
+  gc = commands.add_parser("gc", help="prune unused Docker images (72h) and trim the build cache to 10 GB")
+  gc.add_argument("--dry-run", action="store_true", help="print the commands without running them")
+  commands.add_parser("status", help="print the last measurement and the alert")
+  arguments = parser.parse_args()
+  return {"check": command_check, "hook": command_hook, "gc": command_gc, "status": command_status}[arguments.command](arguments)
+
+
+if __name__ == "__main__":
+  sys.exit(main())

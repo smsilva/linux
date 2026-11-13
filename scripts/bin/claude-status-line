@@ -11,6 +11,8 @@ json_input=$(cat)
 # Fixed segment backgrounds (256-color)
 section_location_background_color=31 # dark blue
 section_pontos_background_color=160   # red: a raw log is not on Drive (pontos-save status)
+section_disk_warning_background_color=214  # amber: the disk passed the warning threshold (disk-watch status)
+section_disk_critical_background_color=160 # red: the disk passed the critical threshold
 section_branch_background_color=236  # #303030
 section_turns_background_color=235   # #262626, dark gray
 section_model_background_color=238   # #444444
@@ -304,6 +306,19 @@ end_segments() {
 # Pontos (~/.claude/rules/pontos.md) raises this file when a raw log is blocked by its check or its upload failed
 [ -f "${HOME}/.local/state/pontos/alert" ] && \
 add_segment --text " ⚠ pontos " --background "${section_pontos_background_color}" --foreground 15 --bold
+
+# disk-watch (scripts/utilities/disk-watch/README.md) writes this file while the disk is above its warning threshold
+disk_alert_file="${XDG_STATE_HOME:-${HOME}/.local/state}/disk-watch/alert"
+if [ -f "${disk_alert_file}" ]; then
+  read -r disk_level disk_percent < <(jq --raw-output '"\(.level) \(.percent)"' "${disk_alert_file}" 2>/dev/null)
+  if [ -n "${disk_percent}" ]; then
+    if [ "${disk_level}" == "critical" ]; then
+      add_segment --text " ⚠ disk ${disk_percent}% " --background "${section_disk_critical_background_color}" --foreground 15 --bold
+    else
+      add_segment --text " ⚠ disk ${disk_percent}% " --background "${section_disk_warning_background_color}" --foreground 0 --bold
+    fi
+  fi
+fi
 
 add_segment --text " ${location} " --background "${section_location_background_color}" --foreground 0 --bold
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=disk-watch: measure the root disk and raise or clear the alert
+Documentation=file://%h/git/linux/scripts/utilities/disk-watch/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/git/linux/scripts/bin/disk-watch check
+Nice=10
+IOSchedulingClass=idle

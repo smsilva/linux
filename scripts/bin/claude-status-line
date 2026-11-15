@@ -26,6 +26,24 @@ section_limits_forecast_background_color=237   # #3a3a3a, the week's forecast an
 limits_threshold_critical=${CLAUDE_LIMITS_THRESHOLD_CRITICAL:-80}
 limits_threshold_warning=${CLAUDE_LIMITS_THRESHOLD_WARNING:-50}
 
+# With the nereus CLI installed (getnereus/nereus#1592), the weekly figures come from its local cache, read with jq
+# on every render; claude-usage-plan and claude-usage-forecast stay as the fallback for a machine without it
+nereus_usage_cache="${XDG_STATE_HOME:-${HOME}/.local/state}/nereus/usage/weekly.json"
+nereus_usage=false
+command -v nereus > /dev/null && nereus_usage=true
+
+# One figure of the nereus cache (todayGoal, forecast, pace), only when the cache holds the same window as the reading
+nereus_figure() {
+  local figure="${1?}"
+  local resets_at="${2?}"
+
+  [[ "${nereus_usage}" == true ]] || return
+  jq --raw-output --argjson resets "${resets_at}" "
+    def abs: if . < 0 then -. else . end;
+    select(((.resetsAt // 0) - \$resets | abs) <= 60) | .figures.${figure} // empty
+  " "${nereus_usage_cache}" 2>/dev/null
+}
+
 # Context window thresholds (percentage)
 context_threshold_critical=${CLAUDE_CONTEXT_THRESHOLD_CRITICAL:-70}
 context_threshold_warning=${CLAUDE_CONTEXT_THRESHOLD_WARNING:-50}
@@ -199,7 +217,8 @@ today_str() {
   resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
   [ -z "${used_exact}" ] || [ -z "${resets_at}" ] && return
 
-  today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
+  today_goal=$(nereus_figure todayGoal "${resets_at}")
+  [ -z "${today_goal}" ] && today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
   [ -z "${today_goal}" ] && return
 
   # The share of today's goal already reached
@@ -210,14 +229,24 @@ today_str() {
 
 # The week's forecast: the percentage used at the reset at this pace, and the signal it gives
 forecast_str() {
-  local used_exact resets_at forecast signal color
+  local used_exact resets_at forecast signal color mark
 
   used_exact=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.used_percentage // empty')
   resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
   [ -z "${used_exact}" ] || [ -z "${resets_at}" ] && return
 
-  read -r forecast signal < <(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" --with-percentage 2>/dev/null)
+  forecast=$(nereus_figure forecast "${resets_at}")
+  signal=$(nereus_figure pace "${resets_at}")
+  if [ -z "${signal}" ]; then
+    read -r forecast signal < <(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" --with-percentage 2>/dev/null)
+  fi
   [ -z "${signal}" ] && return
+
+  # A salmon ! when the nereus CLI keeps failing to send the readings: the figure on the phone may be stale
+  mark=""
+  if [[ "${nereus_usage}" == true ]] && [[ "$(jq --raw-output '.sendFailing // false' "${nereus_usage_cache}" 2>/dev/null)" == true ]]; then
+    mark=" \033[38;5;203m!"
+  fi
 
   case "${signal}" in
     push   ) color=114 ;;
@@ -226,7 +255,7 @@ forecast_str() {
   esac
 
   # Only the signal carries the color: the number just stands out from the label
-  printf "\033[38;5;247mforecast \033[38;5;255m%s%% \033[1;38;5;%sm%s\033[22m" "$(percentage_display "${forecast}")" "${color}" "${signal}"
+  printf "\033[38;5;247mforecast \033[38;5;255m%s%% \033[1;38;5;%sm%s\033[22m%b" "$(percentage_display "${forecast}")" "${color}" "${signal}" "${mark}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)
@@ -259,6 +288,27 @@ if [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
         '{date: $date, used_percentage: $used, resets_at: $resets_at, saved_at: $saved_at, source: "status-line"}' \
         > "${weekly_history_directory}/${weekly_today}.json"
     ) 2>/dev/null
+  fi
+fi
+
+# Report the reading to Nereus through the nereus CLI, detached so the render never waits, only when the reading
+# differs from its cache or the cache is 5 minutes old, and not within a minute of the last start; the CLI keeps the
+# same limits, sends at most every 5 minutes and backs off on failure
+if [[ "${nereus_usage}" == true ]] && [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
+  nereus_usage_due=$(jq --raw-output \
+    --argjson used "${weekly_used}" \
+    --argjson resets "${weekly_resets_at}" \
+    --argjson now "$(date +%s)" '
+      def abs: if . < 0 then -. else . end;
+      if (.lastStart // 0) > $now - 60 then "no"
+      elif .used != $used or ((.resetsAt // 0) - $resets | abs) > 60 or (.computedAt // 0) <= $now - 300 then "yes"
+      else "no" end
+    ' "${nereus_usage_cache}" 2>/dev/null)
+  if [[ "${nereus_usage_due:-yes}" == yes ]]; then
+    setsid nereus usage report weekly \
+      --used "${weekly_used}" \
+      --resets-at "$(date --utc --date "@${weekly_resets_at}" +%FT%TZ)" \
+      > /dev/null 2>&1 < /dev/null &
   fi
 fi
 

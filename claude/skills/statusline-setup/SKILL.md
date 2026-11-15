@@ -66,6 +66,8 @@ The session and weekly segments start with the time left to their reset instead 
 
 In the first 6 hours of the window there is no signal, so the `forecast` segment is not shown.
 
+With the `nereus` CLI installed (getnereus/nereus#1592), both segments read their figures (`todayGoal`, `forecast`, `pace`) from its cache, `${XDG_STATE_HOME}/nereus/usage/weekly.json`, with `jq` on every render, and a salmon `!` follows the forecast while `sendFailing` is true. The status line starts `setsid nereus usage report weekly` detached when the reading differs from the cache or the cache is 5 minutes old, at most once a minute; the CLI keeps the same limits, sends to Nereus at most every 5 minutes and backs off on failure. Without `nereus`, or before its cache holds the window, the scripts below answer, as before.
+
 In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage to reach by the end of today, from `claude-usage-plan --today-goal`; 69,6% is how much of that goal the weekly usage has reached (16 of 23), with one decimal and a comma, none when the decimal is zero (`71%`), and it passes 100% once the goal is passed. The goal spreads what was left at the day's first reading evenly up to the reset, so it stays fixed all day; before that reading exists it comes from the usage now. The forecast comes from the whole week's pace, not from today's goal.
 
 ## Segment layout

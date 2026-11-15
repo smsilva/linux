@@ -25,6 +25,14 @@ def register(sessions, pid, name, cwd="/work/repo-1-x", pane="0:@0.%0"):
   (sessions / f"{pid}.json").write_text(json.dumps({"pid": pid, "name": name, "cwd": cwd, "tmux": pane, "kind": "interactive"}))
 
 
+def table(sessions):
+  """Every row by name, each split into its columns: NAME ROLE ORIGIN PANE TRITON CWD."""
+  done = subprocess.run([str(PEERS), "--sessions", str(sessions)], capture_output=True, text=True, check=True)
+  lines = done.stdout.splitlines()
+  assert lines[0].split() == ["NAME", "ROLE", "ORIGIN", "PANE", "TRITON", "CWD"]
+  return {line.split()[0]: line.split() for line in lines[1:]}
+
+
 def rows(sessions):
   done = subprocess.run([str(PEERS), "--sessions", str(sessions)], capture_output=True, text=True, check=True)
   lines = done.stdout.splitlines()
@@ -79,6 +87,38 @@ class ClaudePeersTest(unittest.TestCase):
     register(self.sessions, os.getpid(), "menippe")
 
     self.assertEqual(rows(self.sessions)["menippe"], ["self", "-"])
+
+  def start_session(self, *bridge):
+    """A session's process; with `bridge`, the agent's name, it starts the CLI's bridge to Triton as its child, as
+    `nereus messaging session create` does (an MCP server on stdio)."""
+    if not bridge:
+      session = subprocess.Popen(["sleep", "30"])
+      self.addCleanup(session.kill)
+      return session.pid
+    cli = self.tmp / "bin" / "nereus"
+    cli.parent.mkdir(exist_ok=True)
+    cli.write_text("#!/usr/bin/env bash\nsleep 30\n")
+    cli.chmod(0o755)
+    command = f"{cli} messaging session peers {bridge[0]} --messaging-url https://triton.example.com/mcp & wait"
+    session = subprocess.Popen(["bash", "-c", command], start_new_session=True)
+    self.addCleanup(os.killpg, session.pid, 9)
+    for _ in range(100):
+      if subprocess.run(["pgrep", "--parent", str(session.pid)], capture_output=True).returncode == 0:
+        return session.pid
+      time.sleep(0.05)
+    raise AssertionError("the bridge never started")
+
+  def test_a_session_with_the_bridge_to_triton_names_its_agent_and_a_namesake_elsewhere_counts_for_nothing(self):
+    # #1640: a session on Triton here (actaea), a local session off Triton (melite), and a bridge of another melite
+    # whose session is not in this machine's registry (a container's): the local melite stays off Triton.
+    register(self.sessions, self.start_session("actaea"), "actaea")
+    register(self.sessions, self.start_session(), "melite")
+    self.start_session("melite")
+
+    found = table(self.sessions)
+
+    self.assertEqual(found["actaea"][4], "actaea")
+    self.assertEqual(found["melite"][4], "-")
 
 
 if __name__ == "__main__":

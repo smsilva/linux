@@ -58,15 +58,34 @@ if [[ "${last_shown}" =~ ^[0-9]+$ ]] && [[ $(( now - last_shown )) -lt $(( inter
   exit 0
 fi
 
-plan=$(claude-usage-plan 2>/dev/null) || exit 0
-today_goal=$(claude-usage-plan --today-goal 2>/dev/null) || exit 0
+# With the nereus CLI installed (getnereus/nereus#1592), the figures come from its local cache, while it holds a
+# window that has not reset; claude-usage-plan is the fallback
+nereus_usage_cache="${XDG_STATE_HOME:-${HOME}/.local/state}/nereus/usage/weekly.json"
+nereus_figures=""
+if command -v nereus > /dev/null; then
+  nereus_figures=$(jq --raw-output --argjson now "${now}" '
+    select((.resetsAt // 0) > $now and .figures.todayGoal != null)
+    | "\(.used | ceil) \(.resetsAt) \(.figures.forecast // "-") \(.figures.pace // "-") \(.figures.todayGoal)"
+  ' "${nereus_usage_cache}" 2>/dev/null)
+fi
+
+if [ -n "${nereus_figures}" ]; then
+  read -r used resets_at forecast pace today_goal <<< "${nereus_figures}"
+  summary="Weekly quota: ${used}% used, resets $(date --date "@${resets_at}" '+%a %d/%m %H:%M')"
+  [[ "${pace}" != "-" ]] && summary="${summary}, forecast $(printf '%.0f' "${forecast}")% ${pace}"
+  full_plan="nereus usage get weekly"
+else
+  plan=$(claude-usage-plan 2>/dev/null) || exit 0
+  today_goal=$(claude-usage-plan --today-goal 2>/dev/null) || exit 0
+
+  # One line: the phone app prefixes every line of a system message with the hook's name, which breaks a table.
+  summary=$(grep --max-count=1 'Weekly quota' <<< "${plan}" | sed 's/^ *//')
+  full_plan="claude-usage-plan"
+fi
 
 mkdir --parents "${state_directory}"
 echo "${now}" > "${last_shown_file}"
 
-# One line: the phone app prefixes every line of a system message with the hook's name, which breaks a table.
-summary=$(grep --max-count=1 'Weekly quota' <<< "${plan}" | sed 's/^ *//')
-
 jq --null-input \
-  --arg message "${summary}; today's goal ${today_goal}%. Full plan: claude-usage-plan" \
+  --arg message "${summary}; today's goal ${today_goal}%. Full plan: ${full_plan}" \
   '{systemMessage: $message}'

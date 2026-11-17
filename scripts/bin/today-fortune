@@ -1,4 +1,11 @@
 #!/bin/bash
+# Show the fortune of the day through cowsay, once per day.
+# Does nothing when fortune or cowsay is not installed.
+
+if ! command -v fortune > /dev/null 2>&1 || ! command -v cowsay > /dev/null 2>&1; then
+  exit 0
+fi
+
 log_dir="${HOME}/.log/fortune"
 
 mkdir -p "${log_dir}"
@@ -6,13 +13,13 @@ mkdir -p "${log_dir}"
 day_file="${log_dir}/fortune-$(date +%Y-%m-%d).log"
 
 if [[ ! -e "${day_file}" ]]; then
-  rm "${log_dir}/*.log" 2> /dev/null
-  
-  message=$(fortune)
-  
-  echo ${message} > ${day_file}
-  
-  cowsay ${message}
+  rm --force "${log_dir}"/*.log
+
+  message="$(fortune)"
+
+  echo "${message}" > "${day_file}"
+
+  cowsay "${message}"
 
   echo ""
 

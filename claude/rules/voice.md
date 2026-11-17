@@ -1,9 +1,4 @@
 # Voice
 
-`speak "text"` reads text aloud in pt-BR with Piper (`scripts/bin/speak`).
-
-- Default: never call `speak`
-- Start speaking only after the owner asks for it in the current session, and only from the main session; stop when asked
-- Subagents, background agents, and workflows never speak
-- Exception: announce by voice that an agent finished only when the owner explicitly asks for it in that session
-- When speaking, say one or two short sentences in pt-BR (the outcome), not the full reply
+- `speak "text"` (pt-BR, Piper, `scripts/bin/speak`) is off by default: use it only after the owner asks in the current session, only from the main session (never subagents, background agents or workflows), and stop when asked.
+- When speaking, say one or two short pt-BR sentences with the outcome, not the full reply.

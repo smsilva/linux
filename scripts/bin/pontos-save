@@ -27,6 +27,7 @@ FORMAT = 1
 STATE = pathlib.Path(os.environ.get("PONTOS_STATE", pathlib.Path.home() / ".local/state/pontos"))
 CONFIG = pathlib.Path(os.environ.get("PONTOS_CONFIG", pathlib.Path.home() / ".config/pontos"))
 REMOTE = os.environ.get("PONTOS_REMOTE", "gdrive:#pontos")
+PROC = pathlib.Path("/proc")
 ALERT = STATE / "alert"
 # the owners whose repositories are saved; others only when listed in an allow-list
 OWNERS = {"smsilva", "getnereus", "wasp-foundry"}
@@ -1083,6 +1084,35 @@ def without_marker(body):
   return OPEN_QUOTE_LINE.sub(REDACTED, body)
 
 
+def session_pid(session):
+  """The pid of the running claude that holds this session, from agent-name's registry (name, session id, pid); None
+  when no live process holds it."""
+  try:
+    listing = subprocess.run(["agent-name", "list"], capture_output=True, text=True, timeout=10).stdout
+  except (OSError, subprocess.SubprocessError):
+    return None
+  for row in listing.splitlines():
+    fields = row.split()
+    if len(fields) >= 4 and fields[1] == session and fields[2].isdigit() and fields[3] == "alive":
+      return int(fields[2])
+  return None
+
+
+def session_environ(pid):
+  """The environment of a running Claude Code session's process, read from /proc, never printed; None when the pid is
+  not a claude of this user: a build in it holds the session's live values, as one run from the session itself does."""
+  try:
+    if (PROC / str(pid)).stat().st_uid != os.getuid():
+      return None
+    command = (PROC / str(pid) / "cmdline").read_bytes().split(b"\0")[0]
+    raw = (PROC / str(pid) / "environ").read_bytes()
+  except OSError:
+    return None
+  if pathlib.Path(command.decode(errors="replace")).name != "claude":
+    return None
+  return dict(item.decode(errors="surrogateescape").split("=", 1) for item in raw.split(b"\0") if b"=" in item)
+
+
 def command_release(args):
   """The owner's answer to a marker: lists the marked lines of one session's rebuild, masked, and on the count typed at
   a terminal records them by digest, so they lose the marker in this and every later build; a line that was not listed
@@ -1104,6 +1134,24 @@ def command_release(args):
     return 0
   me = me_of(folder.name)
   emails = own_emails(me)
+  if getattr(args, "live", False):
+    # a live session's transcript goes past every build it makes: build here, in its own environment, from the
+    # process agent-name binds to this session id, never one named by hand
+    pid = session_pid(folder.name)
+    environ = session_environ(pid) if pid else None
+    if environ is None:
+      print(f"{folder.name[:8]}: no running claude of this user holds this session, nothing released", file=sys.stderr)
+      return 1
+    os.environ.clear()
+    os.environ.update(environ)
+    if me.get("transcript_path"):
+      write_spool(folder.name, build_session(me), emails)
+      state = load(folder / "state.json")
+      before = state.get("blocked", {})
+      if not before:
+        print(f"{folder.name[:8]}: nothing blocked after a build in the session's environment")
+        upload(folder.name)
+        return 0
   built = build_session(me) if me.get("transcript_path") else []
   if not built:
     print(f"{folder.name[:8]}: no transcript to rebuild from, nothing released", file=sys.stderr)
@@ -1129,7 +1177,7 @@ def command_release(args):
     in_use[key] = set()
     bodies[key] = log_parts(redact(text, emails, digests, used=in_use[key])[0])[1]
     if not path.is_file() or without_marker(log_parts(path.read_text())[1]) != without_marker(bodies[key]):
-      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again: its next turn, or `pontos-save build` run from the session itself, never from another terminal, where a build without its live values writes them in clear. Then run this again", file=sys.stderr)
+      print(f"{key}: the spool and a rebuild here differ, nothing released: the transcript went past the last build, or this terminal lacks a live value. Let the session build again: its next turn, or `pontos-save build` run from the session itself, never from another terminal, where a build without its live values writes them in clear, or from here with `--live`. Then run this again", file=sys.stderr)
       return 1
   for key, listing in listings.items():
     print(key)
@@ -1249,6 +1297,7 @@ def main():
   redacting.set_defaults(run=command_redact)
   releasing = commands.add_parser("release", help="the owner, at a terminal: let the lines the marker keeps blocked go")
   releasing.add_argument("--session", required=True, help="a session id or its first characters, matching one session")
+  releasing.add_argument("--live", action="store_true", help="for a session still alive: build it first in its own environment, read from the process agent-name binds to it")
   releasing.set_defaults(run=command_release)
   noting = commands.add_parser("note", help="add the agent's title, summary (with Radar: lines) or decisions")
   noting.add_argument("kind", choices=NOTES)

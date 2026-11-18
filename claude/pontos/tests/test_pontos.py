@@ -528,14 +528,55 @@ class Pontos(unittest.TestCase):
   def on_drive(self):
     return [path.read_text() for path in (self.root / "drive").rglob("*.md")] if (self.root / "drive").exists() else []
 
-  def release(self, typed):
+  def release(self, typed, live=False):
     """Runs release as from a terminal where the owner types `typed`; returns its exit code and what it printed."""
     class Terminal(io.StringIO):
       def isatty(self):
         return True
-    with mock.patch("sys.stdin", new=Terminal(typed)), mock.patch("sys.stdout", new=io.StringIO()) as printed:
-      code = self.pontos.command_release(type("Args", (), {"session": self.session[:8]}))
+    with mock.patch("sys.stdin", new=Terminal(typed)), mock.patch("sys.stdout", new=io.StringIO()) as printed, mock.patch.dict(os.environ):
+      code = self.pontos.command_release(type("Args", (), {"session": self.session[:8], "live": live}))
     return code, printed.getvalue()
+
+  def session_process(self, environ, command="claude"):
+    """A fake /proc entry for a running session's process; returns its pid."""
+    self.pontos.PROC = self.root / "proc"
+    folder = self.pontos.PROC / "4242"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "cmdline").write_bytes(f"{command}\0--name\0cymo\0".encode())
+    (folder / "environ").write_bytes(b"".join(f"{name}={value}\0".encode() for name, value in environ.items()))
+    self.pontos.session_pid = lambda session: 4242 if session == self.session else None
+    return 4242
+
+  def test_release_live_builds_a_live_session_again_and_releases(self):
+    # a live session writes past every build it makes; --pid builds again in its environment first
+    self.marked_log()
+    self.rewrite_transcript(f"{self.MARKED}\n\nwritten after the last build")
+    self.session_process({"PATH": os.environ["PATH"]})
+    code, printed = self.release("1\n", live=True)
+    self.assertEqual(code, 0, printed)
+    self.assertFalse(self.state().get("blocked"))
+    self.assertTrue(any("written after the last build" in copy for copy in self.on_drive()))
+
+  def test_release_live_hides_the_session_live_value_this_terminal_lacks(self):
+    live = "live-value-of-the-token-1234567890"
+    with mock.patch.dict(os.environ, {"GITHUB_TOKEN": live}):
+      self.marked_log(f"{self.MARKED}\n\n{live} in a sentence")
+    with mock.patch.dict(os.environ):
+      os.environ.pop("GITHUB_TOKEN", None)
+      self.session_process({"PATH": os.environ["PATH"], "GITHUB_TOKEN": live})
+      self.assertEqual(self.release("1\n", live=True)[0], 0)
+    self.assertTrue(self.on_drive())
+    self.assertFalse(any(live in copy for copy in self.on_drive()))
+
+  def test_release_live_refuses_a_session_no_running_claude_holds_and_changes_nothing(self):
+    self.marked_log()
+    before = self.state()
+    self.session_process({"PATH": "/usr/bin"}, command="bash")
+    self.assertEqual(self.release("1\n", live=True)[0], 1)
+    self.pontos.session_pid = lambda session: None
+    self.assertEqual(self.release("1\n", live=True)[0], 1)
+    self.assertEqual(self.state(), before)
+    self.assertEqual(self.on_drive(), [])
 
   def test_release_without_a_terminal_refuses_and_changes_nothing(self):
     self.marked_log()

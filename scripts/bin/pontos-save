@@ -28,6 +28,14 @@ STATE = pathlib.Path(os.environ.get("PONTOS_STATE", pathlib.Path.home() / ".loca
 CONFIG = pathlib.Path(os.environ.get("PONTOS_CONFIG", pathlib.Path.home() / ".config/pontos"))
 REMOTE = os.environ.get("PONTOS_REMOTE", "gdrive:#pontos")
 PROC = pathlib.Path("/proc")
+# a live session's environment, read by `release --live`: its values are checked and hidden next to this process's own
+SESSION_ENVIRON = {}
+
+
+def live_values():
+  """Every (name, value) the check and the redact treat as live: this process's environment and, after
+  `release --live`, the session's, so neither hides what the other holds."""
+  return [*os.environ.items(), *SESSION_ENVIRON.items()]
 ALERT = STATE / "alert"
 # the owners whose repositories are saved; others only when listed in an allow-list
 OWNERS = {"smsilva", "getnereus", "wasp-foundry"}
@@ -501,7 +509,7 @@ def check(text, own_emails=()):
   for match in EMAIL.finditer(text):
     if not EMAIL_ALLOWED.search(match.group(0)) and match.group(0).lower() not in {email.lower() for email in own_emails}:
       problems.append(f"an e-mail address: {match.group(0)[:6]}...")
-  for name, value in os.environ.items():
+  for name, value in live_values():
     if SECRET_ENV.search(name) and len(value) >= 12 and value in text:
       problems.append(f"the live value of ${name}")
   for word in denied():
@@ -708,7 +716,7 @@ def redact(text, own_emails=(), released=(), listing=None, used=None):
     return REDACTED
 
   # the live values and names first, whole, before a pattern can cut one in two
-  for name, live in os.environ.items():
+  for name, live in live_values():
     if SECRET_ENV.search(name) and len(live) >= 12 and live in text:
       count += text.count(live)
       text = text.replace(live, REDACTED)
@@ -1019,8 +1027,8 @@ LIVE_VALUE = "the live value of $"
 
 def proves_live_value(name, before):
   """Whether this environment holds a value of that variable the check would have refused in the text."""
-  value = os.environ.get(name)
-  return value is not None and bool(SECRET_ENV.search(name)) and len(value) >= 12 and value in before
+  return bool(SECRET_ENV.search(name)) and any(
+    value is not None and len(value) >= 12 and value in before for value in (os.environ.get(name), SESSION_ENVIRON.get(name)))
 
 
 def unproven(reasons, before, count):
@@ -1142,8 +1150,8 @@ def command_release(args):
     if environ is None:
       print(f"{folder.name[:8]}: no running claude of this user holds this session, nothing released", file=sys.stderr)
       return 1
-    os.environ.clear()
-    os.environ.update(environ)
+    # added, never swapped: this terminal keeps its PATH and its own values, and the session's join them
+    SESSION_ENVIRON.update(environ)
     if me.get("transcript_path"):
       write_spool(folder.name, build_session(me), emails)
       state = load(folder / "state.json")

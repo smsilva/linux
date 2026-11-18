@@ -568,6 +568,19 @@ class Pontos(unittest.TestCase):
     self.assertTrue(self.on_drive())
     self.assertFalse(any(live in copy for copy in self.on_drive()))
 
+  def test_release_live_keeps_hiding_this_terminal_values_and_keeps_its_environment(self):
+    # the session's environment joins this terminal's, never replaces it
+    mine = "terminal-only-value-of-the-token-0987654321"
+    with mock.patch.dict(os.environ, {"NPM_TOKEN": mine}):
+      self.marked_log()
+      self.rewrite_transcript(f"{self.MARKED}\n\n{mine} in a later turn")
+      self.session_process({"PATH": "/session/bin"})
+      self.assertEqual(self.release("1\n", live=True)[0], 0)
+      self.assertEqual(os.environ["NPM_TOKEN"], mine)
+      self.assertNotEqual(os.environ["PATH"], "/session/bin")
+    self.assertTrue(self.on_drive())
+    self.assertFalse(any(mine in copy for copy in self.on_drive()))
+
   def test_release_live_refuses_a_session_no_running_claude_holds_and_changes_nothing(self):
     self.marked_log()
     before = self.state()

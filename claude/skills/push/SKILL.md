@@ -30,4 +30,5 @@ The owner is leaving the screen and wants one push notification on the phone whe
 - A "not sent" result means the owner is at the terminal or notifications are off: say nothing about it and go on.
 - The order holds across background runs: when a background command or agent is what the task waits for, send the push in the turn its notification arrives and the rest of the task is finished.
 - Only the main session sends it; a subagent or a workflow reports to its session, which pushes.
+- `/ship push` is this order chained after `ship`: the push comes when `ship` ends, merged or stopped (`claude/skills/ship/SKILL.md`, "Options").
 - It adds to the anchored-session rule of `claude/rules/communication.md` (a push whenever a task ends on something the owner must answer); it never replaces it.

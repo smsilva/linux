@@ -1,10 +1,14 @@
 ---
 name: ship
-description: Commits pending changes, pushes, opens the PR and rebase-merges it into main ("commit push pr complete")
+description: Commits pending changes, pushes, opens the PR and rebase-merges it into main ("commit push pr complete"); `/ship push` then sends one push notification when it ends
 disable-model-invocation: true
 ---
 
 Take the working tree all the way to `main` in one go. Stop and report on any failure — never force past a failing hook, check, or merge.
+
+## Options
+
+- **`push`** (`/ship push`): run this skill and then the `push` skill, in sequence, with no further question (owner, 2026-11-18). "Done" for the push is the end of this skill: the merge announced (step 7), or the step it stopped on. Send exactly one `PushNotification` as the `push` skill says, leading with the PR and its short description and the outcome (merged sha, or the failure and what the owner must do).
 
 ## Steps
 

@@ -27,6 +27,8 @@ if [[ ! -e "${git_global_templates}" ]]; then
   git config --global init.templatedir "${git_global_templates}"
 fi
 
+mkdir --parents "${HOME}/.claude"
+
 [[ -f "${claude_global_md_file}" ]] && rm "${claude_global_md_file}"
 
 if [[ ! -e "${claude_global_md_file}" ]]; then

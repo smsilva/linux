@@ -113,6 +113,11 @@ scripts/sudoers/setup.sh "${current_username?}"
 scripts/vscode/install.sh
 scripts/utilities/install.sh
 
+# Closing the laptop lid does nothing (only on machines with a lid)
+if compgen -G "/proc/acpi/button/lid/*" > /dev/null; then
+  scripts/bin/lid-close-ignore
+fi
+
 source ${HOME}/.bashrc
 
 echo "Done"

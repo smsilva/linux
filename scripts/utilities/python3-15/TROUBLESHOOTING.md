@@ -1,4 +1,4 @@
-# Troubleshooting: Instalação do Python 3.14 via deadsnakes PPA
+# Troubleshooting: Instalação do Python 3.15 via deadsnakes PPA
 
 ## Problema 1: `add-apt-repository` trava com timeout
 
@@ -35,5 +35,5 @@ echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble main" \
 
 # 3. Atualiza e instala
 sudo apt-get update -q
-sudo apt-get install --yes python3.14 python3.14-dev python3.14-venv
+sudo apt-get install --yes python3.15 python3.15-dev python3.15-venv
 ```

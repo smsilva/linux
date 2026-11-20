@@ -6,8 +6,9 @@ android_platform_tools_directory="${HOME}/Android/Sdk/platform-tools"
 lmstudio_bin_directory="${HOME}/.lmstudio/bin"
 flow_cli_bin_directory="${HOME}/.nvm/versions/node/v24.14.0/bin"
 
-export CLAUDE_CONTEXT_THRESHOLD_WARNING=50
-export CLAUDE_CONTEXT_THRESHOLD_CRITICAL=70
+export CLAUDE_CONTEXT_TOKENS_REFERENCE=300000  # the context a session may reach before a save and /clear
+export CLAUDE_CONTEXT_THRESHOLD_WARNING=60
+export CLAUDE_CONTEXT_THRESHOLD_CRITICAL=80
 
 export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CAUTION=45
 export CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_WARNING=60

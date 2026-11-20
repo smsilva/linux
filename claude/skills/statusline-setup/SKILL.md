@@ -31,9 +31,7 @@ The script reads a JSON payload from stdin. Fields used, with their fallback def
 |---------|---------|----------|
 | `.workspace.current_dir` | `""` | location display, fallback git root |
 | `.workspace.project_dir` | `""` | git root, repo name |
-| `.context_window.used_percentage` | `0` | ctx % display and thresholds |
-| `.context_window.total_input_tokens` | `0` | total tokens segment (input side) |
-| `.context_window.total_output_tokens` | `0` | total tokens segment (output side) |
+| `.context_window.total_input_tokens` | `0` | context tokens and their share of `CLAUDE_CONTEXT_TOKENS_REFERENCE` |
 | `.model.display_name` | `"N/A"` | model segment |
 | `.rate_limits.five_hour.used_percentage` / `.resets_at` | empty | 5-hour session limit % and reset time (epoch seconds); segment omitted when absent (API-key accounts) |
 | `.rate_limits.seven_day.used_percentage` / `.resets_at` | empty | weekly limit % and reset time |
@@ -73,7 +71,7 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 ## Segment layout
 
 ```
-[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ≡ ctx% ] ▶ [ ◈ tokens ] ▶ [ ◔ time ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶ [ model ] ▶
+[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ✦ model ] ▶ [ ◈ tokens % time ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶
 ```
 
 | Seg | Content | Background | Notes |
@@ -81,14 +79,12 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 | 0 | `⚠ pontos` | 160 (red) | only when a raw log is not on Drive |
 | 1 | `repo/subfolder` | 31 (dark blue) | bold text |
 | 2 | `branch  git-status` | 236 (#303030) | omitted if not a git repo |
-| 3 | `≡ 33%` | dynamic (green/yellow/red) | context window % |
-| 4 | `◈ 15k` | 244 (#808080) | total tokens (input+output) |
-| 5 | `◔ 5m` | dynamic (green/amber/orange/bordeaux) | session uptime |
-| 6 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
-| 7 | `5d12h 15% ↻ Mon 01:00` | 239 (#4e4e4e) | weekly limit; omitted when hidden or absent |
-| 8 | `today 69,6% of 23%` | 235 (#262626) | share of today's goal, shown with the weekly limit |
-| 9 | `forecast 71,2% steady` | 237 (#3a3a3a) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
-| 10 | `model name` | 238 (#444444) | gray text |
+| 3 | `✦ Opus 5.5` | 237 (#3a3a3a) | model name, gray text |
+| 4 | `◈ 94k 31% 24m` | 238 (#444444) | context tokens, their share of the reference and the session time; only the percentage and the time carry color |
+| 5 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
+| 6 | `5d12h 15% ↻ Mon 01:00` | 239 (#4e4e4e) | weekly limit; omitted when hidden or absent |
+| 7 | `today 69,6% of 23%` | 235 (#262626) | share of today's goal, shown with the weekly limit |
+| 8 | `forecast 71,2% steady` | 237 (#3a3a3a) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
 
 All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
 
@@ -109,22 +105,13 @@ printf "\033[0m\033[38;5;<last_bg>m%s\033[0m" "${sep}"
 
 ## Dynamic segments
 
-### Context window % (seg 3)
+### Context tokens (seg 4)
 
-Three states based on `ctx_threshold_critical` and `ctx_threshold_warning` (see script top). Colors: `2`=green, `3`=yellow, `1`=red. All use foreground index `0` (black).
+The percentage is `total_input_tokens` over `CLAUDE_CONTEXT_TOKENS_REFERENCE` (default 300000, set in `scripts/bash_config`): the context a session may reach before a save and `/clear`, not the model's window. The Nereus `UserPromptSubmit` hook (`scripts/metrics/tokens`) reads the same variable for its warning. The percentage text is 114 (green) below `CLAUDE_CONTEXT_THRESHOLD_WARNING` (60), 221 (amber) up to `CLAUDE_CONTEXT_THRESHOLD_CRITICAL` (80), 203 (salmon) from there.
 
-### Session time (seg 8)
+### Session time (seg 4)
 
-Four states based on three thresholds (see script top). Colors and foregrounds:
-
-| State | bg | fg index | Visual |
-|-------|----|----|--------|
-| normal | 114 | 0 (black) | green |
-| caution | 221 | 0 (black) | amber |
-| warning | 215 | 0 (black) | orange |
-| critical | 88 | 15 (white) | bordeaux |
-
-White foreground (15) on bordeaux (88) is intentional — black fails contrast on a dark background. See VS Code contrast rule below.
+The time shares the context segment, so only its text carries the color: 114 (green), 221 (amber) from the caution threshold, 215 (orange) from the warning threshold, 203 (salmon) from the critical threshold (see script top).
 
 ## Branch segment logic
 

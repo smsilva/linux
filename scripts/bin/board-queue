@@ -1,0 +1,601 @@
+#!/usr/bin/env bash
+# The work queue of a repository's GitHub Project (smsilva/linux#203, from getnereus/nereus's scripts/board/queue).
+# The board comes from the front matter of the repository's .claude/next.md, read by the global next skill; the
+# project, its Status field and its options are looked up by name, so a board needs no ids written anywhere.
+# The GraphQL queries are single-quoted on purpose: their $variables belong to GraphQL, not to the shell.
+# shellcheck disable=SC2016
+
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+PATH="${this_script_path%/*}:${PATH}"
+
+show_usage() {
+  cat <<EOF
+
+  The work queue of the repository's GitHub Project, in board order (the top of a column first)
+
+    Commands:
+
+      next [--filter <field>=<value>] [--new]
+                             My In Progress items (the active gh account is "me"); with none, or with --new,
+                             the top of Todo with no assignee, no open sub-issues, no open dependency and no
+                             feat/<n>-* branch on origin. Read only: claim takes it
+      claim <issue>          Assign me and set In Progress; refuses an issue someone else holds or with an open
+                             dependency, and loses a simultaneous claim by login order
+      release <issue>        Remove me as assignee and send the issue back to Todo
+      mine                   My In Progress items
+      team                   In Progress items by assignee, with the first configured field of each
+      list [--status <s>]    Open items in board order, all columns or one
+      status <issue> <s>     Set the Status by its name ("In Progress" keeps the dependency check of claim)
+      move <issue> --top     Move the issue to the top of the board
+      move <issue> --after <other>
+                             Move the issue right after another one
+      doctor [--days <n>]    Board health: In Progress without assignee or closed, Todo or Backlog with an
+                             assignee, In Progress not updated for n days (default 7). Exits 1 on a finding
+      config                 Print the board this repository's .claude/next.md names
+
+    Options:
+
+      --config <file>   The configuration (default: .claude/next.md at the top of the current git checkout)
+      --help            Show this help
+
+    Configuration (the front matter of .claude/next.md):
+
+      board: github-project
+      owner: getnereus           # the organization or user that owns the project
+      number: 1                  # the project's number
+      repository: getnereus/nereus
+      fields: [Track, Theme]     # single-select fields for --filter and team
+
+    Examples:
+
+      ${this_script_name} next
+
+      ${this_script_name} next --filter Track=docs
+
+      ${this_script_name} claim 204
+
+      ${this_script_name} status 204 Todo
+
+EOF
+}
+
+# What an issue depends on, from {number, body, parent: {number}, blockedBy: {nodes: [{number, state}]}}:
+# {declared: the numbers of its "Depends on #n" lines, state still to look up; native: the open numbers of blockedBy}.
+# Neither holds the issue itself nor its parent. Prose never blocks: only a list of #n right after "Depends on" counts.
+dependencies_filter='
+def without_code:
+  reduce ((. // "") | split("\n")[]) as $line (
+    {fenced: false, lines: []};
+    if ($line | test("^\\s*```")) then .fenced |= not
+    elif .fenced then .
+    else .lines += [$line | gsub("`[^`]*`"; "")]
+    end
+  ) | .lines;
+
+def declared_numbers:
+  [ .[]
+    | scan("\\bDepends on:?\\s+((?:#\\d+(?:\\s*\\([^)]*\\))?(?:\\s*,\\s*(?:and\\s+)?(?:on\\s+)?|\\s+and\\s+(?:on\\s+)?)?)+)")[0]
+    | gsub("\\([^)]*\\)"; "")
+    | scan("#(\\d+)")[0]
+    | tonumber ];
+
+def in_order:
+  reduce .[] as $n ([]; if index($n) then . else . + [$n] end);
+
+[.number, .parent.number] as $never_blocks
+| {
+    declared: (.body | without_code | declared_numbers | in_order | map(select(. as $n | $never_blocks | index($n) | not))),
+    native: ([(.blockedBy.nodes // [])[] | select(.state == "OPEN") | .number] | in_order | map(select(. as $n | $never_blocks | index($n) | not)))
+  }
+'
+
+fail() {
+  echo "${this_script_name}: ${1}" >&2
+  exit 1
+}
+
+# Reads the board from the configuration; every value is checked, since a cloned repository wrote it
+load_config() {
+  local config_file="${1}"
+  local top_level
+  local board
+
+  if [ -z "${config_file}" ]; then
+    top_level="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "not inside a git checkout: pass --config <file>"
+    config_file="${top_level}/.claude/next.md"
+  fi
+
+  [ -f "${config_file}" ] || fail "no ${config_file}: this repository names no board"
+
+  board="$(yq --front-matter=extract '.board // ""' "${config_file}" 2>/dev/null)" || fail "cannot read the front matter of ${config_file}"
+  [[ "${board}" == "github-project" ]] || fail "${config_file} says board: ${board:-none}; this command reads a github-project board"
+
+  OWNER="$(yq --front-matter=extract '.owner // ""' "${config_file}")"
+  PROJECT_NUMBER="$(yq --front-matter=extract '.number // ""' "${config_file}")"
+  REPO="$(yq --front-matter=extract '.repository // ""' "${config_file}")"
+  FIELDS="$(yq --front-matter=extract --output-format=json --indent 0 '.fields // []' "${config_file}")"
+
+  [[ "${OWNER}" =~ ^[A-Za-z0-9][A-Za-z0-9-]*$ ]] || fail "owner '${OWNER}' in ${config_file} is not a GitHub login"
+  [[ "${PROJECT_NUMBER}" =~ ^[1-9][0-9]*$ ]] || fail "number '${PROJECT_NUMBER}' in ${config_file} is not a project number"
+  [[ "${REPO}" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$ ]] || fail "repository '${REPO}' in ${config_file} is not owner/name"
+  jq --exit-status 'type == "array" and all(.[]; type == "string")' <<< "${FIELDS}" > /dev/null || fail "fields in ${config_file} is not a list of names"
+}
+
+show_config() {
+  printf 'owner: %s\nnumber: %s\nrepository: %s\nfields: %s\n' "${OWNER}" "${PROJECT_NUMBER}" "${REPO}" "$(jq --raw-output 'join(", ")' <<< "${FIELDS}")"
+}
+
+me() {
+  gh api user --jq .login
+}
+
+# The board's items in position order: {id, status, number, title, state, updated, fields: {name: value}, assignees, open_sub_issues}
+items_json() {
+  gh api graphql --paginate \
+    --field owner="${OWNER}" \
+    --field number="${PROJECT_NUMBER}" \
+    --raw-field query='
+      query($owner: String!, $number: Int!, $endCursor: String) {
+        repositoryOwner(login: $owner) {
+          ... on ProjectV2Owner {
+            projectV2(number: $number) {
+              items(first: 100, after: $endCursor, orderBy: {field: POSITION, direction: ASC}) {
+                pageInfo { hasNextPage endCursor }
+                nodes {
+                  id
+                  fieldValues(first: 30) {
+                    nodes {
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        name
+                        field { ... on ProjectV2FieldCommon { name } }
+                      }
+                    }
+                  }
+                  content {
+                    ... on Issue {
+                      number title state updatedAt
+                      subIssuesSummary { total completed }
+                      assignees(first: 10) { nodes { login } }
+                    }
+                    ... on PullRequest { number title state }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }' \
+    --jq '.data.repositoryOwner.projectV2.items.nodes[]
+      | ([.fieldValues.nodes[] | select(.field.name != null) | {key: .field.name, value: .name}] | from_entries) as $fields
+      | {id, status: ($fields.Status // "No Status"), number: .content.number,
+         title: .content.title, state: .content.state, updated: .content.updatedAt,
+         fields: $fields,
+         assignees: [(.content.assignees.nodes // [])[].login],
+         open_sub_issues: ((.content.subIssuesSummary.total // 0) - (.content.subIssuesSummary.completed // 0))}' \
+    | jq --slurp '.'
+}
+
+# The project's id, the Status field's id and its options: {project, field, options: {name: id}}
+status_field_json() {
+  gh api graphql \
+    --field owner="${OWNER}" \
+    --field number="${PROJECT_NUMBER}" \
+    --raw-field query='
+      query($owner: String!, $number: Int!) {
+        repositoryOwner(login: $owner) {
+          ... on ProjectV2Owner {
+            projectV2(number: $number) {
+              id
+              field(name: "Status") {
+                ... on ProjectV2SingleSelectField { id options { id name } }
+              }
+            }
+          }
+        }
+      }' \
+    --jq '.data.repositoryOwner.projectV2
+      | {project: .id, field: .field.id, options: ([.field.options[] | {key: .name, value: .id}] | from_entries)}'
+}
+
+item_id() {
+  local issue="${1?}"
+  local id
+
+  id="$(items_json | jq --raw-output --argjson n "${issue}" '.[] | select(.number == $n) | .id')"
+  [ -n "${id}" ] || fail "#${issue} is not on board #${PROJECT_NUMBER} of ${OWNER}"
+  echo "${id}"
+}
+
+print_items() {
+  jq --raw-output '.[] | "\(.status)\t#\(.number)\t\(.title)"' | column -t -s $'\t'
+}
+
+list_items() {
+  local status="${1}"
+
+  items_json \
+    | jq --arg status "${status}" '[.[] | select(.state == "OPEN") | select($status == "" or .status == $status)]' \
+    | print_items
+}
+
+# Prints "#a, #b", what still holds the issue back: the open issues of its "Depends on" lines and of the native
+# blockedBy. Fails closed: an answer it cannot read exits 1 ("|| exit 1": a command substitution drops the exit)
+open_dependencies() {
+  local issue="${1?}"
+  local details
+  local found
+  local fields
+  local response
+  local states="{}"
+
+  details="$(gh api graphql \
+    --field owner="${REPO%%/*}" \
+    --field name="${REPO#*/}" \
+    --field number="${issue}" \
+    --raw-field query='
+      query($owner: String!, $name: String!, $number: Int!) {
+        repository(owner: $owner, name: $name) {
+          issueOrPullRequest(number: $number) {
+            ... on Issue {
+              number body
+              parent { number }
+              blockedBy(first: 50) { nodes { number state } }
+            }
+            ... on PullRequest { number body }
+          }
+        }
+      }' \
+    --jq '.data.repository.issueOrPullRequest')" || exit 1
+
+  found="$(jq --compact-output "${dependencies_filter}" <<< "${details}")" || exit 1
+
+  fields="$(jq --raw-output '.declared[] | "i\(.): issueOrPullRequest(number: \(.)) { ... on Issue { state } ... on PullRequest { state } }"' <<< "${found}")"
+
+  if [ -n "${fields}" ]; then
+    # A number that does not exist makes gh exit 1 with the raw response and no --jq: NOT_FOUND does not block,
+    # any other error stops here
+    response="$(gh api graphql \
+      --field owner="${REPO%%/*}" \
+      --field name="${REPO#*/}" \
+      --raw-field query="query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { ${fields} } }" \
+      2>/dev/null)" || true
+
+    if ! jq --exit-status '.data.repository != null and ([.errors[]? | select(.type != "NOT_FOUND")] == [])' <<< "${response}" > /dev/null 2>&1; then
+      fail "cannot read the dependencies of #${issue}"
+    fi
+
+    states="$(jq --compact-output '.data.repository' <<< "${response}")"
+  fi
+
+  jq --raw-output --argjson states "${states}" \
+    'reduce ((.declared[] | select($states["i\(.)"].state == "OPEN")), .native[]) as $n ([]; if index($n) then . else . + [$n] end)
+     | map("#\(.)") | join(", ")' <<< "${found}"
+}
+
+check_dependencies() {
+  local issue="${1?}"
+  local open
+
+  open="$(open_dependencies "${issue}")" || exit 1
+  [ -z "${open}" ] || fail "#${issue} depends on ${open}, still open"
+}
+
+has_foreign_branch() {
+  [ -n "$(git ls-remote --heads origin "feat/${1?}-*" 2>/dev/null)" ]
+}
+
+warn_orphans() {
+  local orphans
+
+  orphans="$(jq '[.[] | select(.state == "OPEN") | select(.status == "In Progress") | select(.assignees == [])] | length' <<< "${1?}")"
+  if [ "${orphans}" -gt 0 ]; then
+    echo "warning: ${orphans} In Progress without assignee: run '${this_script_name} doctor'" >&2
+  fi
+}
+
+next_items() {
+  local filters="{}"
+  local new="false"
+  local login
+  local all_items
+  local items
+  local mine
+  local candidates
+  local name
+  local value
+  local number
+  local open
+
+  while [[ "$#" -gt 0 ]]; do
+    case "${1}" in
+      --filter )
+        [[ "${2}" == *=* ]] || fail "--filter takes <field>=<value>, not '${2}'"
+        filters="$(jq --compact-output --arg name "${2%%=*}" --arg value "${2#*=}" '. + {($name): $value}' <<< "${filters}")"
+        shift 2
+        ;;
+      --new ) new="true"; shift ;;
+      * ) fail "unknown option: ${1}" ;;
+    esac
+  done
+
+  login="$(me)"
+  all_items="$(items_json)"
+
+  # A typo in a filter would otherwise look like an empty queue
+  while IFS=$'\t' read -r name value; do
+    [ -z "${name}" ] && continue
+    if ! jq --exit-status --arg name "${name}" --arg value "${value}" 'any(.[]; (.fields[$name] // "" | ascii_downcase) == ($value | ascii_downcase))' <<< "${all_items}" > /dev/null; then
+      echo "${this_script_name}: no item on the board has ${name} '${value}'. Values in use:" >&2
+      jq --raw-output --arg name "${name}" '[.[].fields[$name] // empty] | unique[]' <<< "${all_items}" | sed 's/^/  /' >&2
+      exit 1
+    fi
+  done < <(jq --raw-output 'to_entries[] | "\(.key)\t\(.value)"' <<< "${filters}")
+
+  warn_orphans "${all_items}"
+
+  # A parent with open sub-issues is a container: the work is its sub-issues
+  items="$(jq '[.[] | select(.state == "OPEN") | select(.open_sub_issues == 0)]' <<< "${all_items}")"
+  mine="$(jq --arg me "${login}" '[.[] | select(.status == "In Progress") | select(.assignees | index($me))]' <<< "${items}")"
+
+  # With items In Progress, those are the next, whatever the filters, unless --new asks for one more
+  if [[ "${new}" == "false" ]] && [ "$(jq 'length' <<< "${mine}")" -gt 0 ]; then
+    print_items <<< "${mine}"
+    return
+  fi
+
+  candidates="$(jq --argjson filters "${filters}" '
+    [.[] | select(.status == "Todo") | select(.assignees == [])
+       | . as $item
+       | select(all($filters | to_entries[]; ($item.fields[.key] // "" | ascii_downcase) == (.value | ascii_downcase)))]' <<< "${items}")"
+
+  for number in $(jq --raw-output '.[].number' <<< "${candidates}"); do
+    has_foreign_branch "${number}" && continue
+
+    # Its own line: a failed lookup stops here, where [ -n "$(...)" ] would read it as no dependency
+    open="$(open_dependencies "${number}")" || exit 1
+
+    if [ -z "${open}" ]; then
+      jq --argjson n "${number}" '[.[] | select(.number == $n)]' <<< "${candidates}" | print_items
+      return
+    fi
+  done
+}
+
+set_status() {
+  local issue="${1?}"
+  local status="${2?}"
+  local board
+  local option
+
+  board="$(status_field_json)" || fail "cannot read the Status field of board #${PROJECT_NUMBER}"
+  option="$(jq --raw-output --arg status "${status}" '.options[$status] // empty' <<< "${board}")"
+
+  if [ -z "${option}" ]; then
+    echo "${this_script_name}: unknown status '${status}'. The board has:" >&2
+    jq --raw-output '.options | keys_unsorted[]' <<< "${board}" | sed 's/^/  /' >&2
+    exit 1
+  fi
+
+  gh project item-edit \
+    --id "$(item_id "${issue}")" \
+    --project-id "$(jq --raw-output '.project' <<< "${board}")" \
+    --field-id "$(jq --raw-output '.field' <<< "${board}")" \
+    --single-select-option-id "${option}" > /dev/null || fail "cannot set #${issue} to ${status}"
+  echo "#${issue} is ${status}"
+}
+
+claim_item() {
+  local issue="${1?}"
+  local login
+  local holders
+  local first
+
+  login="$(me)"
+  item_id "${issue}" > /dev/null
+  holders="$(gh api "repos/${REPO}/issues/${issue}" --jq '[.assignees[].login]')"
+
+  if [ "$(jq --arg me "${login}" '[.[] | select(. != $me)] | length' <<< "${holders}")" -gt 0 ]; then
+    fail "#${issue} is held by $(jq --raw-output 'join(", ")' <<< "${holders}")"
+  fi
+
+  check_dependencies "${issue}"
+
+  gh api --method POST "repos/${REPO}/issues/${issue}/assignees" --raw-field "assignees[]=${login}" > /dev/null || fail "cannot assign #${issue}"
+
+  # Two simultaneous claims both succeed on GitHub: the smaller login keeps it, the other backs off
+  holders="$(gh api "repos/${REPO}/issues/${issue}" --jq '[.assignees[].login] | sort')"
+  first="$(jq --raw-output '.[0]' <<< "${holders}")"
+
+  if [[ "${first}" != "${login}" ]]; then
+    gh api --method DELETE "repos/${REPO}/issues/${issue}/assignees" --raw-field "assignees[]=${login}" > /dev/null
+    fail "#${issue} was claimed at the same time by ${first}"
+  fi
+
+  set_status "${issue}" "In Progress" > /dev/null
+  echo "#${issue} is yours (In Progress, assignee ${login})"
+}
+
+release_item() {
+  local issue="${1?}"
+  local login
+
+  login="$(me)"
+  gh api --method DELETE "repos/${REPO}/issues/${issue}/assignees" --raw-field "assignees[]=${login}" > /dev/null || fail "cannot unassign #${issue}"
+  set_status "${issue}" "Todo" > /dev/null
+  echo "#${issue} released (Todo, ${login} removed)"
+}
+
+mine_items() {
+  local login
+
+  login="$(me)"
+  items_json \
+    | jq --arg me "${login}" '[.[] | select(.state == "OPEN") | select(.open_sub_issues == 0) | select(.status == "In Progress") | select(.assignees | index($me))]' \
+    | print_items
+}
+
+team_items() {
+  items_json \
+    | jq --raw-output --argjson fields "${FIELDS}" '
+      [.[] | select(.state == "OPEN") | select(.status == "In Progress")]
+      | [.[] | . as $i | (if .assignees == [] then ["(nobody)"] else .assignees end)[] | {who: ., item: $i}]
+      | group_by(.who)[]
+      | "\(.[0].who) (\(length))\t" + ([.[] | "#\(.item.number)" + (if $fields == [] then "" else " [\(.item.fields[$fields[0]] // "")]" end)] | join(", "))' \
+    | column -t -s $'\t'
+}
+
+doctor() {
+  local days=7
+  local items
+  local findings
+
+  while [[ "$#" -gt 0 ]]; do
+    case "${1}" in
+      --days ) days="${2?}"; shift 2 ;;
+      * ) fail "unknown option: ${1}" ;;
+    esac
+  done
+
+  [[ "${days}" =~ ^[1-9][0-9]*$ ]] || fail "--days takes a positive whole number, not '${days}'"
+  items="$(items_json)"
+
+  findings="$(jq --raw-output --argjson days "${days}" '
+    .[]
+    | if .status == "In Progress" and .state == "OPEN" and .assignees == [] then "In Progress without assignee: #\(.number) \(.title)"
+      elif .status == "In Progress" and .state != "OPEN" then "In Progress but closed: #\(.number) \(.title)"
+      elif (.status == "Todo" or .status == "Backlog") and .state == "OPEN" and .assignees != [] then "\(.status) with assignee (forgotten claim?): #\(.number) \(.assignees | join(","))"
+      elif .status == "In Progress" and .state == "OPEN" and ((now - (.updated | fromdateiso8601)) > ($days * 86400)) then "In Progress stale for more than \($days) days: #\(.number) \(.assignees | join(","))"
+      else empty end' <<< "${items}")"
+
+  if [ -n "${findings}" ]; then
+    printf '%s\n' "${findings}"
+    exit 1
+  fi
+  echo "board healthy"
+}
+
+move_item() {
+  local issue="${1?}"
+  local after="${2}"
+  local board
+  local id
+  local after_id
+
+  board="$(status_field_json)" || fail "cannot read board #${PROJECT_NUMBER}"
+  id="$(item_id "${issue}")"
+
+  if [ -n "${after}" ]; then
+    after_id="$(item_id "${after}")"
+    gh api graphql \
+      --field project="$(jq --raw-output '.project' <<< "${board}")" \
+      --field item="${id}" \
+      --field after="${after_id}" \
+      --raw-field query='
+        mutation($project: ID!, $item: ID!, $after: ID!) {
+          updateProjectV2ItemPosition(input: {projectId: $project, itemId: $item, afterId: $after}) { clientMutationId }
+        }' > /dev/null || fail "cannot move #${issue}"
+    echo "#${issue} moved after #${after}"
+  else
+    gh api graphql \
+      --field project="$(jq --raw-output '.project' <<< "${board}")" \
+      --field item="${id}" \
+      --raw-field query='
+        mutation($project: ID!, $item: ID!) {
+          updateProjectV2ItemPosition(input: {projectId: $project, itemId: $item}) { clientMutationId }
+        }' > /dev/null || fail "cannot move #${issue}"
+    echo "#${issue} moved to the top"
+  fi
+}
+
+# Fails early with the fix instead of the raw GraphQL scope error, or a "board not found" that means the wrong account
+check_auth() {
+  local response
+  local login
+  local scopes
+  local visible
+
+  response="$(gh api -i user 2>&1)" || fail "gh is not authenticated: run 'gh auth login'"
+  login="$(sed -n '/^{/,$p' <<< "${response}" | jq --raw-output '.login')"
+  scopes="$(grep -i '^x-oauth-scopes:' <<< "${response}" | cut -d: -f2- | tr -d ' \r')"
+
+  # Fine-grained tokens send no X-OAuth-Scopes header: the board check below still applies
+  if [ -n "${scopes}" ] && [[ ",${scopes}," != *",project,"* ]] && [[ ",${scopes}," != *",read:project,"* ]]; then
+    echo "${this_script_name}: the gh token of ${login} lacks the 'project' scope (has: ${scopes})." >&2
+    echo "Run: gh auth refresh -h github.com -s project" >&2
+    exit 1
+  fi
+
+  visible="$(gh api graphql \
+    --field owner="${OWNER}" \
+    --field number="${PROJECT_NUMBER}" \
+    --raw-field query='query($owner: String!, $number: Int!) { repositoryOwner(login: $owner) { ... on ProjectV2Owner { projectV2(number: $number) { id } } } }' \
+    --jq '.data.repositoryOwner.projectV2.id // empty' 2>/dev/null)"
+
+  if [ -z "${visible}" ]; then
+    echo "${this_script_name}: ${login} cannot see board #${PROJECT_NUMBER} of ${OWNER}." >&2
+    echo "Check the active account ('gh auth switch') and that ${login} can open the board." >&2
+    exit 1
+  fi
+}
+
+config_file=""
+arguments=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "${1}" in
+    --config ) config_file="${2?}"; shift 2 ;;
+    --help | help ) show_usage; exit 0 ;;
+    * ) arguments+=("${1}"); shift ;;
+  esac
+done
+
+set -- "${arguments[@]}"
+command="${1}"
+shift
+
+[ -z "${command}" ] && { show_usage; exit 0; }
+
+load_config "${config_file}"
+
+[[ "${command}" == config ]] && { show_config; exit 0; }
+
+# Issue numbers go into jq and GraphQL as numbers
+case "${command}" in
+  claim | release | status | move ) [[ "${1}" =~ ^[1-9][0-9]*$ ]] || fail "${command} takes an issue number, not '${1}'" ;;
+esac
+[[ "${command}" == move && "${2}" == --after ]] && { [[ "${3}" =~ ^[1-9][0-9]*$ ]] || fail "--after takes an issue number, not '${3}'"; }
+
+check_auth
+
+case "${command}" in
+  next    ) next_items "$@" ;;
+  claim   ) claim_item "${1?}" ;;
+  release ) release_item "${1?}" ;;
+  mine    ) mine_items ;;
+  team    ) team_items ;;
+  doctor  ) doctor "$@" ;;
+  list    )
+    status=""
+    while [[ "$#" -gt 0 ]]; do
+      case "${1}" in
+        --status ) status="${2?}"; shift 2 ;;
+        * ) fail "unknown option: ${1}" ;;
+      esac
+    done
+    list_items "${status}"
+    ;;
+  status  )
+    [[ "${2?}" == "In Progress" ]] && check_dependencies "${1?}"
+    set_status "${1?}" "${2?}"
+    ;;
+  move    )
+    issue="${1?}"
+    case "${2}" in
+      --top   ) move_item "${issue}" "" ;;
+      --after ) move_item "${issue}" "${3?}" ;;
+      *       ) fail "move takes --top or --after <issue>" ;;
+    esac
+    ;;
+  *       ) fail "unknown command: ${command} (see --help)" ;;
+esac

@@ -78,13 +78,15 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 |-----|---------|------------|-------|
 | 0 | `⚠ pontos` | 160 (red) | only when a raw log is not on Drive |
 | 1 | `repo/subfolder` | 31 (dark blue) | bold text |
-| 2 | `branch  git-status` | 236 (#303030) | omitted if not a git repo |
-| 3 | `✦ Opus 5.5` | 237 (#3a3a3a) | model name, gray text |
-| 4 | `94k 31%` | 238 (#444444) | context tokens and their share of the reference; only the percentage carries color |
+| 2 | `branch  git-status` | 234 (#1c1c1c) | omitted if not a git repo |
+| 3 | `✦ Opus 5.5` | 235 (#262626) | model name, gray text |
+| 4 | `94k 31%` | 236 (#303030) | context tokens and their share of the reference; only the percentage carries color |
 | 5 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
-| 6 | `5d12h 15% ↻ Mon 01:00` | 239 (#4e4e4e) | weekly limit; omitted when hidden or absent |
-| 7 | `today 69,6% of 23%` | 235 (#262626) | share of today's goal, shown with the weekly limit |
-| 8 | `forecast 71,2% steady` | 237 (#3a3a3a) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
+| 6 | `5d12h 15% ↻ Mon 01:00` | 238 (#444444) | weekly limit; omitted when hidden or absent |
+| 7 | `today 69,6% of 23%` | 236 (#303030) | share of today's goal, shown with the weekly limit |
+| 8 | `forecast 71,2% steady` | 235 (#262626) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
+
+The gray segments lighten one tone at a time from the branch to the weekly limit; `today` drops back two tones and `forecast` closes one tone darker still, so neighbors never share a tone.
 
 All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
 

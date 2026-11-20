@@ -5,3 +5,4 @@ __pycache__/
 # Local, unversioned notes for agents
 CLAUDE.local.md
 HANDOFF.local.md
+.claude/prompts/

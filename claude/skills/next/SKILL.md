@@ -12,7 +12,7 @@ A repository with its own `next` skill (`.claude/skills/next/`, such as getnereu
 
 ## The repository's `.claude/next.md`
 
-Each repository says where its queue lives and what a design there must cover, in a versioned `.claude/next.md`: a YAML front matter for the board, a body for the design checklist.
+Each repository says where its queue lives, how to pick from it and what a design there must cover, in a versioned `.claude/next.md`: a YAML front matter for the board, a body for the repository's own rules (what never to take, what to prefer, what to read first) and its design checklist. The body's rules add to the steps below; where they are stricter, they win.
 
 ```markdown
 ---
@@ -37,7 +37,7 @@ A session prompt is the instructions a session leaves so the next one, after `/c
 
 - **No argument:** run `session-prompt show`. With a prompt, follow it in place of the steps below; with none (it exits non-zero), run the steps.
 - **After `/clear`:** the `SessionStart` hook already put the prompt in the context: follow it. When it says **STALE**, tell the owner first, check its state against the repository and the issues, and rewrite it with `save` once checked. If the branch or checkout path differs from its header, say so and ask before the first commit.
-- **`save`** (also "um prompt para depois do clear", "salva o prompt da sessão"): draft the prompt in the scratchpad (in English, imperative, to a fresh agent: the context, each standing instruction, the start; not what was done), with the date, the branch, the checkout path and the agent's name in the header. When `session-prompt show` prints one, merge into it. Run `session-prompt save --file <draft>` at once, without asking; show what was saved and the path it prints, then say the session can be cleared. Rewrite it this way before every `/clear`: the hook marks it STALE otherwise.
+- **`save`** (also "um prompt para depois do clear", "salva o prompt da sessão"): draft the prompt in the scratchpad (in English, imperative, to a fresh agent: the context, each standing instruction, the start; not what was done), with the date, the branch, the checkout path and the agent's name in the header. When `session-prompt show` prints one, merge into it. Run `session-prompt save --file <draft>` at once, without asking (with a `github-project` board, as `PROMPT_TEAM="board-queue team" session-prompt save --file <draft>`, so the prompt carries the team panel); show what was saved and the path it prints, then say the session can be cleared. Rewrite it this way before every `/clear`: the hook marks it STALE otherwise.
 - **`clear`:** show the prompt; after the owner confirms, run `session-prompt clear --topic <topic>` (`<topic>` in lowercase-hyphenated words, e.g. `status-line-pace`) and show the archive path it prints.
 
 ## Steps
@@ -80,7 +80,7 @@ A session prompt is the instructions a session leaves so the next one, after `/c
 
    A branch with commits ahead of `main` means resume, not restart.
 
-5. **Read what the issue points to:** the ADRs, specs, docs and code paths it names, and the checklist in `.claude/next.md`. Read before designing: state checked facts, never "verify whether".
+5. **Read what the issue points to:** the ADRs, specs, docs and code paths it names, and what `.claude/next.md` says to read before designing. Read before designing: state checked facts, never "verify whether".
 
 6. **Present the design and stop.** Reply in the owner's language with:
    - one line on the issue and its state (new, resuming, blocked), with its short description;

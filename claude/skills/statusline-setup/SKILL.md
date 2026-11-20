@@ -71,7 +71,7 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 ## Segment layout
 
 ```
-[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ✦ model ] ▶ [ ◈ tokens % time ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶
+[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ✦ model ] ▶ [ tokens % ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶
 ```
 
 | Seg | Content | Background | Notes |
@@ -80,7 +80,7 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 | 1 | `repo/subfolder` | 31 (dark blue) | bold text |
 | 2 | `branch  git-status` | 236 (#303030) | omitted if not a git repo |
 | 3 | `✦ Opus 5.5` | 237 (#3a3a3a) | model name, gray text |
-| 4 | `◈ 94k 31% 24m` | 238 (#444444) | context tokens, their share of the reference and the session time; only the percentage and the time carry color |
+| 4 | `94k 31%` | 238 (#444444) | context tokens and their share of the reference; only the percentage carries color |
 | 5 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
 | 6 | `5d12h 15% ↻ Mon 01:00` | 239 (#4e4e4e) | weekly limit; omitted when hidden or absent |
 | 7 | `today 69,6% of 23%` | 235 (#262626) | share of today's goal, shown with the weekly limit |
@@ -109,10 +109,6 @@ printf "\033[0m\033[38;5;<last_bg>m%s\033[0m" "${sep}"
 
 The percentage is `total_input_tokens` over `CLAUDE_CONTEXT_TOKENS_REFERENCE` (default 300000, set in `scripts/bash_config`): the context a session may reach before a save and `/clear`, not the model's window. The Nereus `UserPromptSubmit` hook (`scripts/metrics/tokens`) reads the same variable for its warning. The percentage text is 114 (green) below `CLAUDE_CONTEXT_THRESHOLD_WARNING` (60), 221 (amber) up to `CLAUDE_CONTEXT_THRESHOLD_CRITICAL` (80), 203 (salmon) from there.
 
-### Session time (seg 4)
-
-The time shares the context segment, so only its text carries the color: 114 (green), 221 (amber) from the caution threshold, 215 (orange) from the warning threshold, 203 (salmon) from the critical threshold (see script top).
-
 ## Branch segment logic
 
 The branch name color signals repo cleanliness:
@@ -140,8 +136,6 @@ Always verify new color choices before committing.
 |------|-----------|--------|
 | `ansi-text` | `--text <str> --background <N> [--foreground <N>] [--bold]` | Text wrapped in ANSI 256-color escape codes. `--foreground-raw` accepts a full escape sequence instead of an index. |
 | `git-status-indicators` | `--dir <git_root> --color --bg <branch_bg>` | Colored dirty/clean git symbols; `--bg` restores segment bg after each ANSI reset inside the string. Empty string if repo is clean. |
-| `process-uptime` | `--name claude --format human` | Human-readable string, e.g. `"5m"`, `"1h 2m"` |
-| `process-uptime` | `--name claude --format seconds` | Integer string, e.g. `"300"`. Used for threshold comparisons. |
 
 All tools must be on `$PATH`. If missing, the script will error and the statusline will be blank.
 

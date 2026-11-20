@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ ✦ model ] ▶ [ ◈ context tokens % of reference  time ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ ✦ model ] ▶ [ context tokens % of reference ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ]
 
 this_script_path="$(realpath "${0}")"
 PATH="${this_script_path%/*}:${PATH}"
@@ -15,7 +15,7 @@ section_disk_warning_background_color=214  # amber: the disk passed the warning 
 section_disk_critical_background_color=160 # red: the disk passed the critical threshold
 section_branch_background_color=236  # #303030
 section_model_background_color=237   # #3a3a3a
-section_tokens_background_color=238  # #444444, the context tokens, their share of the reference and the session time
+section_tokens_background_color=238  # #444444, the context tokens and their share of the reference
 section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
 section_limits_seven_day_background_color=239  # #4e4e4e, 7-day usage limit
 section_limits_today_background_color=235      # #262626, today's goal
@@ -47,11 +47,6 @@ nereus_figure() {
 context_tokens_reference=${CLAUDE_CONTEXT_TOKENS_REFERENCE:-300000}
 context_threshold_critical=${CLAUDE_CONTEXT_THRESHOLD_CRITICAL:-80}
 context_threshold_warning=${CLAUDE_CONTEXT_THRESHOLD_WARNING:-60}
-
-# Session time thresholds (seconds)
-session_duration_seconds_threshold_critical=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CRITICAL:-35} * 60 ))
-session_duration_seconds_threshold_warning=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_WARNING:-25} * 60 ))
-session_duration_seconds_threshold_caution=$(( ${CLAUDE_SESSION_DURATION_SECONDS_THRESHOLD_CAUTION:-15} * 60 ))
 
 # --- Git: repo name, folder, branch, status indicators ---
 current_directory=$(echo "${json_input}" | jq --raw-output '.workspace.current_dir // ""')
@@ -112,18 +107,7 @@ else
   context_tokens_display="${context_input_tokens}"
 fi
 
-context_str=$(printf "\033[38;5;247m◈ %s \033[38;5;${context_color}m%s%%" "${context_tokens_display}" "${context_used}")
-
-# --- Session time ---
-session_duration=$(process-uptime --name claude --format human-short)
-elapsed_seconds=$(process-uptime --name claude --format seconds)
-
-# The time shares the context segment, so only its text carries the color
-if   [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_critical}" ]; then time_color=203  # salmon
-elif [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_warning}"  ]; then time_color=215  # orange
-elif [ "${elapsed_seconds}" -ge "${session_duration_seconds_threshold_caution}"  ]; then time_color=221  # amber
-else                                                                                      time_color=114  # green
-fi
+context_str=$(printf "\033[38;5;247m%s \033[38;5;${context_color}m%s%%" "${context_tokens_display}" "${context_used}")
 
 # --- Model ---
 model=$(echo "${json_input}" | jq --raw-output '.model.display_name // "N/A"')
@@ -340,7 +324,7 @@ if [ -n "${git_branch}" ]; then
 fi
 
 add_segment --text " ✦ ${model} " --background "${section_model_background_color}" --foreground 247
-add_segment --text " ${context_str} $(printf "\033[38;5;${time_color}m%s" "${session_duration}") " --background "${section_tokens_background_color}"
+add_segment --text " ${context_str} " --background "${section_tokens_background_color}"
 [ -n "${limits_five_hour}" ] && \
 add_segment --text " ${limits_five_hour} "   --background "${section_limits_five_hour_background_color}"
 [ -n "${limits_seven_day}" ] && \

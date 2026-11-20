@@ -52,26 +52,33 @@ When the owner asks to show or hide the session (5h) or weekly (7d) limit ("deix
 
 The choice lives in `${XDG_CONFIG_HOME:-~/.config}/claude-status-line/limits`.
 
-## Weekly signal
+## Pace verdict
 
-The session and weekly segments start with the time left to their reset instead of a fixed `5h` or `7d`, as in `2h18m 42% ↻ 14:30` and `5d12h 15% ↻ Mon 01:00` (the label falls back to `5h` or `7d` once the reset has passed). The weekly segment holds only the time left, the usage and the reset. Two segments follow it, as in `today 69,6% of 23%` and `forecast 71,2% steady`. The `forecast` segment says whether the owner can speed up: `claude-usage-forecast --with-percentage` projects the percentage used at the reset (`used × 7 days / elapsed`), and only the signal word takes the signal's color, in bold; the labels stay gray (247) and the numbers stand out in white (255):
+The session and weekly segments answer one question: is the pace right, so that neither limit runs out? Each starts with the time left to its reset instead of a fixed `5h` or `7d`, then the usage in white, the reset, and the verdict: an icon and the usage projected at the reset, both in the verdict's color, as in `2h18m 42% ↻ 14:30 • 61%` and `2d12h 59% ↻ Mon 01:00 • 92%` (the label falls back to `5h` or `7d` once the reset has passed).
 
-| Forecast at the reset | Signal | Color | Meaning |
-|-----------------------|--------|-------|---------|
-| below 70% | `push` | 114 (green) | speed up: more subagents and parallel sessions |
-| from 70% to 95% | `steady` | 221 (amber) | keep the pace |
-| above 95% | `slow` | 203 (salmon) | hold back: one agent, no subagents, or a day off |
+The two windows have different goals, so each has its own scale:
 
-In the first 6 hours of the window there is no signal, so the `forecast` segment is not shown.
+| Window | Projection at the reset | Verdict | Color | Meaning |
+|--------|-------------------------|---------|-------|---------|
+| 5 hours | up to 95% | `•` ok | 114 (green) | it lasts until the reset |
+| 5 hours | above 95% | `▼` slow | 203 (salmon) | it runs out before the reset: slow down |
+| week | below 70% | `▲` push | 39 (blue) | quota will be left over: speed up, with more subagents and parallel sessions |
+| week | from 70% to 99% | `•` ok | 114 (green) | keep the pace |
+| week | above 99% | `▼` slow | 203 (salmon) | it runs out before the reset: one agent, no subagents, or a day off |
 
-With the `nereus` CLI installed (getnereus/nereus#1592), both segments read their figures (`todayGoal`, `forecast`, `pace`) from its cache, `${XDG_STATE_HOME}/nereus/usage/weekly.json`, with `jq` on every render, and a salmon `!` follows the forecast while `sendFailing` is true. The status line starts `setsid nereus usage report weekly` detached when the reading differs from the cache or the cache is 5 minutes old, at most once a minute; the CLI keeps the same limits, sends to Nereus at most every 5 minutes and backs off on failure. Without `nereus`, or before its cache holds the window, the scripts below answer, as before.
+The 5-hour window has no push: using up every 5-hour window would use up the week in under two days. The projection is rounded before the scale applies, so the number and the color never disagree (`• 99%`, `▼ 100%`).
 
-In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage to reach by the end of today, from `claude-usage-plan --today-goal`; 69,6% is how much of that goal the weekly usage has reached (16 of 23), with one decimal and a comma, none when the decimal is zero (`71%`), and it passes 100% once the goal is passed. The goal spreads what was left at the day's first reading evenly up to the reset, so it stays fixed all day; before that reading exists it comes from the usage now. The forecast comes from the whole week's pace, not from today's goal.
+- **5 hours:** `used × 5 hours / elapsed`, computed in the script; none in the window's first 30 minutes, when a few minutes would project far too high.
+- **Week:** `claude-usage-forecast --with-percentage` (`used × 7 days / elapsed`); none in the window's first 6 hours.
+
+With the `nereus` CLI installed (getnereus/nereus#1592), the week's projection comes from its cache, `${XDG_STATE_HOME}/nereus/usage/weekly.json` (`figures.forecast`), read with `jq` on every render, and a salmon `!` follows it while `sendFailing` is true. The status line starts `setsid nereus usage report weekly` detached when the reading differs from the cache or the cache is 5 minutes old, at most once a minute; the CLI keeps the same limits, sends to Nereus at most every 5 minutes and backs off on failure. Without `nereus usage`, or before its cache holds the window, `claude-usage-forecast` answers.
+
+Today's goal (`claude-usage-plan --today-goal`) is no longer on the status line; the `UserPromptSubmit` hook (`claude-usage-plan-hook`) still gives it to each session.
 
 ## Segment layout
 
 ```
-[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ✦ model ] ▶ [ tokens % ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶
+[ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-indicators ] ▶ [ ✦ model ] ▶ [ tokens % ] ▶ [ session left % ↻ verdict % ] ▶ [ week left % ↻ verdict % ] ▶
 ```
 
 | Seg | Content | Background | Notes |
@@ -81,14 +88,10 @@ In `today 69,6% of 23%`, 23% is today's goal, the cumulative weekly percentage t
 | 2 | `branch  git-status` | 234 (#1c1c1c) | omitted if not a git repo |
 | 3 | `✦ Opus 5.5` | 235 (#262626) | model name, gray text |
 | 4 | `94k 31%` | 236 (#303030) | context tokens and their share of the reference; only the percentage carries color |
-| 5 | `2h18m 42% ↻ 14:30` | 237 (#3a3a3a) | 5-hour limit; omitted when hidden or absent |
-| 6 | `5d12h 15% ↻ Mon 01:00` | 238 (#444444) | weekly limit; omitted when hidden or absent |
-| 7 | `today 69,6% of 23%` | 236 (#303030) | share of today's goal, shown with the weekly limit |
-| 8 | `forecast 71,2% steady` | 235 (#262626) | week's forecast and signal, shown with the weekly limit; hidden in the window's first 6 hours |
+| 5 | `2h18m 42% ↻ 14:30 • 61%` | 237 (#3a3a3a) | 5-hour limit and its verdict; omitted when hidden or absent |
+| 6 | `2d12h 59% ↻ Mon 01:00 • 92%` | 238 (#444444) | weekly limit and its verdict; omitted when hidden or absent |
 
-The gray segments lighten one tone at a time from the branch to the weekly limit; `today` drops back two tones and `forecast` closes one tone darker still, so neighbors never share a tone.
-
-All exact threshold/color constants live at the top of the script — treat the script as the source of truth, not this document.
+The gray segments lighten one tone at a time from the branch to the weekly limit. Verdicts stay in the text, not in a colored background: a Powerline separator between a gray segment and a colored one leaves a thin colored edge in this font.
 
 ## Powerline separator pattern
 

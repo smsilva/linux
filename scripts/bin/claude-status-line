@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ ✦ model ] ▶ [ context tokens % of reference ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ ✦ model ] ▶ [ context tokens % of reference ] ▶ [ session left % ↻ verdict % ] ▶ [ week left % ↻ verdict % ]
 
 this_script_path="$(realpath "${0}")"
 PATH="${this_script_path%/*}:${PATH}"
@@ -18,12 +18,6 @@ section_model_background_color=235   # #262626
 section_tokens_background_color=236  # #303030, the context tokens and their share of the reference
 section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
 section_limits_seven_day_background_color=238  # #444444, 7-day usage limit
-section_limits_today_background_color=236      # #303030, today's goal: the gradient starts again here
-section_limits_forecast_background_color=235   # #262626, the week's forecast and signal, darker than today
-
-# Account usage limit thresholds (percentage)
-limits_threshold_critical=${CLAUDE_LIMITS_THRESHOLD_CRITICAL:-80}
-limits_threshold_warning=${CLAUDE_LIMITS_THRESHOLD_WARNING:-50}
 
 # With the nereus CLI installed (getnereus/nereus#1592), the weekly figures come from its local cache, read with jq
 # on every render; claude-usage-plan and claude-usage-forecast stay as the fallback for a machine without it
@@ -31,7 +25,7 @@ nereus_usage_cache="${XDG_STATE_HOME:-${HOME}/.local/state}/nereus/usage/weekly.
 nereus_usage=false
 command -v nereus > /dev/null && nereus_usage=true
 
-# One figure of the nereus cache (todayGoal, forecast, pace), only when the cache holds the same window as the reading
+# One figure of the nereus cache (forecast), only when the cache holds the same window as the reading
 nereus_figure() {
   local figure="${1?}"
   local resets_at="${2?}"
@@ -126,9 +120,48 @@ time_left() {
   fi
 }
 
+# The usage a window reaches at its reset at the current pace: the 7-day one from the nereus cache or
+# claude-usage-forecast (none in the window's first 6 hours), the 5-hour one from the share of the window already gone
+# (none in its first 30 minutes, when a few minutes would project far too high)
+projection_percent() {
+  local window="${1?}" used_exact="${2?}" resets_at="${3?}"
+  local forecast signal
+
+  if [[ "${window}" == seven_day ]]; then
+    forecast=$(nereus_figure forecast "${resets_at}")
+    [ -z "${forecast}" ] && read -r forecast signal < <(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" --with-percentage 2>/dev/null)
+    [ -n "${forecast}" ] && awk --assign value="${forecast}" 'BEGIN { printf "%d", value + 0.5 }'
+    return
+  fi
+
+  awk --assign used="${used_exact}" --assign resets="${resets_at}" --assign now="$(date +%s)" 'BEGIN {
+    length_seconds = 5 * 3600
+    elapsed = length_seconds - (resets - now)
+    if (elapsed < 1800 || elapsed > length_seconds) exit
+    printf "%d", used * length_seconds / elapsed + 0.5
+  }'
+}
+
+# The verdict on a window's projection, as "icon color": the 5-hour window only has to last until its reset (ok up to
+# 95%, slow above); the week aims to be used up, so it is ok up to 99%, slow above, and push below 70%, since the
+# rest would be lost
+window_verdict() {
+  local window="${1?}" projection="${2?}"
+
+  if [[ "${window}" == seven_day ]]; then
+    if   [ "${projection}" -gt 99 ]; then echo "▼ 203"  # slow: salmon
+    elif [ "${projection}" -lt 70 ]; then echo "▲ 39"   # push: blue
+    else                                  echo "• 114"  # ok: green
+    fi
+  elif [ "${projection}" -gt 95 ]; then echo "▼ 203"    # slow: salmon
+  else                                  echo "• 114"    # ok: green
+  fi
+}
+
+# Prints a window as "time left, usage, reset, verdict and projection", as in 2h18m 42% ↻ 14:30 • 61%
 limit_str() {
   local label="${1}" window="${2}" reset_format="${3}"
-  local used used_exact resets_at color reset_display=""
+  local used used_exact resets_at reset_display="" projection verdict_display="" verdict_icon verdict_color
 
   used_exact=$(echo "${json_input}" | jq --raw-output ".rate_limits.${window}.used_percentage // empty")
   [ -z "${used_exact}" ] && return
@@ -140,66 +173,24 @@ limit_str() {
     label=$(time_left "${resets_at}" "${label}")
   fi
 
-  if   [ "${used}" -ge "${limits_threshold_critical}" ]; then color=203  # salmon
-  elif [ "${used}" -ge "${limits_threshold_warning}"  ]; then color=221  # amber
-  else                                                         color=114  # green
+  # The usage stays white: only the verdict and the projection carry a color
+  if [ -n "${resets_at}" ]; then
+    projection=$(projection_percent "${window}" "${used_exact}" "${resets_at}")
+    if [ -n "${projection}" ]; then
+      read -r verdict_icon verdict_color <<< "$(window_verdict "${window}" "${projection}")"
+      verdict_display=" \033[38;5;${verdict_color}m${verdict_icon} ${projection}%"
+      [[ "${window}" == seven_day ]] && verdict_display+="$(nereus_send_mark)"
+    fi
   fi
 
-  printf "\033[38;5;247m%s \033[38;5;${color}m%s%%\033[38;5;247m%s" "${label}" "${used}" "${reset_display}"
+  printf "\033[38;5;247m%s \033[38;5;255m%s%%\033[38;5;247m%s%b" "${label}" "${used}" "${reset_display}" "${verdict_display}"
 }
 
-# Prints a percentage with one decimal and a comma, without the decimal when it is zero
-percentage_display() {
-  awk --assign value="${1}" 'BEGIN { shown = sprintf("%.1f", value); sub(/\.0$/, "", shown); sub(/\./, ",", shown); print shown }'
-}
-
-# Today's guidance from the weekly quota: the usage so far and the percentage to reach by the end of today
-today_str() {
-  local used_exact resets_at today_goal goal_reached
-
-  used_exact=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.used_percentage // empty')
-  resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
-  [ -z "${used_exact}" ] || [ -z "${resets_at}" ] && return
-
-  today_goal=$(nereus_figure todayGoal "${resets_at}")
-  [ -z "${today_goal}" ] && today_goal=$(claude-usage-plan --used "${used_exact}" --resets-at "${resets_at}" --today-goal 2>/dev/null)
-  [ -z "${today_goal}" ] && return
-
-  # The share of today's goal already reached
-  goal_reached=$(percentage_display "$(awk --assign used="${used_exact}" --assign goal="${today_goal}" 'BEGIN { print (goal > 0) ? used * 100 / goal : 0 }')")
-
-  printf "\033[38;5;247mtoday \033[38;5;255m%s%%\033[38;5;247m of \033[38;5;255m%s%%" "${goal_reached}" "${today_goal}"
-}
-
-# The week's forecast: the percentage used at the reset at this pace, and the signal it gives
-forecast_str() {
-  local used_exact resets_at forecast signal color mark
-
-  used_exact=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.used_percentage // empty')
-  resets_at=$(echo "${json_input}" | jq --raw-output '.rate_limits.seven_day.resets_at // empty')
-  [ -z "${used_exact}" ] || [ -z "${resets_at}" ] && return
-
-  forecast=$(nereus_figure forecast "${resets_at}")
-  signal=$(nereus_figure pace "${resets_at}")
-  if [ -z "${signal}" ]; then
-    read -r forecast signal < <(claude-usage-forecast --used "${used_exact}" --resets-at "${resets_at}" --with-percentage 2>/dev/null)
-  fi
-  [ -z "${signal}" ] && return
-
-  # A salmon ! when the nereus CLI keeps failing to send the readings: the figure on the phone may be stale
-  mark=""
+# A salmon ! when the nereus CLI keeps failing to send the readings: the figure on the phone may be stale
+nereus_send_mark() {
   if [[ "${nereus_usage}" == true ]] && [[ "$(jq --raw-output '.sendFailing // false' "${nereus_usage_cache}" 2>/dev/null)" == true ]]; then
-    mark=" \033[38;5;203m!"
+    printf " \033[38;5;203m!"
   fi
-
-  case "${signal}" in
-    push   ) color=114 ;;
-    steady ) color=221 ;;
-    slow   ) color=203 ;;
-  esac
-
-  # Only the signal carries the color: the number just stands out from the label
-  printf "\033[38;5;247mforecast \033[38;5;255m%s%% \033[1;38;5;%sm%s\033[22m%b" "$(percentage_display "${forecast}")" "${color}" "${signal}" "${mark}"
 }
 
 # Save the weekly usage for claude-usage-plan, whatever segments are shown (the status line is the only place that receives it)
@@ -261,12 +252,8 @@ limits_choice=$(claude-status-line-limits)
 
 limits_five_hour=""
 limits_seven_day=""
-limits_today=""
-limits_forecast=""
 [[ "${limits_choice}" == both || "${limits_choice}" == session ]] && limits_five_hour=$(limit_str "5h" five_hour "%H:%M")
 [[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_seven_day=$(limit_str "7d" seven_day "%a %H:%M")
-[[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_today=$(today_str)
-[[ "${limits_choice}" == both || "${limits_choice}" == weekly  ]] && limits_forecast=$(forecast_str)
 
 # Assemble segments with powerline separators
 segment_separator=$'\ue0b0'
@@ -329,9 +316,5 @@ add_segment --text " ${context_str} " --background "${section_tokens_background_
 add_segment --text " ${limits_five_hour} "   --background "${section_limits_five_hour_background_color}"
 [ -n "${limits_seven_day}" ] && \
 add_segment --text " ${limits_seven_day} "   --background "${section_limits_seven_day_background_color}"
-[ -n "${limits_today}" ] && \
-add_segment --text " ${limits_today} "       --background "${section_limits_today_background_color}"
-[ -n "${limits_forecast}" ] && \
-add_segment --text " ${limits_forecast} "    --background "${section_limits_forecast_background_color}"
 
 end_segments

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶ [ ◔ time ] ▶ [ model ] ▶ [ ◈ tokens ]
+# Layout: [ ⚠ pontos ] ▶ [ location ] ▶ [ branch  git-status ] ▶ [ context% ] ▶ [ ◈ tokens ] ▶ [ ◔ time ] ▶ [ session left % ↻ ] ▶ [ week left % ↻ ] ▶ [ today % of goal ] ▶ [ forecast % signal ] ▶ [ model ]
 
 this_script_path="$(realpath "${0}")"
 PATH="${this_script_path%/*}:${PATH}"
@@ -14,7 +14,6 @@ section_pontos_background_color=160   # red: a raw log is not on Drive (pontos-s
 section_disk_warning_background_color=214  # amber: the disk passed the warning threshold (disk-watch status)
 section_disk_critical_background_color=160 # red: the disk passed the critical threshold
 section_branch_background_color=236  # #303030
-section_turns_background_color=235   # #262626, dark gray
 section_model_background_color=238   # #444444
 section_tokens_background_color=244  # #808080, lighter than model
 section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
@@ -118,12 +117,6 @@ else
   used_int=$(printf '%.0f' "$used_pct")
 fi
 [ "${used_int}" -gt 100 ] 2>/dev/null && used_int=100
-transcript_path=$(echo "${json_input}" | jq --raw-output '.transcript_path // ""')
-if [ -n "${transcript_path}" ] && [ -f "${transcript_path}" ]; then
-  turn_count=$(jq --slurp '[.[] | select(.type == "user") | .message.content | if type == "array" then .[0].type else "text" end | select(. != "tool_result")] | length' "${transcript_path}" 2>/dev/null || echo 0)
-else
-  turn_count=0
-fi
 
 if   [ "$used_int" -ge "${context_threshold_critical}" ]; then
   section_context_background_color=1
@@ -380,6 +373,8 @@ if [ -n "${git_branch}" ]; then
 fi
 
 add_segment --text " ≡ ${used_int}% "        --background "${section_context_background_color}" --foreground "${section_context_foreground_color}"
+add_segment --text " ◈ ${tokens_display} "   --background "${section_tokens_background_color}"  --foreground 0
+add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
 [ -n "${limits_five_hour}" ] && \
 add_segment --text " ${limits_five_hour} "   --background "${section_limits_five_hour_background_color}"
 [ -n "${limits_seven_day}" ] && \
@@ -388,9 +383,6 @@ add_segment --text " ${limits_seven_day} "   --background "${section_limits_seve
 add_segment --text " ${limits_today} "       --background "${section_limits_today_background_color}"
 [ -n "${limits_forecast}" ] && \
 add_segment --text " ${limits_forecast} "    --background "${section_limits_forecast_background_color}"
-add_segment --text " ◔ ${session_duration} " --background "${section_time_background_color}"    --foreground "${section_time_foreground_color}"
-add_segment --text " ⇌ ${turn_count} "       --background "${section_turns_background_color}"   --foreground 247
 add_segment --text " ✦ ${model} "            --background "${section_model_background_color}"   --foreground 247
-add_segment --text " ◈ ${tokens_display} "   --background "${section_tokens_background_color}"  --foreground 0
 
 end_segments

@@ -71,6 +71,11 @@
             "type": "command",
             "command": "\"${HOME}/.scripts/disk-watch\" hook",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/session-prompt\" hook",
+            "timeout": 10
           }
         ]
       }
@@ -97,6 +102,11 @@
           {
             "type": "command",
             "command": "\"${HOME}/.scripts/pontos-save\" hook",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/session-prompt\" hook",
             "timeout": 10
           }
         ]

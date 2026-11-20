@@ -13,13 +13,13 @@ section_location_background_color=31 # dark blue
 section_pontos_background_color=160   # red: a raw log is not on Drive (pontos-save status)
 section_disk_warning_background_color=214  # amber: the disk passed the warning threshold (disk-watch status)
 section_disk_critical_background_color=160 # red: the disk passed the critical threshold
-section_branch_background_color=236  # #303030
-section_model_background_color=237   # #3a3a3a
-section_tokens_background_color=238  # #444444, the context tokens and their share of the reference
+section_branch_background_color=234  # #1c1c1c: the gray segments lighten from here to the last one
+section_model_background_color=235   # #262626
+section_tokens_background_color=236  # #303030, the context tokens and their share of the reference
 section_limits_five_hour_background_color=237  # #3a3a3a, 5-hour usage limit
-section_limits_seven_day_background_color=239  # #4e4e4e, 7-day usage limit
-section_limits_today_background_color=235      # #262626, today's goal
-section_limits_forecast_background_color=237   # #3a3a3a, the week's forecast and signal
+section_limits_seven_day_background_color=238  # #444444, 7-day usage limit
+section_limits_today_background_color=236      # #303030, today's goal: the gradient starts again here
+section_limits_forecast_background_color=235   # #262626, the week's forecast and signal, darker than today
 
 # Account usage limit thresholds (percentage)
 limits_threshold_critical=${CLAUDE_LIMITS_THRESHOLD_CRITICAL:-80}

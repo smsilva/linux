@@ -1,3 +1,7 @@
 .mcp.json
 claude/skills/synced
 __pycache__/
+
+# Local, unversioned notes for agents
+CLAUDE.local.md
+HANDOFF.local.md

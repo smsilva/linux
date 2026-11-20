@@ -1,7 +1,7 @@
 ---
 name: next
 description: Use when the owner asks to pick up, resume or start the next issue of a repository ("next", "próxima issue", "pegue a próxima issue", "pega uma nova", "o que o time está fazendo"), or names an issue number to work on. The owner types short words (a number, `team`, `save`, `clear`) or free phrases, never flags. Claims the issue, loads its context and presents the design before any implementation. With a session prompt for this agent (`session-prompt show`), follows it instead; "save" writes it from the current session, also when the owner asks for "um prompt para depois do clear" or "salva o prompt da sessão"; "clear" archives it.
-argument-hint: "[number | new | team | save | clear]"
+argument-hint: "[number | new | team | <field> <value> | save | clear]"
 ---
 
 # Next issue
@@ -26,7 +26,7 @@ A design here covers: the script (bash-scripts rules), its test in scripts/tests
 | `board` | Queue |
 | --- | --- |
 | `none`, or no `.claude/next.md` | the repository's open issues, through `gh` |
-| `github-project` (with `owner`, `number`, `fields`) | `board-queue` (smsilva/linux#203 task 3) |
+| `github-project` (with `owner`, `number`, `repository`, `fields`) | `board-queue` (`scripts/bin/board-queue`; `board-queue config` prints what it read) |
 | `jira` | the `jira-workflow` skill (smsilva/linux#203 task 5) |
 
 Read it before step 1. When `board` names a backend whose tool is not installed (`command -v board-queue` fails), say so and fall back to `none`.
@@ -48,7 +48,16 @@ A session prompt is the instructions a session leaves so the next one, after `/c
    - **With a number:** use it, unless `gh issue view <n> --json assignees` shows someone else: then say who holds it and go on only if the owner says it is a takeover.
    - **Without one,** by the board:
      - `none`: list my open issues (`gh issue list --assignee @me --state open`). One: resume it. Several: ask which. None: show the open issues without an assignee (`gh issue list --state open --search "no:assignee" --limit 10`, each with its title) and ask which to take. Never pick one on a guess: without a board there is no order.
-     - `github-project`: `board-queue next`; `team` runs `board-queue team`; `new` runs `board-queue next --new`.
+     - `github-project`: the owner types a word, you run the command (never the owner the flags):
+
+       | Word | You run |
+       | --- | --- |
+       | *(none)* | `board-queue next`: my items In Progress, else the top free `Todo` |
+       | `<field> <value>` (a field of `fields`, e.g. `track docs`) | `board-queue next --filter <Field>=<value>` |
+       | `new` | `board-queue next --new`: one more, while mine stay open |
+       | `team` | `board-queue team`: who is on what, claims nothing |
+
+       A value no item has makes `board-queue` print the values in use: ask which one. With an `In Progress without assignee` warning, mention `board-queue doctor` and do not take the orphan. With `Todo` empty, show `board-queue list --status Backlog | head` and ask which to promote. If it fails with `lacks the 'project' scope` or `cannot see board`, relay the fix and stop.
    - **Claim before anything else:** `gh issue edit <n> --add-assignee @me` (with a board: `board-queue claim <n>`, which also sets `In Progress`). A resumed issue of mine needs no claim. Right after the claim, send the `[claim]` to every peer on this repository (the `room` skill).
 
 2. **Read the whole issue.** `gh issue view <n> --comments` omits the body, so run both:

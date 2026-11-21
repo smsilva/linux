@@ -1,5 +1,15 @@
 # OBS Studio
 
+## Install
+
+```bash
+apps/obs-studio/install
+```
+
+It adds the `ppa:obsproject/obs-studio` PPA and installs `obs-studio`, with no version pin: OBS 33 dropped Ubuntu 24.04, so the PPA ships 32.2.0 for noble and 33.0.0 for resolute (26.04).
+
+## Config
+
 `config/` is a versioned snapshot of `~/.config/obs-studio` (profile and scene collection `Untitled`).
 
 ## Excluded

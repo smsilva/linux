@@ -12,7 +12,7 @@ Take the working tree all the way to `main` in one go. Stop and report on any fa
 
 ## Steps
 
-1. **Commit** — follow the `commit` skill, with one exception: on a branch not yet merged, fold fixes to an existing commit into that commit (`git commit --amend` when it is `HEAD`, otherwise `git commit --fixup <sha>` + `GIT_SEQUENCE_EDITOR=: git rebase --interactive --autosquash main`).
+1. **Commit** — follow the `commit` skill, with one exception: on a branch not yet merged, fold fixes to an existing commit into that commit (`git commit --amend` when it is `HEAD`, otherwise `git commit --fixup <sha>` + `GIT_SEQUENCE_EDITOR=: git rebase --interactive --autosquash main`). Where a commit-msg hook refuses a `fixup!` message (Nereus's Conventional Commits check), rebuild instead: `git reset --soft origin/main`, then recommit one commit per topic.
 
 2. **Organize** — `git log --oneline main..HEAD` must show one Conventional Commit per topic. Squash or split until it does.
 

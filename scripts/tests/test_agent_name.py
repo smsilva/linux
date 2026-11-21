@@ -19,6 +19,7 @@ def names_in(path):
 
 
 NEREIDS = names_in(ROOT / "lists" / "nereids")
+SERIES = names_in(ROOT / "lists" / "series")
 NAMES = "alfa bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu".split()
 
 
@@ -129,43 +130,43 @@ class AgentName(unittest.TestCase):
       self.run_script("release", "--session-id", session_id, env=env)
     return names
 
-  def test_the_versioned_configuration_is_the_nereids_at_random(self):
+  def test_the_versioned_configuration_is_the_nereids_and_the_series_in_one_pool_at_random(self):
     self.config.unlink()
-    self.assertEqual(self.run_script("config").stdout.split(), ["lists=nereids", "scope=list", "order=random", "names=26"])
-    self.assertIn(self.acquire("s1"), NEREIDS)
+    self.assertEqual(self.run_script("config").stdout.split(), ["lists=nereids,series", "scope=all", "order=random", f"names={len(NEREIDS) + len(SERIES)}"])
+    self.assertIn(self.acquire("s1"), NEREIDS + SERIES)
 
   def test_listed_follows_the_file_of_each_list(self):
     self.configure("nereids,nato", "list", "listed")
-    self.assertEqual(self.round_of(52), NEREIDS + NAMES)
+    self.assertEqual(self.round_of(len(NEREIDS) + len(NAMES)), NEREIDS + NAMES)
 
   def test_alphabetical_per_list_sorts_inside_each_list(self):
     self.configure("nereids,nato", "list", "alphabetical")
-    self.assertEqual(self.round_of(52), sorted(NEREIDS) + sorted(NAMES))
+    self.assertEqual(self.round_of(len(NEREIDS) + len(NAMES)), sorted(NEREIDS) + sorted(NAMES))
 
   def test_alphabetical_over_all_sorts_the_pool(self):
     self.configure("nereids,nato", "all", "alphabetical")
-    self.assertEqual(self.round_of(52), sorted(NEREIDS + NAMES))
+    self.assertEqual(self.round_of(len(NEREIDS) + len(NAMES)), sorted(NEREIDS + NAMES))
 
   def test_random_per_list_finishes_one_list_before_the_next(self):
     self.configure("nereids,nato", "list", "random")
-    names = self.round_of(52)
-    self.assertEqual(sorted(names[:26]), sorted(NEREIDS))
-    self.assertEqual(sorted(names[26:]), sorted(NAMES))
+    names = self.round_of(len(NEREIDS) + len(NAMES))
+    self.assertEqual(sorted(names[:len(NEREIDS)]), sorted(NEREIDS))
+    self.assertEqual(sorted(names[len(NEREIDS):]), sorted(NAMES))
 
   def test_random_over_all_mixes_the_lists(self):
     self.configure("nereids,nato", "all", "random")
-    names = self.round_of(52, env={"AGENT_NAME_SEED": "7"})
+    names = self.round_of(len(NEREIDS) + len(NAMES), env={"AGENT_NAME_SEED": "7"})
     self.assertEqual(sorted(names), sorted(NEREIDS + NAMES))
-    self.assertTrue(set(names[:26]) & set(NAMES) and set(names[:26]) & set(NEREIDS))
+    self.assertTrue(set(names[:len(NEREIDS)]) & set(NAMES) and set(names[:len(NEREIDS)]) & set(NEREIDS))
 
   def test_random_repeats_no_name_inside_a_round(self):
     self.configure("nereids", "list", "random")
-    self.assertEqual(sorted(self.round_of(26)), sorted(NEREIDS))
+    self.assertEqual(sorted(self.round_of(len(NEREIDS))), sorted(NEREIDS))
 
   def test_the_same_seed_gives_the_same_round(self):
     self.configure("nereids", "list", "random")
-    first = self.round_of(26, env={"AGENT_NAME_SEED": "7"})
-    second = self.round_of(26, env={"AGENT_NAME_SEED": "7"})
+    first = self.round_of(len(NEREIDS), env={"AGENT_NAME_SEED": "7"})
+    second = self.round_of(len(NEREIDS), env={"AGENT_NAME_SEED": "7"})
     self.assertEqual(first, second)
     self.assertNotEqual(first, NEREIDS)
 

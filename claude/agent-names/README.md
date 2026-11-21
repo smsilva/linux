@@ -4,9 +4,9 @@ Every agent session on this machine has a unique name from the active lists of n
 
 ## Lists and configuration
 
-The lists live in `lists/`, one file per list: `nereids` (26 Nereids of Hesiod's *Theogony*, active) and `nato` (the NATO phonetic alphabet in the ICAO spelling, off).
+The lists live in `lists/`, one file per list: `nereids` (18 Nereids of Hesiod's *Theogony*, active), `series` (40 characters of famous TV series that premiered from 2021 on, active; no villains, killers or names of crime series, and no names that clash with tools, such as `loki`) and `nato` (the NATO phonetic alphabet in the ICAO spelling, off).
 
-`config`, with `~/.config/agent-names/config` on top of it key by key, chooses: `lists` holds the active lists in order; `scope` is `list` (finish one list, then the next) or `all` (one pool); `order` is `listed`, `alphabetical` or `random`. Today: `lists=nereids`, `scope=list`, `order=random`. `agent-name config` shows what is in force.
+`config`, with `~/.config/agent-names/config` on top of it key by key, chooses: `lists` holds the active lists in order; `scope` is `list` (finish one list, then the next) or `all` (one pool); `order` is `listed`, `alphabetical` or `random`. Today (owner, 2026-11-21): `lists=nereids,series`, `scope=all`, `order=random`: one pool of 58 names, shuffled. `agent-name config` shows what is in force.
 
 ## The names go round, like hurricane names
 

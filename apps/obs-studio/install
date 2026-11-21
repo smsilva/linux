@@ -1,0 +1,17 @@
+#!/bin/bash
+# OBS Studio: screen recording and streaming, from the official PPA (newer than the Ubuntu archive).
+# The PPA follows the Ubuntu release: 32.x on 24.04 (noble), 33.x on 26.04 (resolute); no version pin.
+if ! which obs &> /dev/null; then
+  sudo apt-get install --yes \
+    software-properties-common
+
+  sudo add-apt-repository --yes ppa:obsproject/obs-studio
+
+  sudo apt-get update -q
+
+  sudo apt-get install --yes \
+    obs-studio
+fi
+
+echo "obs......: $(which obs)"
+echo "version..: $(obs --version 2>/dev/null | head -1)"

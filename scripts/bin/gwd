@@ -1,0 +1,147 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Remove a worktree of the current repository, and its branch, once its commits are on the trunk
+
+    Options:
+
+      -h,  --help         Show this help
+      -k,  --keep-branch  Keep the worktree's branch (default: false)
+      -dr, --dry-run      Only show what would be removed (default: false)
+
+    Examples:
+
+      ${this_script_name}
+
+      ${this_script_name} linux-gwd
+
+      ${this_script_name} feat/gwd
+
+      ${this_script_name} --dry-run
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    -k | --keep-branch )
+      keep_branch=true
+      ;;
+
+    -dr | --dry-run )
+      if [[ -n "${2}" && "${2}" =~ ^(true|false)$ ]]; then
+        dry_run="${2}"
+        shift
+      else
+        dry_run=true
+      fi
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+worktree_name="${1}"
+dry_run="${dry_run:-false}"
+keep_branch="${keep_branch:-false}"
+
+# One line per worktree except the main one: path, branch (or detached), HEAD
+list_worktrees() {
+  git worktree list --porcelain | awk '
+    /^worktree / { path = substr($0, 10); head = ""; branch = "(detached)" }
+    /^HEAD /     { head = substr($2, 1, 7) }
+    /^branch /   { branch = substr($2, 12) }
+    /^$/         { if (count++ > 0) printf "%s\t%s\t%s\n", path, branch, head }
+  '
+}
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "Not inside a git repository"
+  exit 1
+fi
+
+worktrees="$(list_worktrees)"
+
+if [[ -z "${worktrees}" ]]; then
+  echo "No worktrees besides the main one"
+  git worktree list
+  exit 0
+fi
+
+if [[ -z "${worktree_name}" ]]; then
+  selected="$(column --table --separator $'\t' <<< "${worktrees}" | fzf)"
+  worktree_path="$(awk '{ print $1 }' <<< "${selected}")"
+else
+  worktree_path="$(awk -F '\t' -v name="${worktree_name}" '
+    {
+      n = split($1, parts, "/")
+      if ($1 == name || $2 == name || parts[n] == name) { print $1; exit }
+    }
+  ' <<< "${worktrees}")"
+fi
+
+if [[ -z "${worktree_path}" ]]; then
+  [[ -n "${worktree_name}" ]] && echo "Worktree not found: ${worktree_name}"
+  git worktree list
+  exit 1
+fi
+
+line="$(awk -F '\t' -v path="${worktree_path}" '$1 == path' <<< "${worktrees}")"
+branch="$(cut --fields 2 <<< "${line}")"
+
+git fetch --quiet origin 2> /dev/null
+
+trunk="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2> /dev/null)"
+trunk="${trunk:-origin/main}"
+
+if [[ -n "$(git -C "${worktree_path}" status --porcelain 2> /dev/null)" ]]; then
+  echo "Uncommitted changes in ${worktree_path}:"
+  git -C "${worktree_path}" status --short
+  exit 1
+fi
+
+# git cherry marks with "+" the commits whose change is not on the trunk;
+# it compares patches, so it also sees commits a rebase merge rewrote
+head="$(git -C "${worktree_path}" rev-parse HEAD)"
+missing="$(git cherry "${trunk}" "${head}" | grep '^+')"
+
+if [[ -n "${missing}" ]]; then
+  echo "Commits of ${worktree_path} (${branch}) not on ${trunk}:"
+  git cherry -v "${trunk}" "${head}" | grep '^+'
+  exit 1
+fi
+
+echo "Worktree: ${worktree_path}"
+echo "Branch:   ${branch}"
+echo "Commits:  all on ${trunk}"
+
+if [[ "${dry_run}" == "true" ]]; then
+  echo ""
+  echo "Dry run: nothing removed"
+  exit 0
+fi
+
+git worktree remove "${worktree_path}" || exit 1
+
+if [[ "${keep_branch}" == "false" && "${branch}" != "(detached)" ]]; then
+  git branch --delete --force "${branch}"
+fi
+
+echo ""
+git worktree list

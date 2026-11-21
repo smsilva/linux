@@ -8,7 +8,8 @@ A session prompt is the instructions a session leaves so the next one, after `/c
 2. **Before `/clear`:** the agent drafts its prompt (in English, imperative, to a fresh agent: the context, each standing instruction, the start; not what was done) in its scratchpad and runs `session-prompt save --file <draft>`, without asking the owner to confirm. It shows what it saved and only then tells the owner the session can be cleared. The file is `<git common dir>/session-prompts/<agent name>.md` (`session-prompt path` prints it); with `PROMPT_TEAM` set (a command the owner chooses, e.g. a board's team panel), its output goes in a `## Board at save` block; a repository's own scripts never run from here.
 3. **After `/clear`:** the session keeps its name, and the hook puts the prompt in its context. A prompt rewritten after the ended session's start says "follow it"; one that was not says **STALE**.
 4. **A session that ends for good** (`/exit`, a closed window, not `/clear`): the hook archives the prompt to `~/.claude/prompts/<repository>/<agent name>-<date>.md`, so a later session that gets the name starts clean.
-5. **`session-prompt clear --topic <name>`:** archives the prompt under a topic, once the owner confirms.
+5. **That same session resumed** (`claude --resume <id>`, the command Claude Code prints at exit): the end left `<agent name>.ended` next to the prompt, with the session id, the archive and the session's start; a `SessionStart` with `source=resume` and the same session id moves the archive back, restores the start (so the prompt is not STALE at the next `/clear`) and puts one line in the context, since a resume already carries the conversation (#218). Another session of the same name never takes it.
+6. **`session-prompt clear --topic <name>`:** archives the prompt under a topic, once the owner confirms.
 
 ## The rules
 

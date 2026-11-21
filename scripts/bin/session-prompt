@@ -22,7 +22,8 @@ show_usage() {
       clear --topic <name>   Archive the prompt to ~/.claude/prompts/<repository>/<name>.md, then remove it
       hook                   Claude Code hook (SessionStart, SessionEnd), JSON on stdin: after /clear prints the
                              agent's prompt, marked STALE when the session that ended did not rewrite it; a session
-                             ending for good archives the prompt
+                             ending archives the prompt, and a resume of that same session (claude --resume)
+                             takes it back
 
     Options:
 
@@ -85,10 +86,11 @@ resolve() {
   folder="${common_dir}/session-prompts"
   file="${folder}/${agent}.md"
   started="${folder}/${agent}.session"
+  ended="${folder}/${agent}.ended"
 
   # Nothing under the git folder comes with a clone, but never follow a link there either
   local path
-  for path in "${folder}" "${file}" "${started}"; do
+  for path in "${folder}" "${file}" "${started}" "${ended}"; do
     [[ -L "${path}" ]] && fail "refusing a symbolic link: ${path}"
   done
   return 0
@@ -127,7 +129,34 @@ archive_prompt() {
   cp "${file}" "${archive}"
   cmp --quiet "${file}" "${archive}" || fail "the copy ${archive} differs from ${file}: kept both"
   rm "${file}"
+  archived="${archive}"
   echo "archived to ${archive}, removed ${file}"
+}
+
+# The field of the ended marker, empty when missing
+ended_field() {
+  local key="${1}"
+
+  [[ -s "${ended}" ]] || return 0
+  sed --quiet "s/^${key}=//p" "${ended}" | head --lines 1
+}
+
+# A resumed session (claude --resume) is the one its SessionEnd took for gone: give back the prompt that end archived
+# and the start of the session, so a prompt saved before the exit is not marked STALE at the next /clear
+restore_prompt() {
+  local session_id="${1}"
+  local archive
+  local archive_directory="${PROMPT_ARCHIVE:-${HOME}/.claude/prompts/${main_clone##*/}}"
+
+  [[ -s "${ended}" && ! -s "${file}" ]] || return 1
+  [[ "$(ended_field session_id)" == "${session_id}" ]] || return 1
+  archive="$(ended_field archive)"
+  [[ "${archive}" == "${archive_directory}/"*.md && -f "${archive}" && ! -L "${archive}" ]] || return 1
+  mv "${archive}" "${file}" || return 1
+  restored_started="$(ended_field started)"
+  [[ "${restored_started}" =~ ^[0-9]+$ ]] || restored_started=""
+  rm --force "${ended}"
+  echo "Session prompt of ${agent} restored from ${archive}, archived when this session last ended (session-prompt show prints it)."
 }
 
 hook() {
@@ -162,17 +191,22 @@ hook() {
         echo
         cat "${file}"
       fi
+      restored_started=""
+      [[ "${source_or_reason}" == "resume" ]] && restore_prompt "${session_id}"
       mkdir --parents "${folder}"
-      date +%s | write_file "${started}"
+      echo "${restored_started:-$(date +%s)}" | write_file "${started}"
       ;;
 
     SessionEnd )
       source_or_reason="$(jq --raw-output '.reason // empty' <<< "${input}")"
       # /clear keeps the agent and its name: the prompt stays for the next session
       [[ "${source_or_reason}" == "clear" ]] && exit 0
-      rm --force "${started}"
+      started_epoch="$(started_at)"
+      rm --force "${started}" "${ended}"
       [[ -s "${file}" ]] || exit 0
       archive_prompt "${agent}-$(date +%F)" > /dev/null
+      # The marker a resume of this same session reads to take the prompt back
+      printf 'session_id=%s\narchive=%s\nstarted=%s\n' "${session_id}" "${archived}" "${started_epoch}" | write_file "${ended}"
       ;;
 
   esac

@@ -359,10 +359,18 @@ claude_pid() {
   echo "${PPID}"
 }
 
+transcript_name() {
+  # The name Claude Code recorded for the session (--name), the last one when renamed; empty when none
+  local transcript="${1}"
+  [[ -n "${transcript}" && -r "${transcript}" ]] || return 0
+  jq --raw-output 'select(.type == "agent-name") | .agentName // empty' "${transcript}" 2>/dev/null | tail --lines 1
+}
+
 hook() {
   local input
   local event
   local session_id
+  local preferred
   local name
   input="$(cat)"
   event="$(jq --raw-output '.hook_event_name // empty' <<< "${input}")"
@@ -370,7 +378,10 @@ hook() {
   [[ -n "${session_id}" ]] || exit 0
   case "${event}" in
     SessionStart )
-      name="$(locked acquire "${session_id}" "${AGENT_NAME_PID:-$(claude_pid)}" "${AGENT_NAME:-}")" || exit 0
+      # A resumed session lost its state file at its SessionEnd: its transcript still holds the name it had
+      preferred="${AGENT_NAME:-}"
+      [[ -n "${preferred}" ]] || preferred="$(transcript_name "$(jq --raw-output '.transcript_path // empty' <<< "${input}")")"
+      name="$(locked acquire "${session_id}" "${AGENT_NAME_PID:-$(claude_pid)}" "${preferred}")" || exit 0
       jq --null-input --arg name "${name}" '{
         hookSpecificOutput: {
           hookEventName: "SessionStart",

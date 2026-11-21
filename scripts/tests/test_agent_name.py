@@ -313,6 +313,28 @@ class AgentName(unittest.TestCase):
     output = json.loads(self.hook("SessionStart", "s2", pid, source="clear"))
     self.assertIn("Your name is bravo", output["hookSpecificOutput"]["additionalContext"])
 
+  def transcript(self, *names):
+    path = pathlib.Path(self.home.name) / "transcript.jsonl"
+    lines = [json.dumps({"type": "user"})] + [json.dumps({"type": "agent-name", "agentName": name}) for name in names]
+    path.write_text("\n".join(lines) + "\n")
+    return str(path)
+
+  def test_a_resumed_session_takes_back_the_name_of_its_transcript(self):
+    pid = self.live_pid()
+    self.hook("SessionStart", "s1", pid, source="startup")
+    self.hook("SessionEnd", "s1", pid, reason="prompt_input_exit")
+    output = json.loads(self.hook("SessionStart", "s1", self.live_pid(), source="resume", transcript_path=self.transcript("kilo", "lima")))
+    self.assertIn("Your name is lima", output["hookSpecificOutput"]["additionalContext"])
+
+  def test_a_transcript_name_another_session_holds_is_not_taken(self):
+    self.acquire("other", name="lima")
+    output = json.loads(self.hook("SessionStart", "s1", self.live_pid(), source="resume", transcript_path=self.transcript("lima")))
+    self.assertNotIn("Your name is lima", output["hookSpecificOutput"]["additionalContext"])
+
+  def test_a_missing_transcript_falls_back_to_the_queue(self):
+    output = json.loads(self.hook("SessionStart", "s1", self.live_pid(), source="resume", transcript_path="/nonexistent.jsonl"))
+    self.assertIn("Your name is alfa", output["hookSpecificOutput"]["additionalContext"])
+
 
 if __name__ == "__main__":
   unittest.main()

@@ -60,6 +60,14 @@ held_name() {
   agent-name whoami --session-id "${session_id}" 2> /dev/null || true
 }
 
+# The name Claude Code recorded in the session's transcript (--name), the last one when renamed; empty when none
+transcript_name() {
+  local transcript="${1}"
+
+  [[ -n "${transcript}" && -r "${transcript}" ]] || return 0
+  jq --raw-output 'select(.type == "agent-name") | .agentName // empty' "${transcript}" 2> /dev/null | tail --lines 1
+}
+
 # Sets agent, main_clone, folder, file and started in this shell, so a failure stops the script, not a subshell
 resolve() {
   local session_id="${1:-${CLAUDE_CODE_SESSION_ID:-}}"
@@ -129,6 +137,11 @@ hook() {
   command -v jq > /dev/null || exit 0
   event="$(jq --raw-output '.hook_event_name // empty' <<< "${input}" 2> /dev/null)"
   session_id="$(jq --raw-output '.session_id // empty' <<< "${input}" 2> /dev/null)"
+  # agent-name's SessionEnd hook runs in parallel and may free the name first: resolve it once, then fall back to
+  # the name the transcript records
+  [[ -z "${agent}" ]] && agent="${AGENT_NAME:-}"
+  [[ -z "${agent}" ]] && agent="$(held_name "${session_id}")"
+  [[ -z "${agent}" ]] && agent="$(transcript_name "$(jq --raw-output '.transcript_path // empty' <<< "${input}" 2> /dev/null)")"
   (resolve "${session_id}" 2> /dev/null) || exit 0
   resolve "${session_id}"
 

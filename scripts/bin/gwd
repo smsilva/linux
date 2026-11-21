@@ -110,20 +110,40 @@ git fetch --quiet origin 2> /dev/null
 trunk="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2> /dev/null)"
 trunk="${trunk:-origin/main}"
 
-if [[ -n "$(git -C "${worktree_path}" status --porcelain 2> /dev/null)" ]]; then
+# Every check fails closed: a git command that errors stops the removal
+if ! git rev-parse --verify --quiet "${trunk}^{commit}" > /dev/null; then
+  echo "Trunk not found: ${trunk}"
+  exit 1
+fi
+
+if ! status="$(git -C "${worktree_path}" status --porcelain)"; then
+  echo "Could not read the status of ${worktree_path}"
+  exit 1
+fi
+
+if [[ -n "${status}" ]]; then
   echo "Uncommitted changes in ${worktree_path}:"
   git -C "${worktree_path}" status --short
   exit 1
 fi
 
+if ! head="$(git -C "${worktree_path}" rev-parse --verify HEAD)" || [[ -z "${head}" ]]; then
+  echo "Could not read the HEAD of ${worktree_path}"
+  exit 1
+fi
+
 # git cherry marks with "+" the commits whose change is not on the trunk;
 # it compares patches, so it also sees commits a rebase merge rewrote
-head="$(git -C "${worktree_path}" rev-parse HEAD)"
-missing="$(git cherry "${trunk}" "${head}" | grep '^+')"
+if ! cherry="$(git cherry -v "${trunk}" "${head}")"; then
+  echo "git cherry failed for ${trunk} and ${head}"
+  exit 1
+fi
+
+missing="$(grep '^+' <<< "${cherry}")"
 
 if [[ -n "${missing}" ]]; then
   echo "Commits of ${worktree_path} (${branch}) not on ${trunk}:"
-  git cherry -v "${trunk}" "${head}" | grep '^+'
+  echo "${missing}"
   exit 1
 fi
 
@@ -140,6 +160,8 @@ fi
 git worktree remove "${worktree_path}" || exit 1
 
 if [[ "${keep_branch}" == "false" && "${branch}" != "(detached)" ]]; then
+  # --force: a rebase merge rewrites the commits, so plain --delete refuses
+  # a branch whose content git cherry already found on the trunk
   git branch --delete --force "${branch}"
 fi
 

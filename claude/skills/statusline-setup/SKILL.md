@@ -73,7 +73,7 @@ The 5-hour window has no push: using up every 5-hour window would use up the wee
 
 With the `nereus` CLI installed (getnereus/nereus#1592), the week's projection comes from its cache, `${XDG_STATE_HOME}/nereus/usage/weekly.json` (`figures.forecast`), read with `jq` on every render, and a salmon `!` follows it while `sendFailing` is true. The status line starts `setsid nereus usage report weekly` detached when the reading differs from the cache or the cache is 5 minutes old, at most once a minute; the CLI keeps the same limits, sends to Nereus at most every 5 minutes and backs off on failure. Without `nereus usage`, or before its cache holds the window, `claude-usage-forecast` answers.
 
-Today's goal (`claude-usage-plan --today-goal`) is no longer on the status line; the `UserPromptSubmit` hook (`claude-usage-plan-hook`) still gives it to each session.
+Today's goal (`claude-usage-plan --today-goal`) is no longer on the status line; the `UserPromptSubmit` hook `claude-usage-plan-hook` that gave it to each session is disabled (not registered in `settings.json`); `claude-usage-plan --today-goal` prints it on demand.
 
 ## Segment layout
 

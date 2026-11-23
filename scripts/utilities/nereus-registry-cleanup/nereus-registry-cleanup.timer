@@ -1,0 +1,9 @@
+[Unit]
+Description=nereus-registry-cleanup: daily at 04:30, after disk-watch gc
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

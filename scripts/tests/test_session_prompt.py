@@ -101,6 +101,22 @@ class SessionPrompt(unittest.TestCase):
     self.assertFalse(self.prompt.exists())
     self.assertTrue(outside.exists())
 
+  def test_a_repository_with_its_own_script_refuses_save_and_names_it(self):
+    own = self.repository / "scripts" / "session" / "prompt"
+    own.parent.mkdir(parents=True)
+    own.write_text("#!/usr/bin/env bash\necho 'the repository script ran' > ran\n")
+    own.chmod(0o755)
+    draft = self.root / "draft.md"
+    draft.write_text("# Session prompt: kilo\n")
+    environment = {key: value for key, value in os.environ.items() if not key.startswith(("AGENT_NAME", "PROMPT_", "CLAUDE_CODE_SESSION_ID"))}
+    environment.update({"AGENT_NAME": "kilo", "PROMPT_ARCHIVE": str(self.archive), "PATH": "/usr/bin:/bin"})
+    for args in (["save", "--file", str(draft)], ["show"], ["path"], ["clear", "--topic", "x"]):
+      result = subprocess.run([str(SCRIPT), *args], env=environment, cwd=self.repository, capture_output=True, text=True)
+      self.assertEqual(result.returncode, 1, args)
+      self.assertIn(f"run scripts/session/prompt {args[0]}", result.stderr)
+    self.assertFalse(self.prompt.exists())
+    self.assertFalse((self.repository / "ran").exists())
+
 
 if __name__ == "__main__":
   unittest.main()

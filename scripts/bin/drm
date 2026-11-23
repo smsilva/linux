@@ -5,8 +5,20 @@ list_docker_images() {
   docker image list --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}"
 }
 
+select_docker_image() {
+  local query="${1}"
+
+  list_docker_images \
+  | sed 1d \
+  | sort \
+  | fzf --query "${query}" \
+  | awk '{ print $2 }'
+}
+
 if [[ -z "${image_id}" ]]; then
-  image_id=$(list_docker_images | sed 1d | sort | fzf | awk '{ print $2 }')
+  image_id=$(select_docker_image)
+elif ! docker image inspect "${image_id}" &> /dev/null; then
+  image_id=$(select_docker_image "${image_id}")
 fi
 
 if [[ -z "${image_id}" ]]; then

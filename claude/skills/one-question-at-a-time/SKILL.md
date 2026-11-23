@@ -11,7 +11,7 @@ The owner reads from the phone and often follows by voice: a list of questions m
 
 1. **Gather the questions first, silently.** List every open question of the work in hand, and drop the ones the request, the code, the docs or a sensible default already answer: those are stated as facts, never asked.
 2. **Order them:** a question whose answer changes or removes later ones goes first. Say how many there are in one line ("3 dúvidas").
-3. **Ask where to answer, once,** unless the owner already said it or the argument names it (`/one-question-at-a-time deck`). The three surfaces:
+3. **Answer in the terminal by default** (owner, 2026-11-23): never ask where to answer. Use another surface only when the owner names it, in the request or the argument (`/one-question-at-a-time deck`). The three surfaces:
 
    | Surface | What it is | When it fits |
    | --- | --- | --- |
@@ -19,7 +19,7 @@ The owner reads from the phone and often follows by voice: a list of questions m
    | visual companion | one browser screen per question, answered by a click | options worth seeing: a diagram, names, CLI examples side by side |
    | deck | one slide per question in one HTML file, answered in the chat | questions to read away from the session, to keep or to share |
 
-   Recommend one in that question, by the table.
+   When the questions' options are worth seeing (a diagram, names side by side), say in one line that the companion or a deck would fit, and go on in the terminal.
 4. **Present one question,** then stop and wait. Each question carries, in this order:
    - its number and the total ("Dúvida 2 de 3");
    - the context in one or two sentences: what was found and why it needs the owner;

@@ -81,6 +81,28 @@ when() {
   fi
 }
 
+# A crontab line's schedule: its five fields, or its @nickname.
+cron_schedule() {
+  local line="${1?}"
+
+  if [[ "${line}" == @* ]]; then
+    echo "${line%% *}"
+  else
+    awk '{ print $1, $2, $3, $4, $5 }' <<< "${line}"
+  fi
+}
+
+# A crontab line's command, by the name of its program only.
+command_name() {
+  local line="${1?}"
+  local command
+
+  # The first field after the schedule that is not a VAR=value (its value may be a secret).
+  command="$(awk -v first="$([[ "${line}" == @* ]] && echo 2 || echo 6)" \
+    '{ for (i = first; i <= NF; i++) if ($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/) { print $i; exit } }' <<< "${line}")"
+  basename "${command:-?}"
+}
+
 list() {
   local timer
   local next
@@ -111,19 +133,19 @@ list() {
   done < <(systemctl --user list-timers --all --output json 2> /dev/null \
     | jq --raw-output '.[] | [.unit, (.next | tostring), (.last | tostring), .activates] | @tsv' 2> /dev/null)
 
+  # Only the schedule and the command's name: the rest of a crontab line may hold a secret.
   while read -r line; do
-    printf '  cron: %s\n' "${line}"
+    printf '  %-32.32s %s\n' "cron: $(command_name "${line}")" "$(cron_schedule "${line}")"
     count=$(( count + 1 ))
-  done < <(crontab -l 2> /dev/null | grep --invert-match --extended-regexp '^[[:space:]]*(#|$)')
+  done < <(crontab -l 2> /dev/null | grep --invert-match --extended-regexp '^[[:space:]]*(#|$|[A-Za-z_]+=)')
 
   (( count > 0 )) || echo "  none"
 }
 
-output="$(list)"
+list
+echo ""
 
+# Only an empty marker of the day: the list itself is never written to disk.
 mkdir -p "${log_dir}"
 rm --force "${log_dir}"/*.log
-echo "${output}" > "${day_file}"
-
-echo "${output}"
-echo ""
+touch "${day_file}"

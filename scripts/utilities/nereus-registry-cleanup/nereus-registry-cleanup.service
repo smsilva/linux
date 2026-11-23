@@ -1,0 +1,11 @@
+[Unit]
+Description=nereus-registry-cleanup: remove the Nereus images not in the latest release, not in use and older than 24 hours
+Documentation=file://%h/git/linux/scripts/utilities/nereus-registry-cleanup/README.md
+
+[Service]
+Type=oneshot
+# The latest release is the highest git tag v* of the main clone: fetch the tags first; a failed fetch keeps the ones it has.
+ExecStartPre=-/usr/bin/git -C %h/git/getnereus/nereus fetch --tags --quiet origin
+ExecStart=%h/git/getnereus/nereus/scripts/registry/cleanup --apply
+Nice=10
+IOSchedulingClass=idle

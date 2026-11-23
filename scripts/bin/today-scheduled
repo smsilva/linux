@@ -90,8 +90,9 @@ cron_job="^[[:space:]]*(@[a-z]+|${cron_field}([[:space:]]+${cron_field}){4})[[:s
 cron_schedule() {
   local line="${1?}"
 
-  if [[ "${line}" == @* ]]; then
-    echo "${line%% *}"
+  # The same shape cron_job matched, never a cut at a literal space (a tab or a leading blank would let the command in).
+  if [[ "${line}" =~ ^[[:space:]]*(@[a-z]+)[[:space:]] ]]; then
+    echo "${BASH_REMATCH[1]}"
   else
     awk '{ print $1, $2, $3, $4, $5 }' <<< "${line}"
   fi
@@ -103,7 +104,7 @@ command_name() {
   local command
 
   # The first field after the schedule that is not a VAR=value (its value may be a secret).
-  command="$(awk -v first="$([[ "${line}" == @* ]] && echo 2 || echo 6)" \
+  command="$(awk -v first="$([[ "${line}" =~ ^[[:space:]]*@ ]] && echo 2 || echo 6)" \
     '{ for (i = first; i <= NF; i++) if ($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/) { print $i; exit } }' <<< "${line}")"
   command="$(basename "${command:-?}")"
   # A quoted VAR="a b" splits into fields: anything but a plain program name shows as "?".

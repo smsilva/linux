@@ -81,6 +81,11 @@ when() {
   fi
 }
 
+# Only the lines that look like a job: an @nickname, or five schedule fields. Comments, blank lines and the variable
+# lines (MAILTO = x, with or without spaces) never match.
+cron_field='[0-9A-Za-z*,/-]+'
+cron_job="^[[:space:]]*(@[a-z]+|${cron_field}([[:space:]]+${cron_field}){4})[[:space:]]+[^[:space:]]"
+
 # A crontab line's schedule: its five fields, or its @nickname.
 cron_schedule() {
   local line="${1?}"
@@ -100,7 +105,10 @@ command_name() {
   # The first field after the schedule that is not a VAR=value (its value may be a secret).
   command="$(awk -v first="$([[ "${line}" == @* ]] && echo 2 || echo 6)" \
     '{ for (i = first; i <= NF; i++) if ($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/) { print $i; exit } }' <<< "${line}")"
-  basename "${command:-?}"
+  command="$(basename "${command:-?}")"
+  # A quoted VAR="a b" splits into fields: anything but a plain program name shows as "?".
+  [[ "${command}" =~ ^[A-Za-z0-9_.+-]+$ ]] || command="?"
+  echo "${command}"
 }
 
 list() {
@@ -137,7 +145,7 @@ list() {
   while read -r line; do
     printf '  %-32.32s %s\n' "cron: $(command_name "${line}")" "$(cron_schedule "${line}")"
     count=$(( count + 1 ))
-  done < <(crontab -l 2> /dev/null | grep --invert-match --extended-regexp '^[[:space:]]*(#|$|[A-Za-z_]+=)')
+  done < <(crontab -l 2> /dev/null | grep --extended-regexp "${cron_job}")
 
   (( count > 0 )) || echo "  none"
 }

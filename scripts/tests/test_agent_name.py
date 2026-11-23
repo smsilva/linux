@@ -14,12 +14,16 @@ SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "bin" / "agent-name"
 ROOT = pathlib.Path(__file__).resolve().parents[2] / "claude" / "agent-names"
 
 
+def entries_in(path):
+  return [line.split(None, 1) for line in path.read_text().splitlines() if line.strip() and not line.startswith("#")]
+
+
 def names_in(path):
-  return [line for line in path.read_text().splitlines() if line and not line.startswith("#")]
+  return [entry[0] for entry in entries_in(path)]
 
 
 NEREIDS = names_in(ROOT / "lists" / "nereids")
-SERIES = names_in(ROOT / "lists" / "series")
+MESOPOTAMIA = names_in(ROOT / "lists" / "mesopotamia")
 NAMES = "alfa bravo charlie delta echo foxtrot golf hotel india juliett kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey x-ray yankee zulu".split()
 
 
@@ -130,10 +134,10 @@ class AgentName(unittest.TestCase):
       self.run_script("release", "--session-id", session_id, env=env)
     return names
 
-  def test_the_versioned_configuration_is_the_nereids_and_the_series_in_one_pool_at_random(self):
+  def test_the_versioned_configuration_is_the_mesopotamia_list_at_random(self):
     self.config.unlink()
-    self.assertEqual(self.run_script("config").stdout.split(), ["lists=nereids,series", "scope=all", "order=random", f"names={len(NEREIDS) + len(SERIES)}"])
-    self.assertIn(self.acquire("s1"), NEREIDS + SERIES)
+    self.assertEqual(self.run_script("config").stdout.split(), ["lists=mesopotamia", "scope=all", "order=random", f"names={len(MESOPOTAMIA)}"])
+    self.assertIn(self.acquire("s1"), MESOPOTAMIA)
 
   def test_listed_follows_the_file_of_each_list(self):
     self.configure("nereids,nato", "list", "listed")
@@ -199,6 +203,11 @@ class AgentName(unittest.TestCase):
       self.assertEqual(len(names), len(set(names)), path.name)
       for name in names:
         self.assertRegex(name, r"^[a-z]+(-[a-z]+)?$")
+
+  def test_every_name_has_a_description(self):
+    for path in (ROOT / "lists").iterdir():
+      for entry in entries_in(path):
+        self.assertEqual(len(entry), 2, f"{path.name}: {entry[0]}")
 
   def test_the_old_state_folder_moves_once_and_keeps_the_names(self):
     home = pathlib.Path(self.home.name)

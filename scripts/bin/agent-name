@@ -166,8 +166,9 @@ load_config() {
 }
 
 names_of() {
+  # The first word of each line; the rest is the name's description.
   local list="${1?}"
-  sed '/^#/d;/^$/d' "${lists_directory}/${list}"
+  awk '!/^#/ && NF { print $1 }' "${lists_directory}/${list}"
 }
 
 all_names() {

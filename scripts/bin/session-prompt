@@ -96,6 +96,14 @@ resolve() {
   return 0
 }
 
+# A repository with its own scripts/session/prompt (Nereus, platform-api) keeps its prompts where its own hook reads
+# them, and this hook skips it: a prompt written here would reach no session (#230). Refuse, naming its script; never
+# run it from here, since a repository's own scripts never run from this tool
+refuse_repository_copy() {
+  [[ -x "${main_clone}/scripts/session/prompt" ]] || return 0
+  fail "this repository keeps its own session prompts, read by its own hook: run scripts/session/prompt ${command} (its --help says what it needs)"
+}
+
 # Writes stdin to a file through a temporary file in the same folder, so a link planted at the name is replaced, not followed
 write_file() {
   local target="${1}"
@@ -252,11 +260,13 @@ done
 case "${command}" in
   path )
     resolve
+    refuse_repository_copy
     echo "${file}"
     ;;
 
   show )
     resolve
+    refuse_repository_copy
     [[ -s "${file}" ]] || fail "no session prompt for ${agent} (${file})"
     cat "${file}"
     ;;
@@ -265,6 +275,7 @@ case "${command}" in
     [[ -n "${draft}" ]] || fail "save needs --file <draft>"
     [[ -s "${draft}" ]] || fail "the draft ${draft} is missing or empty"
     resolve
+    refuse_repository_copy
     mkdir --parents "${folder}"
     # Only a command the owner set: a repository's own scripts never run from here
     team="${PROMPT_TEAM:-}"
@@ -287,6 +298,7 @@ case "${command}" in
   clear )
     [[ -n "${topic}" ]] || fail "clear needs --topic <name>"
     resolve
+    refuse_repository_copy
     [[ -s "${file}" ]] || fail "no session prompt for ${agent} (${file})"
     archive_prompt "${topic}"
     ;;

@@ -33,7 +33,7 @@ Read it before step 1. When `board` names a backend whose tool is not installed 
 
 ## Session prompt
 
-A session prompt is the instructions a session leaves so the next one, after `/clear`, resumes the same way of working; `session-prompt` keeps one per agent (`~/git/linux/claude/session-prompt/README.md`). Never write its path by hand.
+A session prompt is the instructions a session leaves so the next one, after `/clear`, resumes the same way of working; `session-prompt` keeps one per agent (`~/git/linux/claude/session-prompt/README.md`). Never write its path by hand. In a repository with its own `scripts/session/prompt` (platform-api, Nereus), `session-prompt` refuses and names that script: run the same command with `scripts/session/prompt` instead (its `--help` says what `save` needs), since that repository's hook reads only its own (#230).
 
 - **No argument:** run `session-prompt show`. With a prompt, follow it in place of the steps below; with none (it exits non-zero), run the steps.
 - **After `/clear`:** the `SessionStart` hook already put the prompt in the context: follow it. When it says **STALE**, tell the owner first, check its state against the repository and the issues, and rewrite it with `save` once checked. If the branch or checkout path differs from its header, say so and ask before the first commit.

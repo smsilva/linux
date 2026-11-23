@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# The open journeys of a GitHub repository and the progress of each (getnereus/nereus docs/agent/journeys.md):
+# a journey is an open issue labelled "journey" whose sub-issues are its steps; its progress is the closed
+# sub-issues over all of them, from the summary GitHub keeps on the parent issue, never from an agent's count.
+
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<USAGE
+
+  List the open journeys of a repository with their progress: <closed>/<total> (<percent>%) #<number> <title>
+
+    Options:
+
+      --repo <owner/name>   The repository (default: the current directory's)
+      --label <name>        The journey label (default: journey)
+      --json                Print a JSON array instead of lines
+      --help                Show this help
+
+    Examples:
+
+      ${this_script_name}
+      ${this_script_name} --repo getnereus/nereus --json
+
+USAGE
+}
+
+repo=""
+label="journey"
+output="lines"
+
+while [[ "${#}" -gt 0 ]]; do
+  case "${1}" in
+    --repo) repo="${2?--repo needs a value}"; shift 2 ;;
+    --label) label="${2?--label needs a value}"; shift 2 ;;
+    --json) output="json"; shift ;;
+    --help) show_usage; exit 0 ;;
+    *) echo "${this_script_name}: unknown option: ${1}" >&2; show_usage >&2; exit 2 ;;
+  esac
+done
+
+if [[ -z "${repo}" ]]; then
+  repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || exit 1
+fi
+
+numbers="$(gh issue list \
+  --repo "${repo}" \
+  --label "${label}" \
+  --state open \
+  --limit 100 \
+  --json number \
+  --jq '.[].number')" || exit 1
+
+journeys="$(
+  for number in ${numbers}; do
+    gh api "repos/${repo}/issues/${number}" \
+      --jq '{number, title, url: .html_url, updated: .updated_at, completed: (.sub_issues_summary.completed // 0), total: (.sub_issues_summary.total // 0)}'
+  done | jq --slurp 'map((if .total == 0 then 0 else ((.completed * 1000 / .total + 0.5) | floor) end) as $tenths
+    | . + {percent: "\($tenths / 10 | floor).\($tenths % 10)"}) | sort_by(-.number)'
+)" || exit 1
+
+if [[ "${output}" == "json" ]]; then
+  echo "${journeys}"
+  exit 0
+fi
+
+jq --raw-output '
+  if length == 0 then "no open journeys"
+  else .[] | if .total == 0 then "no steps #\(.number) \(.title)"
+             else "\(.completed)/\(.total) (\(.percent)%) #\(.number) \(.title)" end
+  end' <<<"${journeys}"

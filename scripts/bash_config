@@ -54,6 +54,10 @@ if which today-fortune &> /dev/null; then
   today-fortune
 fi
 
+if which today-scheduled &> /dev/null; then
+  today-scheduled
+fi
+
 if [[ -f "${HOME}/.bash_functions" ]]; then
   source "${HOME}/.bash_functions"
 fi

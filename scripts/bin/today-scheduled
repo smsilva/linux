@@ -1,0 +1,129 @@
+#!/bin/bash
+
+show_usage() {
+  cat <<USAGE
+Usage: ${0##*/} [--force]
+
+Lists this user's scheduled jobs once per day, at the first terminal of the day (as today-fortune does): one line per
+systemd user timer (schedule, next run, last result) and per user crontab entry.
+
+  --force  list now, even if already listed today
+  --help   show this help
+USAGE
+}
+
+force="false"
+
+while [[ $# -gt 0 ]]; do
+  case "${1}" in
+    --force) force="true" ;;
+    --help) show_usage; exit 0 ;;
+    *) show_usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+log_dir="${HOME}/.log/scheduled"
+day_file="${log_dir}/scheduled-$(date +%Y-%m-%d).log"
+
+if [[ "${force}" != "true" && -e "${day_file}" ]]; then
+  exit 0
+fi
+
+# A timer's schedule in a few words: "daily 04:00", "8x a day", "every 15min", or the raw OnCalendar.
+timer_schedule() {
+  local timer="${1?}"
+  local calendars
+  local calendar
+  local monotonic
+
+  calendars="$(systemctl --user show "${timer}" --property TimersCalendar --value \
+    | sed --quiet --regexp-extended 's/.*OnCalendar=([^;]*[^; ]) *;.*/\1/p')"
+  calendar="$(head -n 1 <<< "${calendars}")"
+  monotonic="$(systemctl --user show "${timer}" --property TimersMonotonic --value \
+    | sed --quiet --regexp-extended 's/.*OnUnitActiveUSec=([^ ;]+).*/\1/p' | head -n 1)"
+
+  if (( $(grep --count . <<< "${calendars}") > 1 )); then
+    if ! grep --quiet --invert-match --extended-regexp '^\*-\*-\* [0-9:]+$' <<< "${calendars}"; then
+      echo "$(grep --count . <<< "${calendars}")x a day"
+    else
+      echo "$(grep --count . <<< "${calendars}") schedules"
+    fi
+  elif [[ "${calendar}" =~ ^\*-\*-\*\ ([0-9]{2}:[0-9]{2}):00$ ]]; then
+    echo "daily ${BASH_REMATCH[1]}"
+  elif [[ -n "${calendar}" ]]; then
+    echo "${calendar}"
+  elif [[ -n "${monotonic}" ]]; then
+    echo "every ${monotonic}"
+  else
+    echo "?"
+  fi
+}
+
+# A run time in microseconds since the epoch as "today 04:30", "tomorrow 04:30" or "Wed 26/11 04:30".
+when() {
+  local microseconds="${1?}"
+  local seconds
+  local day
+
+  if [[ -z "${microseconds}" || "${microseconds}" == "0" || "${microseconds}" == "null" ]]; then
+    echo "-"
+    return
+  fi
+  seconds=$(( microseconds / 1000000 ))
+  day="$(date --date "@${seconds}" +%F)"
+  if [[ "${day}" == "$(date +%F)" ]]; then
+    date --date "@${seconds}" +"today %H:%M"
+  elif [[ "${day}" == "$(date --date tomorrow +%F)" ]]; then
+    date --date "@${seconds}" +"tomorrow %H:%M"
+  else
+    date --date "@${seconds}" +"%a %d/%m %H:%M"
+  fi
+}
+
+list() {
+  local timer
+  local next
+  local service
+  local result
+  local mark
+  local last
+  local count=0
+  local line
+
+  echo "Scheduled jobs"
+
+  while IFS=$'\t' read -r timer next last service; do
+    [[ -n "${timer}" ]] || continue
+    result="$(systemctl --user show "${service}" --property Result --value)"
+    case "${result}" in
+      success) mark="✓" ;;
+      "") mark="?" ;;
+      *) mark="✗ ${result}" ;;
+    esac
+    # Ran when its timer fired, or when its service was started by hand.
+    if [[ "${last}" == "0" || "${last}" == "null" ]] \
+      && [[ -z "$(systemctl --user show "${service}" --property ExecMainExitTimestamp --value)" ]]; then
+      mark="never ran"
+    fi
+    printf '  %-32.32s %-16s next %-18s %s\n' "${timer%.timer}" "$(timer_schedule "${timer}")" "$(when "${next}")" "${mark}"
+    count=$(( count + 1 ))
+  done < <(systemctl --user list-timers --all --output json 2> /dev/null \
+    | jq --raw-output '.[] | [.unit, (.next | tostring), (.last | tostring), .activates] | @tsv' 2> /dev/null)
+
+  while read -r line; do
+    printf '  cron: %s\n' "${line}"
+    count=$(( count + 1 ))
+  done < <(crontab -l 2> /dev/null | grep --invert-match --extended-regexp '^[[:space:]]*(#|$)')
+
+  (( count > 0 )) || echo "  none"
+}
+
+output="$(list)"
+
+mkdir -p "${log_dir}"
+rm --force "${log_dir}"/*.log
+echo "${output}" > "${day_file}"
+
+echo "${output}"
+echo ""

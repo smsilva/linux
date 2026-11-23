@@ -1,0 +1,88 @@
+#!/bin/bash
+# Shadows the real k3d on the PATH: `k3d cluster create` always runs without k3d's load balancer (nginx, the image
+# k3d-proxy) and with the API on the loopback; every other command reaches the real k3d unchanged.
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+real_k3d() {
+  local folder
+  local IFS=":"
+  for folder in ${PATH}; do
+    if [[ -x "${folder}/k3d" && "$(realpath "${folder}/k3d")" != "${this_script_path}" ]]; then
+      echo "${folder}/k3d"
+      return 0
+    fi
+  done
+  return 1
+}
+
+refuse() {
+  echo "${this_script_name}: ${1}" >&2
+  exit 1
+}
+
+check_port() {
+  local mapping="${1}"
+  if [[ "${mapping}" == *"@loadbalancer"* || ( "${mapping}" == *"@"* && "${mapping}" != *":direct" ) ]]; then
+    refuse "no load balancer here (nginx): map the port on a node, e.g. --port 127.0.0.1:8080:80@server:0:direct"
+  fi
+}
+
+check_api_port() {
+  local value="${1}"
+  if [[ ! "${value}" =~ ^127\.0\.0\.1:([0-9]+|random)$ ]]; then
+    refuse "the API listens on the loopback only: --api-port 127.0.0.1:random (or 127.0.0.1:<port>), not '${value}'"
+  fi
+}
+
+k3d_path="$(real_k3d)" || {
+  echo "${this_script_name}: no k3d on PATH besides this wrapper (${this_script_path})" >&2
+  exit 127
+}
+
+if [[ "${1}" != "cluster" || "${2}" != "create" ]]; then
+  exec "${k3d_path}" "$@"
+fi
+
+arguments=("$@")
+has_no_lb=false
+has_api_port=false
+
+for (( index = 0; index < ${#arguments[@]}; index++ )); do
+  argument="${arguments[${index}]}"
+  next="${arguments[$(( index + 1 ))]}"
+  case "${argument}" in
+    --no-lb )
+      has_no_lb=true
+      ;;
+
+    --api-port )
+      has_api_port=true
+      check_api_port "${next}"
+      ;;
+
+    --api-port=* )
+      has_api_port=true
+      check_api_port "${argument#--api-port=}"
+      ;;
+
+    --port | -p )
+      check_port "${next}"
+      ;;
+
+    --port=* )
+      check_port "${argument#--port=}"
+      ;;
+
+  esac
+done
+
+if [[ "${has_no_lb}" == "false" ]]; then
+  arguments+=("--no-lb")
+fi
+
+if [[ "${has_api_port}" == "false" ]]; then
+  arguments+=("--api-port" "127.0.0.1:random")
+fi
+
+exec "${k3d_path}" "${arguments[@]}"

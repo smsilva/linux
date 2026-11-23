@@ -14,11 +14,11 @@ The owner is leaving the screen and wants one push notification on the phone whe
 3. **Send exactly one `PushNotification`** (load it with `ToolSearch` `select:PushNotification` when it is deferred) at the first of:
    - the work is done and verified;
    - the work failed and cannot go on without the owner;
-   - a decision, an approval or a `/ship` is needed before the next step.
+   - a decision, an approval or a `/land` is needed before the next step.
 4. **Write the message** as one line under 200 characters, in pt-BR, no markdown, leading with what the owner must do or know, then the outcome. Name an issue or a PR with its short description, never a bare number.
 
    ```text
-   /ship? #1676 (--version e --examples recusam o que o Click recusa): make checks passou, PR pronto
+   /land? #1676 (--version e --examples recusam o que o Click recusa): make checks passou, PR pronto
    make checks falhou em lint (2 erros) na #1676 (--version e --examples recusam o que o Click recusa)
    ```
 
@@ -30,5 +30,5 @@ The owner is leaving the screen and wants one push notification on the phone whe
 - A "not sent" result means the owner is at the terminal or notifications are off: say nothing about it and go on.
 - The order holds across background runs: when a background command or agent is what the task waits for, send the push in the turn its notification arrives and the rest of the task is finished.
 - Only the main session sends it; a subagent or a workflow reports to its session, which pushes.
-- `/ship push` is this order chained after `ship`: the push comes when `ship` ends, merged or stopped (`claude/skills/ship/SKILL.md`, "Options").
+- `/land push` is this order chained after `land`: the push comes when `land` ends, merged or stopped (`claude/skills/land/SKILL.md`, "Options").
 - It adds to the anchored-session rule of `claude/rules/communication.md` (a push whenever a task ends on something the owner must answer); it never replaces it.

@@ -24,7 +24,7 @@ Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files 
   - `agents/` — Claude Code custom agents
   - `rules/` — global user instructions, one topic per file (symlinked to `~/.claude/rules/`)
   - `CLAUDE.md` — kept for the `~/.claude/CLAUDE.md` symlink; content lives in `rules/`
-  - `settings.json` — global Claude settings, with the Pontos and main-clone guard hooks
+  - `settings.json` — global Claude settings, with the Pontos, main-clone guard and worktree-remove guard hooks
   - `pontos/` — Pontos, the raw log of every session on Google Drive: allow-list, tests, how it works (`claude/pontos/README.md`)
   - `session-prompt/` — one session prompt per agent, kept across `/clear` by `scripts/bin/session-prompt` and its global hook (`claude/session-prompt/README.md`)
 - `apps/<app>/` — per-application files: `config/` holds a sanitized snapshot of the app's config (no passwords, keys or install IDs; the repo is public); see `apps/README.md`

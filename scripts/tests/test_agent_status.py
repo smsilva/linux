@@ -40,6 +40,7 @@ class AgentStatus(unittest.TestCase):
       **os.environ,
       "AGENT_STATUS_STATE_DIR": str(self.state),
       "CLAUDE_SESSIONS_DIR": str(self.sessions),
+      "CLAUDE_PROJECTS_DIR": str(self.root / "projects"),
       "AGENT_STATUS_HOOK_SETTLE_SECONDS": "0",
       "PATH": f"{bin_folder}:{os.environ['PATH']}",
     }
@@ -172,6 +173,50 @@ class AgentStatus(unittest.TestCase):
     self.register("adapa", cwd=str(main))
     self.register("etana", cwd=str(worktree / "scripts"))
     self.assertEqual({row["agent"]: row["folder"] for row in self.rows()}, {"adapa": "linux", "etana": "linux"})
+  def repository(self, main_branch="main", worktrees=()):
+    """A main clone with linked worktrees, each (folder, branch), made of bare .git files."""
+    main = self.root / "repos" / "platform-api"
+    (main / ".git").mkdir(parents=True)
+    (main / ".git" / "HEAD").write_text(f"ref: refs/heads/{main_branch}\n")
+    for folder, branch in worktrees:
+      gitdir = main / ".git" / "worktrees" / folder
+      gitdir.mkdir(parents=True)
+      worktree = self.root / "repos" / folder
+      worktree.mkdir(parents=True)
+      (worktree / ".git").write_text(f"gitdir: {gitdir}\n")
+      (gitdir / "gitdir").write_text(f"{worktree}/.git\n")
+      (gitdir / "HEAD").write_text(f"ref: refs/heads/{branch}\n")
+    return main
+
+  def test_a_session_with_no_claim_shows_the_issue_of_its_worktrees_branch(self):
+    main = self.repository(worktrees=[("platform-api-77301", "feat/FLWP-77301-trail-store-alert")])
+    self.register("nanni", cwd=str(self.root / "repos" / "platform-api-77301"))
+    row = self.rows()[0]
+    self.assertEqual((row["issue"], row["inferred"], row["about"]), ("FLWP-77301", True, "branch feat/FLWP-77301-trail-store-alert"))
+    self.assertIn("FLWP-77301?", self.run_script().stdout)
+    self.run_script("render")
+    self.assertIn('FLWP-77301 <small>inferred</small>', self.page())
+
+  def test_a_session_in_the_main_clone_shows_the_issue_of_the_worktree_it_used_last(self):
+    main = self.repository(worktrees=[("linux-old", "feat/12-old"), ("linux-236", "feat/236-the-page")])
+    self.register("adapa", cwd=str(main), session_id="0000aaaa-0001")
+    transcript = self.root / "projects" / "-repos" / "0000aaaa-0001.jsonl"
+    transcript.parent.mkdir(parents=True)
+    calls = [{"command": f"git -C {self.root}/repos/linux-old status"}, {"file_path": f"{self.root}/repos/linux-236/README.md"}]
+    transcript.write_text("".join(json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "input": call}]}}) + "\n" for call in calls))
+    self.assertEqual(self.rows()[0]["issue"], "#236")
+
+  def test_a_session_on_main_with_no_worktree_shows_no_issue(self):
+    main = self.repository()
+    self.register("adapa", cwd=str(main))
+    self.assertNotIn("issue", self.rows()[0])
+
+  def test_a_claim_wins_over_the_branch(self):
+    self.repository(worktrees=[("platform-api-77301", "feat/FLWP-77301-trail-store-alert")])
+    self.register("adapa", cwd=str(self.root / "repos" / "platform-api-77301"))
+    self.claim_jira()
+    self.assertEqual([(row["issue"], row.get("inferred")) for row in self.rows()], [("FLWP-8", None)])
+
   def test_about_is_the_work_shown_after_the_issue(self):
     self.register("adapa")
     self.run_script("claim", "--agent", "adapa", "--issue", "FLWP-8", "--title", "the long title", "--about", "the hook")

@@ -1,0 +1,70 @@
+#!/bin/bash
+this_script_path="$(realpath "${0}")"
+this_script_name="${this_script_path##*/}"
+
+show_usage() {
+  cat <<EOF
+
+  Print the folder a shell should move to when its current folder was removed (a worktree cleaned up after a merge)
+
+  The first existing parent of the removed folder, unless the removed folder was a worktree named
+  <repository>-<slug>: then the main clone <repository> next to it, when it is a git checkout.
+
+    Options:
+
+      -h,  --help  Show this help
+
+    Examples:
+
+      ${this_script_name} /home/user/git/linux-gwd
+
+      ${this_script_name} "\${PWD}"
+EOF
+}
+
+while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
+  case "${1}" in
+    -h | --help )
+      show_usage
+      exit 1
+      ;;
+
+    * )
+      echo "Invalid option: ${1}"
+      show_usage
+      exit 1
+      ;;
+
+  esac
+  shift
+done
+
+if [[ "${1}" == '--' ]]; then shift; fi
+
+removed="${1?the removed folder}"
+
+# Walk up to the first folder that still exists, keeping the name of the one right below it
+parent="${removed%/}"
+below=""
+
+while [[ -n "${parent}" && ! -d "${parent}" ]]; do
+  below="${parent##*/}"
+  parent="${parent%/*}"
+done
+
+parent="${parent:-/}"
+
+# Try <parent>/<prefix> for each shorter prefix of the name split at "-": platform-api-77301 tries
+# platform-api, then platform
+prefix="${below}"
+
+while [[ "${prefix}" == *-* ]]; do
+  prefix="${prefix%-*}"
+  candidate="${parent%/}/${prefix}"
+  if [[ -e "${candidate}/.git" ]]; then
+    echo "${candidate}"
+    exit 0
+  fi
+done
+
+echo "${parent}"

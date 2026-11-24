@@ -69,6 +69,26 @@ if [[ -f /usr/share/powerline/bindings/bash/powerline.sh ]]; then
   source /usr/share/powerline/bindings/bash/powerline.sh
 fi
 
+# A folder removed under the shell (a worktree cleaned up after a merge) moves the shell, before the prompt is drawn,
+# to the repository's main clone or the first parent left (cwd-fallback); it keeps the last command's exit status
+_cwd_fallback() {
+  local status="${?}"
+  local removed="${PWD}"
+  local target
+
+  if [[ ! -d "${removed}" ]] && command -v cwd-fallback > /dev/null; then
+    target="$(cd / && cwd-fallback "${removed}")"
+    echo "${removed} no longer exists: moved to ${target}"
+    cd "${target}" || cd "${HOME}" || true
+  fi
+
+  return "${status}"
+}
+
+if [[ "${PROMPT_COMMAND}" != *_cwd_fallback* ]]; then
+  PROMPT_COMMAND="_cwd_fallback${PROMPT_COMMAND:+; ${PROMPT_COMMAND}}"
+fi
+
 if [[ -f ~/.fzf.bash ]]; then
   export FZF_DEFAULT_COMMAND="fdfind --type f --follow --exclude .git"
   export FZF_CTRL_T_COMMAND="fdfind --type f --follow --exclude .git"

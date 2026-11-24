@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""A Claude Code PreToolUse hook: refuses a direct `git worktree remove` and points to `gwd`.
+
+`gwd` removes a worktree only when its commits are on the trunk and no tmux pane runs a program inside it; it moves
+idle shells out first. A direct `git worktree remove` skips all of that: on 2026-11-24 a session removed the worktree
+its own pane lived in, and the pane's shell came back after the session in a removed folder.
+
+Exit 2 blocks the tool call and shows the message to the agent; exit 0 lets it run.
+"""
+import json
+import re
+import sys
+
+REMOVE = re.compile(r"\bgit\b[^|;&\n]*?\bworktree\s+remove\b")
+
+
+def main():
+  try:
+    data = json.load(sys.stdin)
+  except json.JSONDecodeError:
+    return 0
+  if data.get("tool_name") != "Bash":
+    return 0
+  command = (data.get("tool_input") or {}).get("command", "")
+  if not REMOVE.search(command):
+    return 0
+  print(
+    "Remove a worktree with gwd, not git worktree remove: gwd checks its commits are on the trunk, refuses while a "
+    "tmux pane runs a program inside it, and moves idle shells to the main clone first.\n"
+    "  gwd --dry-run <worktree path, folder name or branch>\n"
+    "  gwd <worktree path, folder name or branch>\n"
+    "Run it from inside the repository (git -C does not apply; cd into the main clone first).",
+    file=sys.stderr,
+  )
+  return 2
+
+
+if __name__ == "__main__":
+  sys.exit(main())

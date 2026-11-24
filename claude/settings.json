@@ -142,6 +142,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/claude-guard-worktree-remove\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

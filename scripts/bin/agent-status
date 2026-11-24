@@ -1,0 +1,498 @@
+#!/usr/bin/env python3
+"""agent-status: what each Claude Code session of this machine holds now, as a table and a page that refreshes itself.
+
+Commands:
+
+  claim    record an issue this agent works on, with its journey (the parent: a GitHub issue with sub-issues, a Jira
+           epic or a story with sub-tasks), the journey's progress (done children over all of them) and the epic above
+           it. A GitHub issue (a number, or #number) is looked up with gh, so the agent passes only --issue; a Jira
+           issue gets its title, journey and counts from the agent, which read them through the Atlassian MCP.
+  release  drop one claim (--issue) or every claim of this agent (--all).
+  list     (the default) one line per claim, and one per live session with none, with the live state from Claude
+           Code's session registry: busy, idle, waiting, or orphaned when the session that claimed it is gone.
+  render   write the page (index.html in the state folder) atomically, with a meta refresh of 5 seconds, so it opens
+           from file:// with no server.
+  hook     (Claude Code SessionStart, UserPromptSubmit, Notification, Stop and SessionEnd, async) render the page now
+           and again a moment later, once the registry has caught up with the event; never fails, prints nothing.
+
+One file per agent, ${XDG_STATE_HOME:-~/.local/state}/agent-status/<agent>.json, written only by that agent: no lock.
+"""
+
+import argparse
+import datetime
+import html
+import json
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import time
+
+STATE = pathlib.Path(
+  os.environ.get("AGENT_STATUS_STATE_DIR")
+  or pathlib.Path(os.environ.get("XDG_STATE_HOME") or pathlib.Path.home() / ".local" / "state") / "agent-status"
+)
+SESSIONS = pathlib.Path(os.environ.get("CLAUDE_SESSIONS_DIR") or pathlib.Path.home() / ".claude" / "sessions")
+PAGE = STATE / "index.html"
+OFF = STATE / "off"
+REFRESH_SECONDS = 5
+HOOK_SETTLE_SECONDS = float(os.environ.get("AGENT_STATUS_HOOK_SETTLE_SECONDS", "2"))
+AGENT_NAME = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+GITHUB_ISSUE = re.compile(r"#?([0-9]+)")
+
+
+def now():
+  return int(time.time())
+
+
+def alive(pid):
+  try:
+    os.kill(int(pid), 0)
+  except (OSError, ValueError, TypeError):
+    return False
+  return True
+
+
+def sessions():
+  """The live sessions of the registry, by name."""
+  found = {}
+  for path in sorted(SESSIONS.glob("*.json")):
+    try:
+      session = json.loads(path.read_text())
+    except (OSError, ValueError):
+      continue
+    if session.get("kind", "interactive") != "interactive" or not session.get("name") or not alive(session.get("pid")):
+      continue
+    found[session["name"]] = session
+  return found
+
+
+def parent_of(pid):
+  try:
+    for line in pathlib.Path(f"/proc/{pid}/status").read_text().splitlines():
+      if line.startswith("PPid:"):
+        return int(line.split()[1])
+  except OSError:
+    pass
+  return 0
+
+
+def own_session():
+  """The registry's session this process runs under: the first ancestor that is a session's pid."""
+  by_pid = {int(session["pid"]): session for session in sessions().values()}
+  pid = os.getpid()
+  while pid > 1:
+    if pid in by_pid:
+      return by_pid[pid]
+    pid = parent_of(pid)
+  return None
+
+
+def agent_name(given):
+  name = given or os.environ.get("AGENT_NAME") or (own_session() or {}).get("name")
+  if not name or not AGENT_NAME.fullmatch(name):
+    sys.exit("agent-status: no agent name (pass --agent, or run inside a named session)")
+  return name
+
+
+def agent_file(name):
+  return STATE / f"{name}.json"
+
+
+def load(name):
+  try:
+    return json.loads(agent_file(name).read_text())
+  except (OSError, ValueError):
+    return {"agent": name, "claims": []}
+
+
+def write_atomically(path, text):
+  path.parent.mkdir(parents=True, exist_ok=True)
+  temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+  temporary.write_text(text)
+  os.replace(temporary, path)
+
+
+def save(record):
+  write_atomically(agent_file(record["agent"]), json.dumps(record, indent=2, ensure_ascii=False) + "\n")
+
+
+def gh_issue(repo, number):
+  arguments = ["gh", "api", f"repos/{repo}/issues/{number}"] if repo else ["gh", "api", f"repos/{{owner}}/{{repo}}/issues/{number}"]
+  result = subprocess.run(arguments, capture_output=True, text=True)
+  if result.returncode != 0:
+    raise RuntimeError(result.stderr.strip() or f"gh api failed for issue {number}")
+  return json.loads(result.stdout)
+
+
+def gh_url(url):
+  result = subprocess.run(["gh", "api", url], capture_output=True, text=True)
+  if result.returncode != 0:
+    raise RuntimeError(result.stderr.strip() or f"gh api failed for {url}")
+  return json.loads(result.stdout)
+
+
+def github_claim(repo, number):
+  """Title, journey and epic of a GitHub issue: its parent and the parent's parent, progress from the parent's summary."""
+  issue = gh_issue(repo, number)
+  claim = {"issue": f"#{issue['number']}", "title": issue["title"], "url": issue["html_url"]}
+  if issue.get("parent_issue_url"):
+    parent = gh_url(issue["parent_issue_url"])
+    summary = parent.get("sub_issues_summary") or {}
+    claim["journey"] = {
+      "key": f"#{parent['number']}",
+      "title": parent["title"],
+      "url": parent["html_url"],
+      "done": summary.get("completed", 0),
+      "total": summary.get("total", 0),
+      "read_at": now(),
+    }
+    if parent.get("parent_issue_url"):
+      epic = gh_url(parent["parent_issue_url"])
+      claim["epic"] = {"key": f"#{epic['number']}", "title": epic["title"], "url": epic["html_url"]}
+  return claim
+
+
+def command_claim(arguments):
+  if is_off():
+    return
+  name = agent_name(arguments.agent)
+  github = GITHUB_ISSUE.fullmatch(arguments.issue)
+  claim = {"issue": arguments.issue}
+  if github and not arguments.no_lookup:
+    try:
+      claim = github_claim(arguments.repo, github.group(1))
+    except RuntimeError as error:
+      print(f"agent-status: {error}; keeping what was given", file=sys.stderr)
+      claim = {"issue": f"#{github.group(1)}"}
+  if arguments.title:
+    claim["title"] = arguments.title
+  if arguments.url:
+    claim["url"] = arguments.url
+  if arguments.journey:
+    claim["journey"] = {"key": arguments.journey, "title": arguments.journey_title or "", "read_at": now()}
+    if arguments.journey_url:
+      claim["journey"]["url"] = arguments.journey_url
+  if (arguments.done is not None or arguments.total is not None) and "journey" not in claim:
+    sys.exit("agent-status: --done and --total need --journey")
+  if arguments.done is not None:
+    claim["journey"]["done"] = arguments.done
+  if arguments.total is not None:
+    claim["journey"]["total"] = arguments.total
+  if arguments.epic:
+    claim["epic"] = {"key": arguments.epic, "title": arguments.epic_title or ""}
+    if arguments.epic_url:
+      claim["epic"]["url"] = arguments.epic_url
+  claim["cwd"] = os.getcwd()
+  record = load(name)
+  record["agent"] = name
+  session = sessions().get(name)
+  if session:
+    record["pid"] = session.get("pid")
+    record["session_id"] = session.get("sessionId")
+  previous = next((each for each in record["claims"] if each["issue"] == claim["issue"]), None)
+  claim["claimed_at"] = previous.get("claimed_at", now()) if previous else now()
+  claim["updated_at"] = now()
+  record["claims"] = [each for each in record["claims"] if each["issue"] != claim["issue"]] + [claim]
+  save(record)
+  render()
+  print(f"agent-status: {name} holds {claim['issue']}" + (f" ({claim['title']})" if claim.get("title") else ""))
+
+
+def command_release(arguments):
+  if is_off():
+    return
+  name = agent_name(arguments.agent)
+  record = load(name)
+  if arguments.all:
+    released = [each["issue"] for each in record["claims"]]
+    record["claims"] = []
+  else:
+    issue = arguments.issue
+    github = GITHUB_ISSUE.fullmatch(issue)
+    if github:
+      issue = f"#{github.group(1)}"
+    released = [each["issue"] for each in record["claims"] if each["issue"] == issue]
+    record["claims"] = [each for each in record["claims"] if each["issue"] != issue]
+  save(record)
+  render()
+  print(f"agent-status: {name} released {', '.join(released) if released else 'nothing'}")
+
+
+def rows():
+  """One row per claim, then one per live session with no claim; the state comes from the registry."""
+  live = sessions()
+  result = []
+  claimed = set()
+  for path in sorted(STATE.glob("*.json")):
+    try:
+      record = json.loads(path.read_text())
+    except (OSError, ValueError):
+      continue
+    name = record.get("agent") or path.stem
+    session = live.get(name)
+    if session and record.get("pid") and int(record["pid"]) != int(session.get("pid", 0)):
+      session = None  # a namesake started after the session that claimed
+    state = (session.get("status") or "live") if session else "orphaned"
+    waiting = (session or {}).get("waitingFor")
+    for claim in record.get("claims", []):
+      claimed.add(name)
+      result.append({"agent": name, "state": state, "waiting_for": waiting, "pane": (session or {}).get("tmux"), **claim})
+  for name, session in sorted(live.items()):
+    if name not in claimed:
+      result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd")})
+  return result
+
+
+def progress(journey):
+  if not journey or not journey.get("total"):
+    return None
+  done, total = int(journey.get("done", 0)), int(journey["total"])
+  return done, total, round(done * 100 / total)
+
+
+def progress_text(journey):
+  value = progress(journey)
+  return f"{value[0]}/{value[1]} {value[2]}%" if value else ""
+
+
+def journey_text(row):
+  parts = [f"{part['key']} {part.get('title', '')}".strip() for part in (row.get("epic"), row.get("journey")) if part]
+  return " › ".join(parts)
+
+
+def command_list(arguments):
+  table = rows()
+  if arguments.json:
+    print(json.dumps(table, indent=2, ensure_ascii=False))
+    return
+  if not table:
+    print("agent-status: no session and no claim")
+    return
+  lines = [("AGENT", "STATE", "ISSUE", "TITLE", "JOURNEY", "PROGRESS")]
+  for row in table:
+    lines.append((row["agent"], row["state"], row.get("issue", "-"), row.get("title", ""), journey_text(row), progress_text(row.get("journey"))))
+  widths = [max(len(line[column]) for line in lines) for column in range(len(lines[0]) - 1)]
+  for line in lines:
+    print("  ".join(cell.ljust(width) for cell, width in zip(line, widths)) + "  " + line[-1])
+
+
+def link(text, url):
+  text = html.escape(text)
+  if url and re.match(r"https?://", url):
+    return f'<a href="{html.escape(url, quote=True)}">{text}</a>'
+  return text
+
+
+def clock(seconds):
+  return datetime.datetime.fromtimestamp(seconds).strftime("%H:%M") if seconds else ""
+
+
+def journey_cell(row):
+  cell = []
+  epic, journey = row.get("epic"), row.get("journey")
+  if epic:
+    cell.append(f'<div class="epic">{link(epic["key"], epic.get("url"))} {html.escape(epic.get("title", ""))}</div>')
+  if journey:
+    cell.append(f'<div>{link(journey["key"], journey.get("url"))} {html.escape(journey.get("title", ""))}</div>')
+  return "".join(cell) or '<span class="none">—</span>'
+
+
+def progress_cell(row):
+  journey = row.get("journey")
+  value = progress(journey)
+  if not value:
+    return '<span class="none">—</span>'
+  done, total, percent = value
+  return (
+    f'<div class="count">{done}/{total} · {percent}%</div>'
+    f'<div class="bar"><span style="width:{percent}%"></span></div>'
+    f'<div class="read">read {clock(journey.get("read_at"))}</div>'
+  )
+
+
+def state_cell(row):
+  state = row["state"]
+  detail = f' title="{html.escape(row["waiting_for"], quote=True)}"' if row.get("waiting_for") else ""
+  return f'<span class="state {html.escape(state)}"{detail}>{html.escape(state)}</span>'
+
+
+def page(table):
+  body = []
+  previous = None
+  for row in table:
+    agent = "" if row["agent"] == previous else html.escape(row["agent"])
+    first = " first" if row["agent"] != previous else ""
+    previous = row["agent"]
+    issue = link(row["issue"], row.get("url")) if row.get("issue") else '<span class="none">no claim</span>'
+    about = html.escape(row.get("title", "")) or f'<span class="none">{html.escape(row.get("cwd") or "")}</span>'
+    body.append(
+      f'<tr class="row{first}"><td class="agent">{agent}</td><td>{state_cell(row)}</td><td class="issue">{issue}</td>'
+      f"<td>{about}</td><td>{journey_cell(row)}</td><td class=\"progress\">{progress_cell(row)}</td></tr>"
+    )
+  rows_html = "\n".join(body) or '<tr><td colspan="6" class="none">No session and no claim.</td></tr>'
+  stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+  return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="{REFRESH_SECONDS}">
+<title>Agent status</title>
+<style>
+:root {{ --bg: #f6f7f9; --fg: #1d2330; --muted: #6b7385; --line: #dde1e8; --card: #ffffff; --accent: #2f6fdf;
+  --busy: #1f9d55; --idle: #8a93a5; --waiting: #d97706; --orphaned: #c2410c; }}
+@media (prefers-color-scheme: dark) {{ :root {{ --bg: #11141a; --fg: #e4e7ee; --muted: #8b93a6; --line: #262b36;
+  --card: #181c24; --accent: #6ea2ff; --busy: #34c77b; --idle: #6b7385; --waiting: #f5a524; --orphaned: #fb7a3c; }} }}
+* {{ box-sizing: border-box; }}
+body {{ margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }}
+header {{ display: flex; align-items: baseline; justify-content: space-between; gap: 16px; max-width: 1200px; margin: 0 auto 16px; }}
+h1 {{ font-size: 18px; margin: 0; }}
+.stamp {{ color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }}
+.wrap {{ max-width: 1200px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }}
+table {{ width: 100%; border-collapse: collapse; }}
+th {{ text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); }}
+td {{ padding: 10px 12px; vertical-align: top; }}
+tr.first td {{ border-top: 1px solid var(--line); }}
+tbody tr:first-child td {{ border-top: 0; }}
+.agent {{ font-weight: 600; white-space: nowrap; }}
+.issue {{ white-space: nowrap; font-variant-numeric: tabular-nums; }}
+a {{ color: var(--accent); text-decoration: none; }}
+a:hover {{ text-decoration: underline; }}
+.none {{ color: var(--muted); }}
+.epic {{ color: var(--muted); font-size: 12px; }}
+.state {{ display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; color: #fff; background: var(--idle); }}
+.state.busy {{ background: var(--busy); }}
+.state.waiting {{ background: var(--waiting); }}
+.state.orphaned {{ background: var(--orphaned); }}
+.progress {{ min-width: 120px; }}
+.count {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
+.bar {{ height: 6px; background: var(--line); border-radius: 3px; margin: 4px 0; overflow: hidden; }}
+.bar span {{ display: block; height: 100%; background: var(--accent); }}
+.read {{ color: var(--muted); font-size: 11px; }}
+</style>
+</head>
+<body>
+<header><h1>Agent status</h1><span class="stamp">updated {stamp} · refreshes every {REFRESH_SECONDS}s</span></header>
+<div class="wrap">
+<table>
+<thead><tr><th>Agent</th><th>State</th><th>Issue</th><th>About</th><th>Journey</th><th>Progress</th></tr></thead>
+<tbody>
+{rows_html}
+</tbody>
+</table>
+</div>
+</body>
+</html>
+"""
+
+
+def off_page():
+  return """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30"><title>Agent status</title>
+<style>:root { --bg: #f6f7f9; --fg: #1d2330; --muted: #6b7385; }
+@media (prefers-color-scheme: dark) { :root { --bg: #11141a; --fg: #e4e7ee; --muted: #8b93a6; } }
+body { margin: 0; padding: 48px 16px; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; text-align: center; }
+code { color: var(--muted); }</style></head>
+<body><h1>Agent status is off</h1><p>Agents record no claims while it is off. Turn it on with <code>agent-status on</code>.</p></body></html>
+"""
+
+
+def render():
+  write_atomically(PAGE, off_page() if OFF.exists() else page(rows()))
+  return PAGE
+
+
+def is_off():
+  if OFF.exists():
+    print("agent-status: off, nothing recorded (agent-status on turns it on)")
+    return True
+  return False
+
+
+def command_on(arguments):
+  OFF.unlink(missing_ok=True)
+  render()
+  print("agent-status: on")
+
+
+def command_off(arguments):
+  STATE.mkdir(parents=True, exist_ok=True)
+  OFF.touch()
+  render()
+  print("agent-status: off")
+
+
+def command_state(arguments):
+  """Prints on or off; exits 1 when off, so an agent checks it before reading a tracker for a claim."""
+  print("off" if OFF.exists() else "on")
+  sys.exit(1 if OFF.exists() else 0)
+
+
+def command_render(arguments):
+  print(render())
+
+
+def command_hook(arguments):
+  try:
+    sys.stdin.read()
+    if OFF.exists():
+      return
+    render()
+    time.sleep(HOOK_SETTLE_SECONDS)
+    render()
+  except Exception:  # a hook never breaks a session
+    pass
+
+
+def main():
+  parser = argparse.ArgumentParser(prog="agent-status", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+  commands = parser.add_subparsers(dest="command")
+
+  claim = commands.add_parser("claim", help="record an issue this agent works on")
+  claim.add_argument("--issue", required=True, help="FLWP-123, or a GitHub number (123 or #123)")
+  claim.add_argument("--title", help="a short text about the issue (GitHub: its title by default)")
+  claim.add_argument("--url", help="the issue's link (GitHub: found)")
+  claim.add_argument("--journey", help="the parent: a Jira epic or story with sub-tasks, a GitHub issue with sub-issues")
+  claim.add_argument("--journey-title")
+  claim.add_argument("--journey-url")
+  claim.add_argument("--done", type=int, help="the journey's children done")
+  claim.add_argument("--total", type=int, help="the journey's children in all")
+  claim.add_argument("--epic", help="the epic above the journey, when the journey is a story")
+  claim.add_argument("--epic-title")
+  claim.add_argument("--epic-url")
+  claim.add_argument("--repo", help="GitHub owner/name (default: the current directory's)")
+  claim.add_argument("--no-lookup", action="store_true", help="never call gh, even for a GitHub number")
+  claim.add_argument("--agent", help="the agent's name (default: AGENT_NAME, else this session's)")
+  claim.set_defaults(handler=command_claim)
+
+  release = commands.add_parser("release", help="drop a claim")
+  which = release.add_mutually_exclusive_group(required=True)
+  which.add_argument("--issue")
+  which.add_argument("--all", action="store_true")
+  release.add_argument("--agent")
+  release.set_defaults(handler=command_release)
+
+  listing = commands.add_parser("list", help="print what each session holds (the default)")
+  listing.add_argument("--json", action="store_true")
+  listing.set_defaults(handler=command_list)
+
+  commands.add_parser("render", help="write the page and print its path").set_defaults(handler=command_render)
+  commands.add_parser("hook", help="Claude Code hook: render the page").set_defaults(handler=command_hook)
+  commands.add_parser("on", help="turn the page on (the default)").set_defaults(handler=command_on)
+  commands.add_parser("off", help="turn it off: no claim recorded, no hook work, the page says off").set_defaults(handler=command_off)
+  commands.add_parser("state", help="print on or off; exit 1 when off").set_defaults(handler=command_state)
+
+  given = sys.argv[1:]
+  if not given or given == ["--json"]:
+    given = ["list", *given]
+  arguments = parser.parse_args(given)
+  arguments.handler(arguments)
+
+
+if __name__ == "__main__":
+  main()

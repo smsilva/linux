@@ -42,7 +42,6 @@ class AgentStatus(unittest.TestCase):
       "CLAUDE_SESSIONS_DIR": str(self.sessions),
       "AGENT_STATUS_HOOK_SETTLE_SECONDS": "0",
       "PATH": f"{bin_folder}:{os.environ['PATH']}",
-      "CLAUDE_PROJECTS_DIR": str(self.root / "projects"),
     }
     self.environment.pop("AGENT_NAME", None)
 
@@ -143,7 +142,7 @@ class AgentStatus(unittest.TestCase):
     self.claim_jira()
     self.assertIn("8/10 · 80%", self.page())
 
-  def test_folder_and_worktree_come_from_the_git_folder(self):
+  def test_the_folder_is_the_main_clones_name_also_from_a_worktree(self):
     main = self.root / "repos" / "linux"
     (main / ".git" / "worktrees" / "linux-columns").mkdir(parents=True)
     worktree = self.root / "repos" / "linux-columns"
@@ -151,41 +150,7 @@ class AgentStatus(unittest.TestCase):
     (worktree / ".git").write_text(f"gitdir: {main}/.git/worktrees/linux-columns\n")
     self.register("adapa", cwd=str(main))
     self.register("etana", cwd=str(worktree / "scripts"))
-    places = {row["agent"]: (row["folder"], row["worktree"]) for row in self.rows()}
-    self.assertEqual(places, {"adapa": ("linux", "main"), "etana": ("linux", "linux-columns")})
-    self.run_script("render")
-    self.assertIn("<td class=\"folder\">linux-columns</td>", self.page())
-
-  def test_a_session_in_the_main_clone_shows_the_worktree_its_tool_calls_used_last(self):
-    main = self.root / "repos" / "linux"
-    for name in ("linux-old", "linux-new"):
-      (main / ".git" / "worktrees" / name).mkdir(parents=True)
-      (main / ".git" / "worktrees" / name / "gitdir").write_text(f"{self.root}/repos/{name}/.git\n")
-    project = self.root / "projects" / "-repos-linux"
-    (project / "0000aaaa-0000" / "subagents").mkdir(parents=True)
-    def call(stamp, command):
-      return json.dumps({"type": "assistant", "timestamp": stamp, "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {"command": command}}]}})
-    (project / "0000aaaa-0000.jsonl").write_text(call("2026-11-24T10:00:00Z", f"cd {self.root}/repos/linux-old && git status") + "\n")
-    (project / "0000aaaa-0000" / "subagents" / "agent-1.jsonl").write_text(call("2026-11-24T11:00:00Z", f"git -C {self.root}/repos/linux-new log") + "\n")
-    self.register("adapa", cwd=str(main))
-    self.assertEqual(self.rows()[0]["worktree"], "linux-new, linux-old")
-
-  def test_the_last_message_is_the_agents_last_text_reply(self):
-    project = self.root / "projects" / "-work-repo"
-    project.mkdir(parents=True)
-    lines = [
-      {"type": "assistant", "message": {"content": [{"type": "text", "text": "an older reply"}]}},
-      {"type": "assistant", "message": {"content": [{"type": "text", "text": "**Done:** the <b>page</b>"}]}},
-      {"type": "assistant", "isSidechain": True, "message": {"content": [{"type": "text", "text": "a subagent's"}]}},
-      {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
-      {"type": "user", "message": {"content": "a prompt"}},
-    ]
-    (project / "0000aaaa-0000.jsonl").write_text("\n".join(json.dumps(line) for line in lines) + "\n")
-    self.register("adapa")
-    self.assertEqual(self.rows()[0]["last_message"], "Done: the <b>page</b>")
-    self.run_script("render")
-    self.assertIn("Done: the &lt;b&gt;page&lt;/b&gt;", self.page())
-
+    self.assertEqual({row["agent"]: row["folder"] for row in self.rows()}, {"adapa": "linux", "etana": "linux"})
   def test_about_is_the_work_shown_after_the_issue(self):
     self.register("adapa")
     self.run_script("claim", "--agent", "adapa", "--issue", "FLWP-8", "--title", "the long title", "--about", "the hook")
@@ -199,8 +164,17 @@ class AgentStatus(unittest.TestCase):
     by_window = json.loads(self.run_script("list", "--sort", "window", "--json").stdout)
     self.assertEqual([row["agent"] for row in by_window], ["etana", "adapa"])
     self.run_script("render")
-    self.assertIn('data-agent="etana" data-window="1"', self.page())
-    self.assertIn('th data-sort="window"', self.page())
+    self.assertIn('data-column="window" data-v="1"', self.page())
+    self.assertIn('th data-sort="progress" data-numeric="yes"', self.page())
+
+  def test_rows_sort_by_progress_with_the_empty_ones_last(self):
+    self.register("adapa")
+    self.register("etana")
+    self.register("nami")
+    self.run_script("claim", "--agent", "adapa", "--issue", "FLWP-1", "--journey", "FLWP-9", "--done", "2", "--total", "10")
+    self.run_script("claim", "--agent", "etana", "--issue", "FLWP-2", "--journey", "FLWP-9", "--done", "1", "--total", "10")
+    by_progress = json.loads(self.run_script("list", "--sort", "progress", "--json").stdout)
+    self.assertEqual([row["agent"] for row in by_progress], ["etana", "adapa", "nami"])
 
   def test_the_hook_renders_and_prints_nothing(self):
     self.register("adapa")

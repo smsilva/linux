@@ -34,6 +34,8 @@ class AgentStatus(unittest.TestCase):
     bin_folder.mkdir()
     (bin_folder / "gh").write_text(FAKE_GH)
     (bin_folder / "gh").chmod(0o755)
+    (bin_folder / "tmux").write_text("#!/bin/sh\nprintf '@1 3\\n@2 1\\n'\n")
+    (bin_folder / "tmux").chmod(0o755)
     self.environment = {
       **os.environ,
       "AGENT_STATUS_STATE_DIR": str(self.state),
@@ -44,9 +46,9 @@ class AgentStatus(unittest.TestCase):
     }
     self.environment.pop("AGENT_NAME", None)
 
-  def register(self, name, pid=None, status="busy", cwd="/work/repo", session_id="0000aaaa-0000"):
+  def register(self, name, pid=None, status="busy", cwd="/work/repo", session_id="0000aaaa-0000", pane="0:@1.%1"):
     pid = pid or os.getpid()
-    (self.sessions / f"{name}.json").write_text(json.dumps({"pid": pid, "name": name, "kind": "interactive", "status": status, "cwd": cwd, "tmux": "0:@1.%1", "sessionId": session_id}))
+    (self.sessions / f"{name}.json").write_text(json.dumps({"pid": pid, "name": name, "kind": "interactive", "status": status, "cwd": cwd, "tmux": pane, "sessionId": session_id}))
 
   def run_script(self, *arguments, stdin=""):
     return subprocess.run([str(SCRIPT), *arguments], capture_output=True, text=True, env=self.environment, input=stdin, check=True)
@@ -154,6 +156,20 @@ class AgentStatus(unittest.TestCase):
     self.run_script("render")
     self.assertIn("<td class=\"folder\">linux-columns</td>", self.page())
 
+  def test_a_session_in_the_main_clone_shows_the_worktree_its_tool_calls_used_last(self):
+    main = self.root / "repos" / "linux"
+    for name in ("linux-old", "linux-new"):
+      (main / ".git" / "worktrees" / name).mkdir(parents=True)
+      (main / ".git" / "worktrees" / name / "gitdir").write_text(f"{self.root}/repos/{name}/.git\n")
+    project = self.root / "projects" / "-repos-linux"
+    (project / "0000aaaa-0000" / "subagents").mkdir(parents=True)
+    def call(stamp, command):
+      return json.dumps({"type": "assistant", "timestamp": stamp, "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {"command": command}}]}})
+    (project / "0000aaaa-0000.jsonl").write_text(call("2026-11-24T10:00:00Z", f"cd {self.root}/repos/linux-old && git status") + "\n")
+    (project / "0000aaaa-0000" / "subagents" / "agent-1.jsonl").write_text(call("2026-11-24T11:00:00Z", f"git -C {self.root}/repos/linux-new log") + "\n")
+    self.register("adapa", cwd=str(main))
+    self.assertEqual(self.rows()[0]["worktree"], "linux-new, linux-old")
+
   def test_the_last_message_is_the_agents_last_text_reply(self):
     project = self.root / "projects" / "-work-repo"
     project.mkdir(parents=True)
@@ -175,6 +191,16 @@ class AgentStatus(unittest.TestCase):
     self.run_script("claim", "--agent", "adapa", "--issue", "FLWP-8", "--title", "the long title", "--about", "the hook")
     self.assertIn('<span title="the long title">the hook</span>', self.page())
     self.assertIn("the hook", self.run_script().stdout)
+
+  def test_rows_sort_by_agent_or_by_tmux_window(self):
+    self.register("adapa", pane="0:@1.%1")
+    self.register("etana", pane="0:@2.%7")
+    self.assertEqual([(row["agent"], row["window"]) for row in self.rows()], [("adapa", 3), ("etana", 1)])
+    by_window = json.loads(self.run_script("list", "--sort", "window", "--json").stdout)
+    self.assertEqual([row["agent"] for row in by_window], ["etana", "adapa"])
+    self.run_script("render")
+    self.assertIn('data-agent="etana" data-window="1"', self.page())
+    self.assertIn('th data-sort="window"', self.page())
 
   def test_the_hook_renders_and_prints_nothing(self):
     self.register("adapa")

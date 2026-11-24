@@ -37,6 +37,8 @@ SESSIONS = pathlib.Path(os.environ.get("CLAUDE_SESSIONS_DIR") or pathlib.Path.ho
 PROJECTS = pathlib.Path(os.environ.get("CLAUDE_PROJECTS_DIR") or pathlib.Path.home() / ".claude" / "projects")
 TRANSCRIPT_TAIL_BYTES = 512 * 1024
 MESSAGE_LENGTH = 220
+ACTIVE_SECONDS = 3 * 3600
+WORKTREES_SHOWN = 3
 PAGE = STATE / "index.html"
 OFF = STATE / "off"
 REFRESH_SECONDS = 5
@@ -226,24 +228,89 @@ def command_release(arguments):
 
 
 def checkout(cwd):
-  """The repository's folder and the worktree's name of a directory, from its .git, with no git call."""
+  """The repository's folder, the worktree's name and the main clone of a directory, from its .git, with no git call."""
   if not cwd:
-    return "", ""
+    return "", "", None
   directory = pathlib.Path(cwd)
   for candidate in [directory, *directory.parents]:
     dot_git = candidate / ".git"
     if dot_git.is_dir():
-      return candidate.name, "main"
+      return candidate.name, "main", candidate
     if dot_git.is_file():
       try:
         gitdir = dot_git.read_text().split("gitdir:", 1)[1].strip()
       except (OSError, IndexError):
-        return candidate.name, ""
+        return candidate.name, "", None
       parts = pathlib.Path(gitdir).parts
       if ".git" in parts and "worktrees" in parts:
-        return parts[parts.index(".git") - 1], candidate.name
-      return candidate.name, ""
-  return directory.name, ""
+        return parts[parts.index(".git") - 1], candidate.name, pathlib.Path(*parts[: parts.index(".git")])
+      return candidate.name, "", None
+  return directory.name, "", None
+
+
+def worktrees_of(main):
+  """Each linked worktree of a main clone, path to name, from .git/worktrees/*/gitdir."""
+  found = {}
+  for gitdir in (main / ".git" / "worktrees").glob("*/gitdir"):
+    try:
+      path = pathlib.Path(gitdir.read_text().strip()).parent
+    except OSError:
+      continue
+    found[str(path)] = path.name
+  return found
+
+
+def transcripts(session_id):
+  """The session's transcript and its subagents' ones touched in the last hours."""
+  if not session_id or not re.fullmatch(r"[0-9a-fA-F-]{8,64}", session_id):
+    return []
+  recent = time.time() - ACTIVE_SECONDS
+  found = list(PROJECTS.glob(f"*/{session_id}.jsonl"))
+  for subagent in PROJECTS.glob(f"*/{session_id}/subagents/*.jsonl"):
+    try:
+      if subagent.stat().st_mtime >= recent:
+        found.append(subagent)
+    except OSError:
+      continue
+  return found
+
+
+def tail_lines(path):
+  try:
+    with path.open("rb") as handle:
+      handle.seek(max(0, path.stat().st_size - TRANSCRIPT_TAIL_BYTES))
+      return handle.read().decode("utf-8", errors="replace").splitlines()
+  except OSError:
+    return []
+
+
+def active_worktrees(session_id, main):
+  """The worktrees the session and its subagents used last, most recent first: a worktree path in a tool call's input."""
+  worktrees = worktrees_of(main) if main else {}
+  if not worktrees:
+    return []
+  pattern = re.compile("(" + "|".join(re.escape(path) for path in sorted(worktrees, key=len, reverse=True)) + r")(?=[/\s\"'`:]|$)")
+  seen = {}
+  for transcript in transcripts(session_id):
+    for line in reversed(tail_lines(transcript)):
+      if '"tool_use"' not in line:
+        continue
+      try:
+        entry = json.loads(line)
+      except ValueError:
+        continue
+      content = (entry.get("message") or {}).get("content")
+      if entry.get("type") != "assistant" or not isinstance(content, list):
+        continue
+      inputs = " ".join(json.dumps(block.get("input", {})) for block in content if isinstance(block, dict) and block.get("type") == "tool_use")
+      match = pattern.search(inputs)
+      if match:
+        name = worktrees[match.group(1)]
+        stamp = entry.get("timestamp", "")
+        if stamp > seen.get(name, ""):
+          seen[name] = stamp
+        break
+  return [name for name, _ in sorted(seen.items(), key=lambda item: item[1], reverse=True)][:WORKTREES_SHOWN]
 
 
 def last_message(session_id):
@@ -274,11 +341,39 @@ def last_message(session_id):
 
 
 def where(cwd, session_id):
-  folder, worktree = checkout(cwd)
+  folder, worktree, main = checkout(cwd)
+  if worktree == "main":
+    worktree = ", ".join(active_worktrees(session_id, main)) or "main"
   return {"folder": folder, "worktree": worktree, "last_message": last_message(session_id)}
 
 
-def rows():
+def window_indexes():
+  """tmux's window number by window id (@23 -> 2), from one tmux call; empty without tmux."""
+  try:
+    done = subprocess.run(["tmux", "list-windows", "-a", "-F", "#{window_id} #{window_index}"], capture_output=True, text=True, timeout=5)
+  except (OSError, subprocess.TimeoutExpired):
+    return {}
+  indexes = {}
+  for line in done.stdout.splitlines():
+    window_id, _, index = line.partition(" ")
+    if index.isdigit():
+      indexes[window_id] = int(index)
+  return indexes
+
+
+def window_of(pane, indexes):
+  """The window number of a registry pane (0:@23.%26), or None."""
+  match = re.fullmatch(r"[^:]*:(@[0-9]+)\.%[0-9]+", pane or "")
+  return indexes.get(match.group(1)) if match else None
+
+
+SORT_KEYS = {
+  "agent": lambda row: (row["agent"],),
+  "window": lambda row: (row["window"] is None, row["window"] if row["window"] is not None else 0, row["agent"]),
+}
+
+
+def rows(sort="agent"):
   """One row per claim, then one per live session with no claim; the state comes from the registry."""
   live = sessions()
   result = []
@@ -301,7 +396,10 @@ def rows():
   for name, session in sorted(live.items()):
     if name not in claimed:
       result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd"), **where(session.get("cwd"), session.get("sessionId"))})
-  return result
+  indexes = window_indexes()
+  for row in result:
+    row["window"] = window_of(row.get("pane"), indexes)
+  return sorted(result, key=SORT_KEYS[sort])
 
 
 def progress(journey):
@@ -326,16 +424,16 @@ def journey_text(row):
 
 
 def command_list(arguments):
-  table = rows()
+  table = rows(arguments.sort)
   if arguments.json:
     print(json.dumps(table, indent=2, ensure_ascii=False))
     return
   if not table:
     print("agent-status: no session and no claim")
     return
-  lines = [("AGENT", "STATE", "FOLDER", "WORKTREE", "ISSUE", "WORK", "JOURNEY", "PROGRESS")]
+  lines = [("WINDOW", "AGENT", "STATE", "FOLDER", "WORKTREE", "ISSUE", "WORK", "JOURNEY", "PROGRESS")]
   for row in table:
-    lines.append((row["agent"], row["state"], row.get("folder", ""), row.get("worktree", ""), row.get("issue", "-"), work_text(row), journey_text(row), progress_text(row.get("journey"))))
+    lines.append(("" if row["window"] is None else str(row["window"]), row["agent"], row["state"], row.get("folder", ""), row.get("worktree", ""), row.get("issue", "-"), work_text(row), journey_text(row), progress_text(row.get("journey"))))
   widths = [max(len(line[column]) for line in lines) for column in range(len(lines[0]) - 1)]
   for line in lines:
     print("  ".join(cell.ljust(width) for cell, width in zip(line, widths)) + "  " + line[-1])
@@ -381,6 +479,32 @@ def state_cell(row):
   return f'<span class="state {html.escape(state)}"{detail}>{html.escape(state)}</span>'
 
 
+SORT_SCRIPT = """<script>
+(function () {
+  var key = "agent";
+  try { key = localStorage.getItem("agent-status-sort") || "agent"; } catch (error) {}
+  function apply(sortKey) {
+    var body = document.querySelector("tbody");
+    var all = [].slice.call(body.rows).filter(function (row) { return row.dataset.agent; });
+    all.sort(function (a, b) {
+      if (sortKey === "window" && a.dataset.window !== b.dataset.window) { return Number(a.dataset.window) - Number(b.dataset.window); }
+      return a.dataset.agent.localeCompare(b.dataset.agent);
+    });
+    all.forEach(function (row) { body.appendChild(row); });
+    document.querySelectorAll("th[data-sort]").forEach(function (th) { th.classList.toggle("sorted", th.dataset.sort === sortKey); });
+  }
+  document.querySelectorAll("th[data-sort]").forEach(function (th) {
+    th.addEventListener("click", function () {
+      key = th.dataset.sort;
+      try { localStorage.setItem("agent-status-sort", key); } catch (error) {}
+      apply(key);
+    });
+  });
+  apply(key);
+})();
+</script>"""
+
+
 def page(table):
   body = []
   previous = None
@@ -393,12 +517,13 @@ def page(table):
     work = f"<span{title}>{html.escape(work_text(row))}</span>" if work_text(row) else '<span class="none">—</span>'
     message = html.escape(row.get("last_message", "")) or '<span class="none">—</span>'
     body.append(
-      f'<tr class="row{first}"><td class="agent">{agent}</td><td>{state_cell(row)}</td>'
+      f'<tr class="row{first}" data-agent="{html.escape(row["agent"], quote=True)}" data-window="{9999 if row["window"] is None else row["window"]}">'
+      f'<td class="window">{"" if row["window"] is None else row["window"]}</td><td class="agent">{agent}</td><td>{state_cell(row)}</td>'
       f'<td class="folder">{html.escape(row.get("folder", ""))}</td><td class="folder">{html.escape(row.get("worktree", ""))}</td>'
       f'<td class="issue">{issue}</td><td>{work}</td><td>{journey_cell(row)}</td><td class="progress">{progress_cell(row)}</td>'
       f'<td class="message">{message}</td></tr>'
     )
-  rows_html = "\n".join(body) or '<tr><td colspan="9" class="none">No session and no claim.</td></tr>'
+  rows_html = "\n".join(body) or '<tr><td colspan="10" class="none">No session and no claim.</td></tr>'
   stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
   return f"""<!doctype html>
 <html lang="en">
@@ -441,6 +566,11 @@ a:hover {{ text-decoration: underline; }}
 .bar span {{ display: block; height: 100%; background: var(--accent); }}
 .folder {{ white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }}
 .message {{ color: var(--muted); font-size: 12px; min-width: 240px; max-width: 420px; }}
+th[data-sort] {{ cursor: pointer; user-select: none; }}
+th[data-sort]:hover {{ color: var(--fg); }}
+th.sorted {{ color: var(--accent); }}
+th.sorted::after {{ content: " ↓"; }}
+.window {{ font-variant-numeric: tabular-nums; color: var(--muted); text-align: right; width: 1%; }}
 .read {{ color: var(--muted); font-size: 11px; }}
 </style>
 </head>
@@ -448,12 +578,13 @@ a:hover {{ text-decoration: underline; }}
 <header><h1>Agent status</h1><span class="stamp">updated {stamp} · refreshes every {REFRESH_SECONDS}s</span></header>
 <div class="wrap">
 <table>
-<thead><tr><th>Agent</th><th>State</th><th>Folder</th><th>Worktree</th><th>Issue</th><th>Work</th><th>Journey</th><th>Progress</th><th>Last message</th></tr></thead>
+<thead><tr><th data-sort="window" title="sort by tmux window">Window</th><th data-sort="agent" title="sort by agent">Agent</th><th>State</th><th>Folder</th><th>Worktree</th><th>Issue</th><th>Work</th><th>Journey</th><th>Progress</th><th>Last message</th></tr></thead>
 <tbody>
 {rows_html}
 </tbody>
 </table>
 </div>
+{SORT_SCRIPT}
 </body>
 </html>
 """
@@ -549,6 +680,7 @@ def main():
 
   listing = commands.add_parser("list", help="print what each session holds (the default)")
   listing.add_argument("--json", action="store_true")
+  listing.add_argument("--sort", choices=sorted(SORT_KEYS), default="agent", help="order the rows by agent (the default) or by tmux window")
   listing.set_defaults(handler=command_list)
 
   commands.add_parser("render", help="write the page and print its path").set_defaults(handler=command_render)
@@ -558,7 +690,7 @@ def main():
   commands.add_parser("state", help="print on or off; exit 1 when off").set_defaults(handler=command_state)
 
   given = sys.argv[1:]
-  if not given or given == ["--json"]:
+  if not given or given[0].startswith("--") and given[0] not in ("--help",):
     given = ["list", *given]
   arguments = parser.parse_args(given)
   arguments.handler(arguments)

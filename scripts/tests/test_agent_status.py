@@ -40,12 +40,13 @@ class AgentStatus(unittest.TestCase):
       "CLAUDE_SESSIONS_DIR": str(self.sessions),
       "AGENT_STATUS_HOOK_SETTLE_SECONDS": "0",
       "PATH": f"{bin_folder}:{os.environ['PATH']}",
+      "CLAUDE_PROJECTS_DIR": str(self.root / "projects"),
     }
     self.environment.pop("AGENT_NAME", None)
 
-  def register(self, name, pid=None, status="busy"):
+  def register(self, name, pid=None, status="busy", cwd="/work/repo", session_id="0000aaaa-0000"):
     pid = pid or os.getpid()
-    (self.sessions / f"{name}.json").write_text(json.dumps({"pid": pid, "name": name, "kind": "interactive", "status": status, "cwd": "/work/repo", "tmux": "0:@1.%1"}))
+    (self.sessions / f"{name}.json").write_text(json.dumps({"pid": pid, "name": name, "kind": "interactive", "status": status, "cwd": cwd, "tmux": "0:@1.%1", "sessionId": session_id}))
 
   def run_script(self, *arguments, stdin=""):
     return subprocess.run([str(SCRIPT), *arguments], capture_output=True, text=True, env=self.environment, input=stdin, check=True)
@@ -139,6 +140,41 @@ class AgentStatus(unittest.TestCase):
     self.run_script("on")
     self.claim_jira()
     self.assertIn("8/10 · 80%", self.page())
+
+  def test_folder_and_worktree_come_from_the_git_folder(self):
+    main = self.root / "repos" / "linux"
+    (main / ".git" / "worktrees" / "linux-columns").mkdir(parents=True)
+    worktree = self.root / "repos" / "linux-columns"
+    (worktree / "scripts").mkdir(parents=True)
+    (worktree / ".git").write_text(f"gitdir: {main}/.git/worktrees/linux-columns\n")
+    self.register("adapa", cwd=str(main))
+    self.register("etana", cwd=str(worktree / "scripts"))
+    places = {row["agent"]: (row["folder"], row["worktree"]) for row in self.rows()}
+    self.assertEqual(places, {"adapa": ("linux", "main"), "etana": ("linux", "linux-columns")})
+    self.run_script("render")
+    self.assertIn("<td class=\"folder\">linux-columns</td>", self.page())
+
+  def test_the_last_message_is_the_agents_last_text_reply(self):
+    project = self.root / "projects" / "-work-repo"
+    project.mkdir(parents=True)
+    lines = [
+      {"type": "assistant", "message": {"content": [{"type": "text", "text": "an older reply"}]}},
+      {"type": "assistant", "message": {"content": [{"type": "text", "text": "**Done:** the <b>page</b>"}]}},
+      {"type": "assistant", "isSidechain": True, "message": {"content": [{"type": "text", "text": "a subagent's"}]}},
+      {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash"}]}},
+      {"type": "user", "message": {"content": "a prompt"}},
+    ]
+    (project / "0000aaaa-0000.jsonl").write_text("\n".join(json.dumps(line) for line in lines) + "\n")
+    self.register("adapa")
+    self.assertEqual(self.rows()[0]["last_message"], "Done: the <b>page</b>")
+    self.run_script("render")
+    self.assertIn("Done: the &lt;b&gt;page&lt;/b&gt;", self.page())
+
+  def test_about_is_the_work_shown_after_the_issue(self):
+    self.register("adapa")
+    self.run_script("claim", "--agent", "adapa", "--issue", "FLWP-8", "--title", "the long title", "--about", "the hook")
+    self.assertIn('<span title="the long title">the hook</span>', self.page())
+    self.assertIn("the hook", self.run_script().stdout)
 
   def test_the_hook_renders_and_prints_nothing(self):
     self.register("adapa")

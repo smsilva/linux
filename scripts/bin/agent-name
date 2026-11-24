@@ -58,6 +58,7 @@ show_usage() {
       AGENT_NAME_STATE_DIR  State folder (default: ~/.local/state/agent-names)
       AGENT_NAME_CONFIG     Local configuration (default: ~/.config/agent-names/config)
       AGENT_NAME_SEED       Makes the random order reproducible (tests)
+      AGENT_NAME_LOCK_TIMEOUT  Seconds to wait for the state lock (default: 5)
       AGENT_NAME            Preferred name, passed by the launcher (agent)
 
     Examples:
@@ -418,7 +419,7 @@ show_config() {
 locked() {
   mkdir --parents "${state_directory}"
   (
-    flock --exclusive --timeout 5 9 || {
+    flock --exclusive --timeout "${AGENT_NAME_LOCK_TIMEOUT:-5}" 9 || {
       echo "${this_script_name}: cannot lock ${state_directory}" >&2
       exit 1
     }

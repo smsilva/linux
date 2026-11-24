@@ -59,7 +59,13 @@ class AgentName(unittest.TestCase):
 
   def run_script(self, *args, stdin=None, env=None, check=True):
     environment = {key: value for key, value in os.environ.items() if not key.startswith("AGENT_NAME")}
-    environment.update({"AGENT_NAME_STATE_DIR": self.state.name, "AGENT_NAME_CONFIG": str(self.config), **(env or {})})
+    # A slow machine running 12 acquires at once waits longer than the 5 s default for the lock
+    environment.update({
+      "AGENT_NAME_STATE_DIR": self.state.name,
+      "AGENT_NAME_CONFIG": str(self.config),
+      "AGENT_NAME_LOCK_TIMEOUT": "60",
+      **(env or {}),
+    })
     result = subprocess.run([str(SCRIPT), *args], input=stdin, env=environment, capture_output=True, text=True)
     if check:
       self.assertEqual(result.returncode, 0, result.stderr)

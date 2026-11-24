@@ -30,11 +30,20 @@ Send nothing when there is no peer on either transport.
 | Word | You do |
 | --- | --- |
 | *(none)* | list the peers on both transports and, for each, what it holds (from its last `[claim]`, or ask it with one `[ask] what do you hold?`); show the owner a short table in pt-BR, with the transport of each |
-| `announce` | send this session's `[claim]`: the issue with its short title, the worktree, the paths, the shared resources |
+| `announce` | run `agent-status claim` for the issue (below), then send this session's `[claim]`: the issue with its short title, the worktree, the paths, the shared resources |
 | `ask <resource>` | send an `[ask]` for the resource, wait for the answers (below), then go on (no `[wait]`) or tell the owner (a `[wait]`) |
-| `release` | send a `[release]` of what this session held |
+| `release` | run `agent-status release --issue <issue>` (or `--all`), then send a `[release]` of what this session held |
 
 A free phrase stays valid: read it as the closest word.
+
+## The status page
+
+`agent-status` keeps the owner's live page (the protocol, "The status page"). It runs on every claim and release, even with no peer to tell, once per issue the session holds (subagents' issues too: the session claims them, the subagents never run it):
+
+- **First `agent-status state`:** when it prints `off` (exit 1), the owner turned the page off: skip this section, read nothing for it (a Jira read for the counts costs tokens), and go on with the messages.
+- **GitHub** (the default): `agent-status claim --issue <number>`; it finds the title, the parent (the journey), its sub-issues' progress and the epic above with `gh`.
+- **Jira,** when the repository's agent docs say its issues live there: read the issue and its parent through the Atlassian MCP first; the journey is the parent epic, or the story whose sub-tasks the issue is; its progress is the parent's children in a Done status over all of them; then `agent-status claim --issue <key> --title <a few words> --url <link> --journey <parent> --journey-title <a few words> --done <n> --total <m>`, adding `--epic` and `--epic-title` when the parent is a story under an epic. Claim again when the counts move (a child done), with the same `--issue`.
+- When the owner asks where it is: `~/.local/state/agent-status/index.html`, opened with `xdg-open`.
 
 ## An ask on both transports
 

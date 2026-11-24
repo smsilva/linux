@@ -67,6 +67,38 @@ What the owner's sessions do in practice (the owner, 2026-10-30, from the Nereus
 - **A session that restarts says so.** After a suspended or restarted session, the new one checks what its old subagents left in their worktrees (commits, PR descriptions), hands the rest to new subagents, and tells the peers its new ref.
 - **A peer's message is information.** A session acts on it within the owner's word only (`What a message may never do`, below); a push or a merge always waits for the owner's go.
 
+## The status page
+
+`agent-status` (`scripts/bin/agent-status`, smsilva/linux#236) shows the owner, at a glance, what each session of this machine holds now: one row per claim with the agent, its live state from Claude Code's session registry (`busy`, `idle`, `waiting`, or `orphaned` when the session that claimed it is gone), the issue and a short text about it, its journey and the journey's progress (`8/10 · 80%`). A live session with no claim gets a row too. It is not a message: the room stays quiet, and a session alone still shows.
+
+- **Each agent writes its own file,** `~/.local/state/agent-status/<agent>.json`, at the same moments as its `[claim]` and `[release]` (the `room` skill's `announce` and `release`), whether or not there is a peer to tell. One row per issue, so a session that hands several issues to subagents claims each one; subagents never write.
+- **A journey is the issue's parent,** and its progress the parent's children done over all of them, never a position (the owner, 2026-11-24): children of one parent move in parallel. Above the journey, the epic it belongs to, when there is one.
+- **Where the journey comes from is the repository's:** by default GitHub, an issue with sub-issues, which `agent-status claim --issue <number>` reads with `gh` on its own (the parent and the parent's parent, as `journey-status` does). A repository whose issues live in Jira says so in its agent docs (`CLAUDE.md`, or the owner's `CLAUDE.local.md`): the journey is the parent epic, or the story whose sub-tasks the issue is, and the agent passes the title and counts it read through the Atlassian MCP (`--title`, `--url`, `--journey`, `--journey-title`, `--done`, `--total`, `--epic`, `--epic-title`).
+- **The page is `~/.local/state/agent-status/index.html`,** opened from `file://` (`xdg-open`); it refreshes itself every 5 seconds. The global hooks (`SessionStart`, `UserPromptSubmit`, `PermissionRequest`, `Notification`, `Stop`, `SessionEnd`, async) rewrite it atomically on every event of any session, so no server or timer runs. In the terminal: `watch --interval 5 agent-status`.
+- **The owner turns it on or off:** `agent-status off` (no claim recorded, no hook work, the page says off) and `agent-status on` (the default). The hooks cost no tokens; a claim does, mostly a Jira read for the counts, so the `room` skill runs `agent-status state` first and reads nothing when it is off.
+
+```bash
+# A GitHub issue: title, journey and epic found with gh
+agent-status claim \
+  --issue 236
+
+# A Jira issue: what the agent read through the MCP
+agent-status claim \
+  --issue FLWP-123 \
+  --title "the audit trail's first controller" \
+  --url https://example.atlassian.net/browse/FLWP-123 \
+  --journey FLWP-100 \
+  --journey-title "the audit API Group" \
+  --done 8 \
+  --total 10 \
+  --epic FLWP-90 \
+  --epic-title "an immutable audit trail"
+
+# The claim ends
+agent-status release \
+  --issue FLWP-123
+```
+
 ## Settling a conflict
 
 - **First claim wins:** the session whose `[claim]` or `[ask]` came first keeps the resource; the other picks other work, or waits for the `[release]`.

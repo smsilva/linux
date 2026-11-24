@@ -182,7 +182,7 @@
     "claude-md-management@claude-plugins-official": false,
     "docs@flow-cloud-hub": false,
     "nats-channel@synadia-plugins": false,
-    "planning@flow-cloud-hub": false,
+    "planning@flow-cloud-hub": true,
     "security-guidance@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": false,
     "superpowers@claude-plugins-official": true,
@@ -213,5 +213,10 @@
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true
+  "voiceEnabled": true,
+  "modelSettings": {
+    "claude-fable-5-2": {
+      "effortLevel": "xhigh"
+    }
+  }
 }

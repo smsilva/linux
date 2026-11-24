@@ -34,6 +34,9 @@ STATE = pathlib.Path(
   or pathlib.Path(os.environ.get("XDG_STATE_HOME") or pathlib.Path.home() / ".local" / "state") / "agent-status"
 )
 SESSIONS = pathlib.Path(os.environ.get("CLAUDE_SESSIONS_DIR") or pathlib.Path.home() / ".claude" / "sessions")
+PROJECTS = pathlib.Path(os.environ.get("CLAUDE_PROJECTS_DIR") or pathlib.Path.home() / ".claude" / "projects")
+TRANSCRIPT_TAIL_BYTES = 512 * 1024
+MESSAGE_LENGTH = 220
 PAGE = STATE / "index.html"
 OFF = STATE / "off"
 REFRESH_SECONDS = 5
@@ -168,6 +171,8 @@ def command_claim(arguments):
       claim = {"issue": f"#{github.group(1)}"}
   if arguments.title:
     claim["title"] = arguments.title
+  if arguments.about:
+    claim["about"] = arguments.about
   if arguments.url:
     claim["url"] = arguments.url
   if arguments.journey:
@@ -220,6 +225,59 @@ def command_release(arguments):
   print(f"agent-status: {name} released {', '.join(released) if released else 'nothing'}")
 
 
+def checkout(cwd):
+  """The repository's folder and the worktree's name of a directory, from its .git, with no git call."""
+  if not cwd:
+    return "", ""
+  directory = pathlib.Path(cwd)
+  for candidate in [directory, *directory.parents]:
+    dot_git = candidate / ".git"
+    if dot_git.is_dir():
+      return candidate.name, "main"
+    if dot_git.is_file():
+      try:
+        gitdir = dot_git.read_text().split("gitdir:", 1)[1].strip()
+      except (OSError, IndexError):
+        return candidate.name, ""
+      parts = pathlib.Path(gitdir).parts
+      if ".git" in parts and "worktrees" in parts:
+        return parts[parts.index(".git") - 1], candidate.name
+      return candidate.name, ""
+  return directory.name, ""
+
+
+def last_message(session_id):
+  """The agent's last text reply, from the end of its session's transcript, on one line."""
+  if not session_id or not re.fullmatch(r"[0-9a-fA-F-]{8,64}", session_id):
+    return ""
+  for transcript in PROJECTS.glob(f"*/{session_id}.jsonl"):
+    try:
+      with transcript.open("rb") as handle:
+        handle.seek(max(0, transcript.stat().st_size - TRANSCRIPT_TAIL_BYTES))
+        lines = handle.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+      return ""
+    for line in reversed(lines):
+      try:
+        entry = json.loads(line)
+      except ValueError:
+        continue
+      if entry.get("type") != "assistant" or entry.get("isSidechain"):
+        continue
+      content = (entry.get("message") or {}).get("content")
+      texts = [block.get("text", "") for block in content if isinstance(block, dict) and block.get("type") == "text"] if isinstance(content, list) else []
+      text = re.sub(r"[*`#]+", "", " ".join(texts))
+      text = " ".join(text.split())
+      if text:
+        return text if len(text) <= MESSAGE_LENGTH else text[: MESSAGE_LENGTH - 1].rstrip() + "…"
+  return ""
+
+
+def where(cwd, session_id):
+  folder, worktree = checkout(cwd)
+  return {"folder": folder, "worktree": worktree, "last_message": last_message(session_id)}
+
+
 def rows():
   """One row per claim, then one per live session with no claim; the state comes from the registry."""
   live = sessions()
@@ -238,10 +296,11 @@ def rows():
     waiting = (session or {}).get("waitingFor")
     for claim in record.get("claims", []):
       claimed.add(name)
-      result.append({"agent": name, "state": state, "waiting_for": waiting, "pane": (session or {}).get("tmux"), **claim})
+      session_id = (session or {}).get("sessionId") or record.get("session_id")
+      result.append({"agent": name, "state": state, "waiting_for": waiting, "pane": (session or {}).get("tmux"), **claim, **where(claim.get("cwd") or (session or {}).get("cwd"), session_id)})
   for name, session in sorted(live.items()):
     if name not in claimed:
-      result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd")})
+      result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd"), **where(session.get("cwd"), session.get("sessionId"))})
   return result
 
 
@@ -257,6 +316,10 @@ def progress_text(journey):
   return f"{value[0]}/{value[1]} {value[2]}%" if value else ""
 
 
+def work_text(row):
+  return row.get("about") or row.get("title", "")
+
+
 def journey_text(row):
   parts = [f"{part['key']} {part.get('title', '')}".strip() for part in (row.get("epic"), row.get("journey")) if part]
   return " › ".join(parts)
@@ -270,9 +333,9 @@ def command_list(arguments):
   if not table:
     print("agent-status: no session and no claim")
     return
-  lines = [("AGENT", "STATE", "ISSUE", "TITLE", "JOURNEY", "PROGRESS")]
+  lines = [("AGENT", "STATE", "FOLDER", "WORKTREE", "ISSUE", "WORK", "JOURNEY", "PROGRESS")]
   for row in table:
-    lines.append((row["agent"], row["state"], row.get("issue", "-"), row.get("title", ""), journey_text(row), progress_text(row.get("journey"))))
+    lines.append((row["agent"], row["state"], row.get("folder", ""), row.get("worktree", ""), row.get("issue", "-"), work_text(row), journey_text(row), progress_text(row.get("journey"))))
   widths = [max(len(line[column]) for line in lines) for column in range(len(lines[0]) - 1)]
   for line in lines:
     print("  ".join(cell.ljust(width) for cell, width in zip(line, widths)) + "  " + line[-1])
@@ -326,12 +389,16 @@ def page(table):
     first = " first" if row["agent"] != previous else ""
     previous = row["agent"]
     issue = link(row["issue"], row.get("url")) if row.get("issue") else '<span class="none">no claim</span>'
-    about = html.escape(row.get("title", "")) or f'<span class="none">{html.escape(row.get("cwd") or "")}</span>'
+    title = f' title="{html.escape(row["title"], quote=True)}"' if row.get("about") and row.get("title") else ""
+    work = f"<span{title}>{html.escape(work_text(row))}</span>" if work_text(row) else '<span class="none">—</span>'
+    message = html.escape(row.get("last_message", "")) or '<span class="none">—</span>'
     body.append(
-      f'<tr class="row{first}"><td class="agent">{agent}</td><td>{state_cell(row)}</td><td class="issue">{issue}</td>'
-      f"<td>{about}</td><td>{journey_cell(row)}</td><td class=\"progress\">{progress_cell(row)}</td></tr>"
+      f'<tr class="row{first}"><td class="agent">{agent}</td><td>{state_cell(row)}</td>'
+      f'<td class="folder">{html.escape(row.get("folder", ""))}</td><td class="folder">{html.escape(row.get("worktree", ""))}</td>'
+      f'<td class="issue">{issue}</td><td>{work}</td><td>{journey_cell(row)}</td><td class="progress">{progress_cell(row)}</td>'
+      f'<td class="message">{message}</td></tr>'
     )
-  rows_html = "\n".join(body) or '<tr><td colspan="6" class="none">No session and no claim.</td></tr>'
+  rows_html = "\n".join(body) or '<tr><td colspan="9" class="none">No session and no claim.</td></tr>'
   stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
   return f"""<!doctype html>
 <html lang="en">
@@ -348,10 +415,10 @@ def page(table):
 * {{ box-sizing: border-box; }}
 body {{ margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }}
-header {{ display: flex; align-items: baseline; justify-content: space-between; gap: 16px; max-width: 1200px; margin: 0 auto 16px; }}
+header {{ display: flex; align-items: baseline; justify-content: space-between; gap: 16px; max-width: 1600px; margin: 0 auto 16px; }}
 h1 {{ font-size: 18px; margin: 0; }}
 .stamp {{ color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }}
-.wrap {{ max-width: 1200px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }}
+.wrap {{ max-width: 1600px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }}
 table {{ width: 100%; border-collapse: collapse; }}
 th {{ text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
   font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); }}
@@ -372,6 +439,8 @@ a:hover {{ text-decoration: underline; }}
 .count {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
 .bar {{ height: 6px; background: var(--line); border-radius: 3px; margin: 4px 0; overflow: hidden; }}
 .bar span {{ display: block; height: 100%; background: var(--accent); }}
+.folder {{ white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }}
+.message {{ color: var(--muted); font-size: 12px; min-width: 240px; max-width: 420px; }}
 .read {{ color: var(--muted); font-size: 11px; }}
 </style>
 </head>
@@ -379,7 +448,7 @@ a:hover {{ text-decoration: underline; }}
 <header><h1>Agent status</h1><span class="stamp">updated {stamp} · refreshes every {REFRESH_SECONDS}s</span></header>
 <div class="wrap">
 <table>
-<thead><tr><th>Agent</th><th>State</th><th>Issue</th><th>About</th><th>Journey</th><th>Progress</th></tr></thead>
+<thead><tr><th>Agent</th><th>State</th><th>Folder</th><th>Worktree</th><th>Issue</th><th>Work</th><th>Journey</th><th>Progress</th><th>Last message</th></tr></thead>
 <tbody>
 {rows_html}
 </tbody>
@@ -456,6 +525,7 @@ def main():
   claim = commands.add_parser("claim", help="record an issue this agent works on")
   claim.add_argument("--issue", required=True, help="FLWP-123, or a GitHub number (123 or #123)")
   claim.add_argument("--title", help="a short text about the issue (GitHub: its title by default)")
+  claim.add_argument("--about", help="a short description of what the work is about, shown after the issue (default: its title)")
   claim.add_argument("--url", help="the issue's link (GitHub: found)")
   claim.add_argument("--journey", help="the parent: a Jira epic or story with sub-tasks, a GitHub issue with sub-issues")
   claim.add_argument("--journey-title")

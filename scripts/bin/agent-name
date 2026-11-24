@@ -30,12 +30,13 @@ show_usage() {
 
     Commands:
 
-      acquire --session-id <id> --pid <pid> [--name <name>]
+      acquire --session-id <id> --pid <pid> [--name <name> [--exact]]
                   Takes a name and prints it: the one this session or pid
                   (or one of its parent processes) already holds, else
                   --name when free, else the next free one of the queue,
                   built anew when it ends. A name whose pid is no longer
-                  alive counts as free.
+                  alive counts as free. With --exact, takes --name or
+                  fails: in use by another session, invalid or reserved.
       release --session-id <id>
                   Frees the name that session holds.
       whoami  --session-id <id>
@@ -63,6 +64,8 @@ show_usage() {
     Examples:
 
       ${this_script_name} acquire --session-id 0f3c9a1e --pid 4242
+
+      ${this_script_name} acquire --session-id 0f3c9a1e --pid 4242 --name enkidu --exact
 
       ${this_script_name} whoami --session-id 0f3c9a1e
 
@@ -254,6 +257,32 @@ valid_name() {
   [[ "${1}" =~ ^[a-z]+(-[a-z]+)?(-[0-9]+)?$ ]]
 }
 
+reserved() {
+  awk '!/^#/ && NF { print $1 }' "${config_directory}/reserved" 2>/dev/null | grep --quiet --line-regexp --fixed-strings "${1?}"
+}
+
+acquire_exact() {
+  # Only this name: free, or already this session's; else fails and takes nothing.
+  local session_id="${1?}"
+  local pid="${2?}"
+  local name="${3?}"
+  local file="${state_directory}/${name}"
+  if ! valid_name "${name}"; then
+    echo "${this_script_name}: invalid name: ${name} (lowercase letters, an optional -word and -number)" >&2
+    return 1
+  fi
+  if reserved "${name}"; then
+    echo "${this_script_name}: reserved name: ${name}" >&2
+    return 1
+  fi
+  if ! free "${name}" && [[ "$(field "${file}" session_id)" != "${session_id}" ]]; then
+    echo "${this_script_name}: ${name} is in use by session $(field "${file}" session_id) (pid $(field "${file}" pid))" >&2
+    return 1
+  fi
+  release "${session_id}"
+  write "${name}" "${session_id}" "${pid}"
+}
+
 acquire() {
   local session_id="${1?}"
   local pid="${2?}"
@@ -432,6 +461,7 @@ command="${1:-}"
 session_id=""
 pid=""
 preferred=""
+exact=""
 
 while [[ "${1}" =~ ^- ]]; do
   case "${1}" in
@@ -448,6 +478,10 @@ while [[ "${1}" =~ ^- ]]; do
     --name )
       shift
       preferred="${1?}"
+      ;;
+
+    --exact )
+      exact="true"
       ;;
 
     -h | --help )
@@ -469,7 +503,12 @@ migrate_state_directory
 case "${command}" in
   acquire )
     [[ -n "${session_id}" && "${pid}" =~ ^[0-9]+$ ]] || { echo "acquire needs --session-id <id> and --pid <pid>" >&2; exit 1; }
-    locked acquire "${session_id}" "${pid}" "${preferred}"
+    if [[ "${exact}" == "true" ]]; then
+      [[ -n "${preferred}" ]] || { echo "--exact needs --name <name>" >&2; exit 1; }
+      locked acquire_exact "${session_id}" "${pid}" "${preferred}"
+    else
+      locked acquire "${session_id}" "${pid}" "${preferred}"
+    fi
     ;;
 
   release )

@@ -8,8 +8,9 @@ Commands:
            it. A GitHub issue (a number, or #number) is looked up with gh, so the agent passes only --issue; a Jira
            issue gets its title, journey and counts from the agent, which read them through the Atlassian MCP.
   release  drop one claim (--issue) or every claim of this agent (--all).
-  list     (the default) one line per claim, and one per live session with none, with the live state from Claude
-           Code's session registry: busy, idle, waiting, or orphaned when the session that claimed it is gone.
+  list     (the default) one line per claim, and one per live session with none (its issue inferred from the branch of
+           its worktree, marked with a ?), with the live state from Claude Code's session registry: busy, idle,
+           waiting, or orphaned when the session that claimed it is gone.
   render   drop the records of sessions that are gone (their pid no longer runs), then write the page (index.html in
            the state folder) atomically, with a meta refresh of 5 seconds, so it opens
            from file:// with no server.
@@ -35,6 +36,9 @@ STATE = pathlib.Path(
   or pathlib.Path(os.environ.get("XDG_STATE_HOME") or pathlib.Path.home() / ".local" / "state") / "agent-status"
 )
 SESSIONS = pathlib.Path(os.environ.get("CLAUDE_SESSIONS_DIR") or pathlib.Path.home() / ".claude" / "sessions")
+PROJECTS = pathlib.Path(os.environ.get("CLAUDE_PROJECTS_DIR") or pathlib.Path.home() / ".claude" / "projects")
+TRANSCRIPT_TAIL_BYTES = 512 * 1024
+ISSUE_IN_BRANCH = re.compile(r"\b([A-Z][A-Z0-9]+-[0-9]+)\b|/([0-9]+)(?:-|$)")
 PAGE = STATE / "index.html"
 OFF = STATE / "off"
 REFRESH_SECONDS = 5
@@ -244,6 +248,77 @@ def checkout(cwd):
   return directory.name, "", None
 
 
+def branch_of(worktree):
+  """The branch checked out in a clone or worktree, from its HEAD, with no git call; "" when detached or unreadable."""
+  dot_git = worktree / ".git"
+  try:
+    gitdir = dot_git if dot_git.is_dir() else pathlib.Path(dot_git.read_text().split("gitdir:", 1)[1].strip())
+    head = (gitdir / "HEAD").read_text().strip()
+  except (OSError, IndexError):
+    return ""
+  return head.removeprefix("ref: refs/heads/") if head.startswith("ref: refs/heads/") else ""
+
+
+def worktrees_of(main):
+  """Each linked worktree of a main clone, its path to its folder, from .git/worktrees/*/gitdir."""
+  found = {}
+  for gitdir in (main / ".git" / "worktrees").glob("*/gitdir"):
+    try:
+      path = pathlib.Path(gitdir.read_text().strip()).parent
+    except OSError:
+      continue
+    found[str(path)] = path
+  return found
+
+
+def tail_lines(path):
+  try:
+    with path.open("rb") as handle:
+      handle.seek(max(0, path.stat().st_size - TRANSCRIPT_TAIL_BYTES))
+      return handle.read().decode("utf-8", errors="replace").splitlines()
+  except OSError:
+    return []
+
+
+def last_worktree(session_id, main):
+  """The worktree of the main clone the session's last tool call named, from the tail of its transcript."""
+  worktrees = worktrees_of(main) if main else {}
+  if not worktrees or not session_id or not re.fullmatch(r"[0-9a-fA-F-]{8,64}", session_id):
+    return None
+  pattern = re.compile("(" + "|".join(re.escape(path) for path in sorted(worktrees, key=len, reverse=True)) + r")(?=[/\s\"'`:]|$)")
+  for transcript in PROJECTS.glob(f"*/{session_id}.jsonl"):
+    for line in reversed(tail_lines(transcript)):
+      if '"tool_use"' not in line:
+        continue
+      try:
+        content = (json.loads(line).get("message") or {}).get("content")
+      except ValueError:
+        continue
+      if not isinstance(content, list):
+        continue
+      match = pattern.search(" ".join(json.dumps(block.get("input", {})) for block in content if isinstance(block, dict) and block.get("type") == "tool_use"))
+      if match:
+        return worktrees[match.group(1)]
+  return None
+
+
+def inferred_issue(cwd, session_id):
+  """For a session with no claim: the issue in the branch of its worktree (its folder, else the one it used last)."""
+  _, worktree, main = checkout(cwd)
+  if not main:
+    return {}
+  folder = pathlib.Path(cwd)
+  while folder != folder.parent and not (folder / ".git").exists():
+    folder = folder.parent
+  if worktree == "main":
+    folder = last_worktree(session_id, main) or folder
+  branch = branch_of(folder)
+  match = ISSUE_IN_BRANCH.search(branch)
+  if not match:
+    return {}
+  return {"issue": match.group(1) or f"#{match.group(2)}", "about": f"branch {branch}", "inferred": True}
+
+
 def where(cwd, session_id):
   folder, _, _ = checkout(cwd)
   return {"folder": folder}
@@ -313,7 +388,7 @@ def rows(sort="agent"):
       result.append({"agent": name, "state": state, "waiting_for": waiting, "pane": (session or {}).get("tmux"), **claim, **where(claim.get("cwd") or (session or {}).get("cwd"), session_id)})
   for name, session in sorted(live.items()):
     if name not in claimed:
-      result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd"), **where(session.get("cwd"), session.get("sessionId"))})
+      result.append({"agent": name, "state": session.get("status") or "live", "waiting_for": session.get("waitingFor"), "pane": session.get("tmux"), "cwd": session.get("cwd"), **where(session.get("cwd"), session.get("sessionId")), **inferred_issue(session.get("cwd"), session.get("sessionId"))})
   indexes = window_indexes()
   for row in result:
     row["window"] = window_of(row.get("pane"), indexes)
@@ -351,7 +426,7 @@ def command_list(arguments):
     return
   lines = [("WINDOW", "AGENT", "STATE", "FOLDER", "ISSUE", "WORK", "JOURNEY", "PROGRESS")]
   for row in table:
-    lines.append(("" if row["window"] is None else str(row["window"]), row["agent"], row["state"], row.get("folder", ""), row.get("issue", "-"), work_text(row), journey_text(row), progress_text(row.get("journey"))))
+    lines.append(("" if row["window"] is None else str(row["window"]), row["agent"], row["state"], row.get("folder", ""), row.get("issue", "-") + ("?" if row.get("inferred") else ""), work_text(row), journey_text(row), progress_text(row.get("journey"))))
   widths = [max(len(line[column]) for line in lines) for column in range(len(lines[0]) - 1)]
   for line in lines:
     print("  ".join(cell.ljust(width) for cell, width in zip(line, widths)) + "  " + line[-1])
@@ -444,6 +519,8 @@ def page(table):
     data = {column: sort_value(row, column) for column in COLUMNS}
     v = {column: html.escape("" if value is None else str(value), quote=True) for column, value in data.items()}
     issue = link(row["issue"], row.get("url")) if row.get("issue") else '<span class="none">no claim</span>'
+    if row.get("inferred"):
+      issue = f'<span class="inferred" title="no claim: read from the branch">{html.escape(row["issue"])} <small>inferred</small></span>'
     title = f' title="{html.escape(row["title"], quote=True)}"' if row.get("about") and row.get("title") else ""
     work = f"<span{title}>{html.escape(work_text(row))}</span>" if work_text(row) else '<span class="none">—</span>'
     body.append(
@@ -492,6 +569,7 @@ a:hover {{ text-decoration: underline; }}
 .state.busy {{ background: var(--busy); }}
 .state.waiting {{ background: var(--waiting); }}
 .state.orphaned {{ background: var(--orphaned); }}
+.inferred {{ color: var(--muted); font-style: italic; }}
 .progress {{ min-width: 120px; }}
 .count {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
 .bar {{ height: 6px; background: var(--line); border-radius: 3px; margin: 4px 0; overflow: hidden; }}

@@ -11,13 +11,14 @@ A journey is an open issue labelled `journey` whose sub-issues are its steps (ge
 
 1. From the repository, run `journey-status --json` (add `--repo <owner/name>` when the session is elsewhere). A failing `gh` is reported as is; nothing is guessed.
 2. Write one short pt-BR description per journey from its title (a few words of the goal, never the whole title); read the issue body only when the title is not enough.
-3. Answer with one line per journey, most advanced first, in the format of `journeys.md`:
+3. Answer with one block per journey, most advanced first, laid out for a phone (owner, 2026-11-24: a code block wraps mid-line there, and bold lines with blank paragraphs run together): an H3 heading with the number, a ten-cell bar (`▰` per tenth done, rounded, `▱` for the rest) and the whole percentage; under it, the description with the count in parentheses. No code block.
 
-   ```text
-   3/5 (60,0%) #1725: o reef de apresentações, papéis e direitos, depois o perfil de palestras
+   ```markdown
+   ### #1725 ▰▰▰▰▰▰▱▱▱▱ 60%
+   Apresentações: papéis e direitos, depois o perfil de palestras (3/5)
    ```
 
-   The percentage takes a decimal comma in pt-BR. A journey with no sub-issues says `sem passos` instead of a count. Close with one line: how many are open against the soft limit of about three active journeys.
+   A journey with no sub-issues says `sem passos` instead of the bar and the count. Close, after a `---` rule, with one line: how many are open against the soft limit of about three active journeys, and which journey is a step of another.
 
 ## Rules
 

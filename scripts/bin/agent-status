@@ -10,7 +10,8 @@ Commands:
   release  drop one claim (--issue) or every claim of this agent (--all).
   list     (the default) one line per claim, and one per live session with none, with the live state from Claude
            Code's session registry: busy, idle, waiting, or orphaned when the session that claimed it is gone.
-  render   write the page (index.html in the state folder) atomically, with a meta refresh of 5 seconds, so it opens
+  render   drop the records of sessions that are gone (their pid no longer runs), then write the page (index.html in
+           the state folder) atomically, with a meta refresh of 5 seconds, so it opens
            from file:// with no server.
   hook     (Claude Code SessionStart, UserPromptSubmit, Notification, Stop and SessionEnd, async) render the page now
            and again a moment later, once the registry has caught up with the event; never fails, prints nothing.
@@ -534,7 +535,20 @@ code { color: var(--muted); }</style></head>
 """
 
 
+def prune():
+  """Deletes the record of every agent whose session is gone for good: its pid is known and no longer runs."""
+  for path in sorted(STATE.glob("*.json")):
+    try:
+      record = json.loads(path.read_text())
+    except (OSError, ValueError):
+      continue
+    if record.get("pid") and not alive(record["pid"]):
+      path.unlink(missing_ok=True)
+
+
 def render():
+  if not OFF.exists():
+    prune()
   write_atomically(PAGE, off_page() if OFF.exists() else page(rows()))
   return PAGE
 

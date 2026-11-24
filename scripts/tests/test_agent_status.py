@@ -99,6 +99,27 @@ class AgentStatus(unittest.TestCase):
     states = {row.get("issue"): row["state"] for row in self.rows()}
     self.assertEqual(states["FLWP-8"], "orphaned")
 
+  def test_render_drops_the_record_of_a_session_that_is_gone(self):
+    self.register("adapa")
+    self.claim_jira()
+    self.register("enmerkar")
+    self.claim_jira(agent="enmerkar", issue="FLWP-9")
+    dead = subprocess.Popen(["true"])
+    dead.wait()
+    record = json.loads((self.state / "adapa.json").read_text())
+    record["pid"] = dead.pid
+    (self.state / "adapa.json").write_text(json.dumps(record))
+    (self.sessions / "adapa.json").unlink()
+    self.run_script("render")
+    self.assertFalse((self.state / "adapa.json").exists())
+    self.assertEqual([row.get("issue") for row in self.rows()], ["FLWP-9"])
+    self.assertNotIn("FLWP-8", self.page())
+
+  def test_render_keeps_a_claim_with_no_known_session(self):
+    self.claim_jira()
+    self.run_script("render")
+    self.assertEqual(self.rows()[0]["state"], "orphaned")
+
   def test_a_live_session_with_no_claim_is_listed(self):
     self.register("enmerkar", status="idle")
     self.assertEqual([(row["agent"], row["state"], row.get("issue")) for row in self.rows()], [("enmerkar", "idle", None)])

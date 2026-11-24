@@ -11,7 +11,12 @@ show_usage() {
 
       -h,  --help         Show this help
       -k,  --keep-branch  Keep the worktree's branch (default: false)
+      -f,  --force        Remove even when a tmux pane runs a program inside the worktree (default: false)
       -dr, --dry-run      Only show what would be removed (default: false)
+
+    A tmux pane whose shell sits idle inside the worktree is moved to the main clone first;
+    a pane running a program there (an agent, an editor) stops the removal, since keys sent
+    to it would be typed into that program, and its shell would land in a removed folder.
 
     Examples:
 
@@ -34,6 +39,10 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
 
     -k | --keep-branch )
       keep_branch=true
+      ;;
+
+    -f | --force )
+      force=true
       ;;
 
     -dr | --dry-run )
@@ -60,6 +69,7 @@ if [[ "${1}" == '--' ]]; then shift; fi
 worktree_name="${1}"
 dry_run="${dry_run:-false}"
 keep_branch="${keep_branch:-false}"
+force="${force:-false}"
 
 # One line per worktree except the main one: path, branch (or detached), HEAD
 list_worktrees() {
@@ -69,6 +79,35 @@ list_worktrees() {
     /^branch /   { branch = substr($2, 12) }
     /^$/         { if (count++ > 0) printf "%s\t%s\t%s\n", path, branch, head }
   '
+}
+
+# One line per tmux pane whose current folder is the worktree or inside it: pane id, its shell's pid, folder
+panes_inside() {
+  local root="${1}"
+
+  command -v tmux > /dev/null || return 0
+  tmux list-panes -a -F '#{pane_id}	#{pane_pid}	#{pane_current_path}' 2> /dev/null \
+    | awk -F '\t' -v root="${root}" '$3 == root || index($3, root "/") == 1'
+}
+
+# A pane is idle when its process is a shell with no child: a prompt waiting for a command
+pane_is_idle() {
+  local pid="${1}"
+  local name
+
+  name="$(ps -o comm= --pid "${pid}" 2> /dev/null)"
+  [[ "${name}" =~ ^-?(bash|zsh|sh|dash|fish)$ ]] || return 1
+  [[ -z "$(ps -o pid= --ppid "${pid}" 2> /dev/null)" ]]
+}
+
+# What runs in a busy pane: its process and its children's names
+pane_programs() {
+  local pid="${1}"
+
+  {
+    ps -o comm= --pid "${pid}"
+    ps -o comm= --ppid "${pid}"
+  } 2> /dev/null | paste --serial --delimiters ','
 }
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -147,15 +186,50 @@ if [[ -n "${missing}" ]]; then
   exit 1
 fi
 
+main_clone="$(git worktree list --porcelain | awk '/^worktree / { print substr($0, 10); exit }')"
+
+idle_panes=()
+busy_panes=()
+
+while IFS=$'\t' read -r pane_id pane_pid pane_path; do
+  [[ -z "${pane_id}" ]] && continue
+  if pane_is_idle "${pane_pid}"; then
+    idle_panes+=("${pane_id}")
+  else
+    busy_panes+=("${pane_id} ($(pane_programs "${pane_pid}")) in ${pane_path}")
+  fi
+done <<< "$(panes_inside "${worktree_path}")"
+
+if [[ "${#busy_panes[@]}" -gt 0 && "${force}" == "false" ]]; then
+  echo "tmux panes run a program inside ${worktree_path}:"
+  printf '  %s\n' "${busy_panes[@]}"
+  echo "Leave the program and the folder in those panes, or pass --force to remove anyway"
+  exit 1
+fi
+
 echo "Worktree: ${worktree_path}"
 echo "Branch:   ${branch}"
 echo "Commits:  all on ${trunk}"
+
+if [[ "${#idle_panes[@]}" -gt 0 ]]; then
+  echo "Panes:    ${idle_panes[*]} move to ${main_clone}"
+fi
+
+if [[ "${#busy_panes[@]}" -gt 0 ]]; then
+  echo "Panes:    left in a removed folder (--force):"
+  printf '            %s\n' "${busy_panes[@]}"
+fi
 
 if [[ "${dry_run}" == "true" ]]; then
   echo ""
   echo "Dry run: nothing removed"
   exit 0
 fi
+
+for pane_id in "${idle_panes[@]}"; do
+  tmux send-keys -t "${pane_id}" -l "cd ${main_clone@Q}"
+  tmux send-keys -t "${pane_id}" Enter
+done
 
 git worktree remove "${worktree_path}" || exit 1
 

@@ -215,6 +215,11 @@ class AgentName(unittest.TestCase):
       for entry in entries_in(path):
         self.assertEqual(len(entry), 2, f"{path.name}: {entry[0]}")
 
+  def test_every_list_is_in_alphabetical_order(self):
+    for path in (ROOT / "lists").iterdir():
+      names = names_in(path)
+      self.assertEqual(names, sorted(names), path.name)
+
   def test_the_old_state_folder_moves_once_and_keeps_the_names(self):
     home = pathlib.Path(self.home.name)
     old = home / "nato-names"

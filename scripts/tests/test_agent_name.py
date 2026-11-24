@@ -286,6 +286,40 @@ class AgentName(unittest.TestCase):
     self.assertEqual(self.acquire("s1", name="kilo"), "kilo")
     self.assertEqual(self.acquire("s2", name="kilo"), "alfa")
 
+  def exact(self, session_id, name, pid=None):
+    return self.run_script(
+      "acquire", "--session-id", session_id, "--pid", str(pid or self.live_pid()), "--name", name, "--exact", check=False
+    )
+
+  def test_an_exact_name_is_taken_when_free(self):
+    result = self.exact("s1", "kilo")
+    self.assertEqual(result.returncode, 0, result.stderr)
+    self.assertEqual(result.stdout.strip(), "kilo")
+    self.assertEqual(self.acquire("s2"), "alfa")
+
+  def test_an_exact_name_in_use_fails(self):
+    self.acquire("s1", name="kilo")
+    result = self.exact("s2", "kilo")
+    self.assertEqual(result.returncode, 1)
+    self.assertEqual(result.stdout, "")
+    self.assertIn("kilo is in use by session s1", result.stderr)
+    self.assertIsNone(self.run_script("whoami", "--session-id", "s2", check=False).stdout.strip() or None)
+
+  def test_an_exact_name_held_by_a_dead_session_is_taken(self):
+    self.acquire("crashed", self.dead_pid(), name="kilo")
+    self.assertEqual(self.exact("s1", "kilo").stdout.strip(), "kilo")
+
+  def test_an_exact_name_must_be_valid_and_not_reserved(self):
+    for name in ["Kilo", "kilo_1", "../kilo", "triton"]:
+      result = self.exact("s1", name)
+      self.assertEqual(result.returncode, 1, name)
+      self.assertEqual(result.stdout, "", name)
+
+  def test_exact_needs_a_name(self):
+    result = self.run_script("acquire", "--session-id", "s1", "--pid", str(self.live_pid()), "--exact", check=False)
+    self.assertEqual(result.returncode, 1)
+    self.assertIn("--exact needs --name", result.stderr)
+
   def test_parallel_acquires_get_different_names(self):
     pids = [self.live_pid() for _ in range(12)]
     with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:

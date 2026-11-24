@@ -15,6 +15,7 @@ show_tips() {
       ${this_script_name} -r              pick a session to resume from a list
       ${this_script_name} -r <name-or-id> resume that session
       ${this_script_name} "<prompt>"      start a new session with a first prompt
+      ${this_script_name} -n <name>       start it under that agent name; fails when the name is in use
       ${this_script_name} -L, --local     start it with Remote Control off (AGENT_REMOTE=false: always off)
 
 EOF
@@ -22,15 +23,30 @@ EOF
 
 # Remote Control is on by default, under the session's name (a name given with --name counts). -L and --local are this
 # script's, Claude Code never sees them; a run with -p or --print has no session to drive. AGENT_REMOTE=false turns it
-# off for a machine or a folder, with no flag to remember.
+# off for a machine or a folder, with no flag to remember. -n and --name are taken here too: the name is reserved with
+# agent-name before Claude Code starts, and the run fails when another session holds it.
 remote="true"
 if [[ "${AGENT_REMOTE}" == "false" ]]; then
   remote="false"
 fi
 session_name=""
+requested_name=""
 previous=""
 arguments=()
 for argument in "${@}"; do
+  if [[ "${previous}" == "-n" || "${previous}" == "--name" ]]; then
+    requested_name="${argument}"
+    previous=""
+    continue
+  fi
+  previous="${argument}"
+  if [[ "${argument}" == "-n" || "${argument}" == "--name" ]]; then
+    continue
+  fi
+  if [[ "${argument}" == --name=* ]]; then
+    requested_name="${argument#--name=}"
+    continue
+  fi
   if [[ "${argument}" == "-L" || "${argument}" == "--local" ]]; then
     remote="false"
     continue
@@ -38,12 +54,12 @@ for argument in "${@}"; do
   if [[ "${argument}" == "-p" || "${argument}" == "--print" ]]; then
     remote="false"
   fi
-  if [[ "${previous}" == "-n" || "${previous}" == "--name" ]]; then
-    session_name="${argument}"
-  fi
   arguments+=("${argument}")
-  previous="${argument}"
 done
+if [[ "${previous}" == "-n" || "${previous}" == "--name" ]]; then
+  echo "${this_script_name}: ${previous} needs a name" >&2
+  exit 1
+fi
 set -- "${arguments[@]}"
 
 # Bare words that look like a mistyped option, not a first prompt
@@ -62,12 +78,18 @@ if [[ "${tip_chance}" -gt 0 && $(( RANDOM % tip_chance )) -eq 0 ]]; then
 fi
 
 # A name for the session (agent-name), reserved here so Claude Code shows it (--name); the
-# SessionStart hook takes the reservation over. Skipped when the name is given.
+# SessionStart hook takes the reservation over. A name given with -n is taken as is, or the run stops.
 PATH="${this_script_path%/*}:${PATH}"
 name_options=()
 window_renamed=""
-if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v agent-name > /dev/null; then
-  if AGENT_NAME="$(agent-name acquire --session-id "launcher-${$}" --pid "${$}")"; then
+acquire_options=()
+if [[ -n "${requested_name}" ]]; then
+  acquire_options=(--name "${requested_name}" --exact)
+  name_options=(--name "${requested_name}")
+  session_name="${requested_name}"
+fi
+if command -v agent-name > /dev/null; then
+  if AGENT_NAME="$(agent-name acquire --session-id "launcher-${$}" --pid "${$}" "${acquire_options[@]}")"; then
     export AGENT_NAME
     name_options=(--name "${AGENT_NAME}")
     session_name="${AGENT_NAME}"
@@ -76,6 +98,8 @@ if [[ ! " ${*} " =~ " "(-n|--name)" " ]] && command -v agent-name > /dev/null; t
     if [[ -n "${TMUX_PANE}" && "$(tmux display-message -p -t "${TMUX_PANE}" '#{automatic-rename}')" == "1" ]]; then
       tmux rename-window -t "${TMUX_PANE}" "${AGENT_NAME}" && window_renamed="true"
     fi
+  elif [[ -n "${requested_name}" ]]; then
+    exit 1
   fi
 fi
 

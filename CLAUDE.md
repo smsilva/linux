@@ -2,33 +2,14 @@
 
 ## Overview
 
-Personal Linux (Ubuntu 24.04) configuration and automation toolkit — bash configuration, 150+ utility scripts for Azure/AWS/Kubernetes/Docker/Terraform/Git, and installation scripts for development tools.
+Personal Linux (Ubuntu 24.04) configuration and automation toolkit: bash configuration, utility scripts and tool installers. Install with `./install.sh`.
 
-## Installation
+## Non-obvious layout
 
-```bash
-./install.sh
-```
-
-Creates symlinks from `~/.scripts/` → `scripts/bin/`, links bash config files to home, sets up git templates, and runs tool-specific installers under `scripts/utilities/`.
-
-## Key directories
-
-- `scripts/bin/` — executable utility scripts (no `.sh` extension)
-- `scripts/utilities/` — per-tool installation scripts (azure-cli, docker, kubectl, terraform, etc.)
-- `scripts/git/hooks/` — git hooks; `commit-msg` enforces Conventional Commits format
-- `claude/` — Claude Code config (symlinked to `~/.claude/`):
-  - `skills/` — Claude Code skills; third-party skills are symlinks → `~/.git/{owner}/{repo}/`; registry at `claude/skills/third-party.md`
-  - to reinstall third-party skills on a new machine: `/skill-from-github-repository-update bootstrap`
-  - `archived/skills/` — skills out of use, outside what Claude Code scans; how to bring one back in its `README.md`
-  - `agents/` — Claude Code custom agents
-  - `rules/` — global user instructions, one topic per file (symlinked to `~/.claude/rules/`)
-  - `CLAUDE.md` — kept for the `~/.claude/CLAUDE.md` symlink; content lives in `rules/`
-  - `settings.json` — global Claude settings, with the Pontos, main-clone guard and worktree-remove guard hooks
-  - `pontos/` — Pontos, the raw log of every session on Google Drive: allow-list, tests, how it works (`claude/pontos/README.md`)
-  - `session-prompt/` — one session prompt per agent, kept across `/clear` by `scripts/bin/session-prompt` and its global hook (`claude/session-prompt/README.md`)
-- `apps/<app>/` — per-application files: `config/` holds a sanitized snapshot of the app's config (no passwords, keys or install IDs; the repo is public); see `apps/README.md`
-- `plugins/linux-tools/` — Claude Code plugin that publishes the `bash-scripts` and `conventional-commits` skills
+- `claude/` is symlinked to `~/.claude/` (skills, rules, agents, `settings.json`, `CLAUDE.md`)
+- Third-party skills in `claude/skills/` are symlinks → `~/.git/{owner}/{repo}/`; registry at `claude/skills/third-party.md`; reinstall them on a new machine with `/skill-from-github-repository-update bootstrap`
+- `claude/archived/skills/` holds skills out of use, outside what Claude Code scans; how to bring one back in its `README.md`
+- `apps/<app>/config/` holds a sanitized snapshot of the app's config: no passwords, keys or install IDs, since the repo is public (`apps/README.md`)
 
 ## Conventions
 
@@ -47,10 +28,4 @@ On shell start: `.bashrc` → `scripts/bash_config` → `scripts/bash_functions`
 
 ## Next work
 
-Move the per-tool installers from `scripts/utilities/` into `apps/<app>/`, tracked in #34. `apps/<app>/install` is a symlink to the old installer until then. Order:
-
-1. Merge PR #33 (`apps/` structure, OBS Studio config snapshot, installer symlinks).
-2. #69: test installers in Multipass VMs (24.04 and 26.04), starting by hand with `kubectl`, `tmux` and `obs-studio` on a 26.04 VM.
-3. #34 task 3: make the bulk installer loop read `apps/*/install`, with a way to skip GUI-only or credential-bound apps.
-4. One sub-issue per app, #35 to #68 (#68 creates the `obs-studio` installer).
-5. #34 task 5: remove `scripts/utilities/`, update this file and `apps/README.md`.
+Move the per-tool installers from `scripts/utilities/` into `apps/<app>/` (`apps/<app>/install` is a symlink to the old installer until then): plan and order in #34.

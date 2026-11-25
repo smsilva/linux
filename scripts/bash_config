@@ -162,7 +162,7 @@ if [[ -f "${TOKEN_FILE}" ]]; then
   export TOKEN="$(cat ${TOKEN_FILE})"
 fi
 
-export ISTIO_VERSION=1.21.2
+export ISTIO_VERSION=1.32.0
 export ISTIO_BASE_DIR=${HOME}/istio-${ISTIO_VERSION}
 
 export NVM_DIR="${HOME}/.nvm"

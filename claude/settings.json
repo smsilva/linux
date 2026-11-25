@@ -222,6 +222,7 @@
   "theme": "dark",
   "fileCheckpointingEnabled": false,
   "agentPushNotifEnabled": true,
+  "inputNeededNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "voiceEnabled": true,
   "modelSettings": {

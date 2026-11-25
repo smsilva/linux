@@ -24,7 +24,8 @@
     "anthropic-skills:google-workspace": "off",
     "anthropic-skills:import-memory": "off",
     "anthropic-skills:morning": "off",
-    "anthropic-skills:skill-creator": "off"
+    "anthropic-skills:skill-creator": "off",
+    "statusline-setup": "off"
   },
   "hooks": {
     "Stop": [

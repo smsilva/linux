@@ -128,6 +128,11 @@
             "type": "command",
             "command": "\"${HOME}/.scripts/agent-status\" hook",
             "async": true
+          },
+          {
+            "type": "command",
+            "command": "\"${HOME}/.scripts/gwd\" --hook",
+            "timeout": 10
           }
         ]
       }

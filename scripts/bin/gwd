@@ -12,6 +12,10 @@ show_usage() {
       -h,  --help         Show this help
       -k,  --keep-branch  Keep the worktree's branch (default: false)
       -f,  --force        Remove even when a tmux pane runs a program inside the worktree (default: false)
+      -ae, --after-exit   When a program runs inside the worktree, remove it once that program exits:
+                          the removal waits, recorded, for the SessionEnd hook (default: false)
+           --hook         Claude Code SessionEnd hook: remove the worktree the session recorded with
+                          --after-exit, once no program runs inside it; reads the hook's JSON on stdin
       -dr, --dry-run      Only show what would be removed (default: false)
 
     A tmux pane whose shell sits idle inside the worktree is moved to the main clone first;
@@ -27,6 +31,9 @@ show_usage() {
       ${this_script_name} feat/gwd
 
       ${this_script_name} --dry-run
+
+      # a session removes its own worktree after its PR merged, once it exits
+      ${this_script_name} --after-exit
 EOF
 }
 
@@ -43,6 +50,19 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
 
     -f | --force )
       force=true
+      ;;
+
+    -ae | --after-exit )
+      after_exit=true
+      ;;
+
+    --hook )
+      hook=true
+      ;;
+
+    --remove-pending )
+      remove_pending="${2?}"
+      shift
       ;;
 
     -dr | --dry-run )
@@ -70,6 +90,84 @@ worktree_name="${1}"
 dry_run="${dry_run:-false}"
 keep_branch="${keep_branch:-false}"
 force="${force:-false}"
+after_exit="${after_exit:-false}"
+hook="${hook:-false}"
+
+state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/gwd"
+pending_dir="${state_dir}/pending"
+
+# The removal a session asked for with --after-exit: one file per worktree, its main clone and its path
+pending_file() {
+  local path="${1}"
+
+  echo "${pending_dir}/$(printf '%s' "${path}" | md5sum | cut --delimiter ' ' --fields 1)"
+}
+
+# Wait, within GWD_WAIT_SECONDS, until nothing runs inside the worktree, then remove it from its main clone;
+# the record stays when the removal is refused, so the next end of a session there tries again
+remove_when_free() {
+  local entry="${1}"
+  local main_clone
+  local path
+  local second
+
+  { read -r main_clone; read -r path; } < "${entry}"
+
+  if [[ ! -d "${path}" ]]; then
+    rm --force "${entry}"
+    return 0
+  fi
+
+  for ((second = 0; second < ${GWD_WAIT_SECONDS:-120}; second++)); do
+    (cd "${main_clone}" && "${this_script_path}" --dry-run "${path}") > /dev/null 2>&1 && break
+    sleep 1
+  done
+
+  echo "$(date --iso-8601=seconds) removing ${path}"
+  if (cd "${main_clone}" && "${this_script_path}" "${path}"); then
+    rm --force "${entry}"
+  fi
+}
+
+# SessionEnd: the session whose folder is a recorded worktree has ended (a /clear does not end it)
+run_hook() {
+  local input
+  local reason
+  local cwd
+  local entry
+  local main_clone
+  local path
+
+  input="$(cat)"
+  reason="$(jq --raw-output '.reason // ""' <<< "${input}" 2> /dev/null)"
+  cwd="$(jq --raw-output '.cwd // ""' <<< "${input}" 2> /dev/null)"
+
+  [[ "${reason}" == "clear" || -z "${cwd}" || ! -d "${pending_dir}" ]] && return 0
+
+  for entry in "${pending_dir}"/*; do
+    [[ -f "${entry}" ]] || continue
+    { read -r main_clone; read -r path; } < "${entry}"
+    [[ "${cwd}" == "${path}" || "${cwd}" == "${path}/"* ]] || continue
+
+    if [[ "${GWD_HOOK_FOREGROUND:-false}" == "true" ]]; then
+      remove_when_free "${entry}"
+    else
+      # Detached: the session's own process still runs while its hook does, and outlives it by a moment
+      mkdir --parents "${state_dir}"
+      setsid nohup "${this_script_path}" --remove-pending "${entry}" >> "${state_dir}/log" 2>&1 < /dev/null &
+    fi
+  done
+}
+
+if [[ "${hook}" == "true" ]]; then
+  run_hook
+  exit 0
+fi
+
+if [[ -n "${remove_pending}" ]]; then
+  remove_when_free "${remove_pending}"
+  exit 0
+fi
 
 # One line per worktree except the main one: path, branch (or detached), HEAD
 list_worktrees() {
@@ -121,6 +219,11 @@ if [[ -z "${worktrees}" ]]; then
   echo "No worktrees besides the main one"
   git worktree list
   exit 0
+fi
+
+# A session inside its own worktree names none: --after-exit takes the current folder's
+if [[ -z "${worktree_name}" && "${after_exit}" == "true" ]]; then
+  worktree_name="$(git rev-parse --show-toplevel 2> /dev/null)"
 fi
 
 if [[ -z "${worktree_name}" ]] && ! { stty < /dev/tty; } > /dev/null 2>&1; then
@@ -207,10 +310,28 @@ while IFS=$'\t' read -r pane_id pane_pid pane_path; do
   fi
 done <<< "$(panes_inside "${worktree_path}")"
 
+if [[ "${#busy_panes[@]}" -gt 0 && "${force}" == "false" && "${after_exit}" == "true" ]]; then
+  echo "Worktree: ${worktree_path}"
+  echo "Branch:   ${branch}"
+  echo "Commits:  all on ${trunk}"
+  echo "Panes:    run a program inside:"
+  printf '            %s\n' "${busy_panes[@]}"
+  if [[ "${dry_run}" == "true" ]]; then
+    echo ""
+    echo "Dry run: nothing recorded"
+    exit 0
+  fi
+  mkdir --parents "${pending_dir}"
+  printf '%s\n%s\n' "${main_clone}" "${worktree_path}" > "$(pending_file "${worktree_path}")"
+  echo ""
+  echo "The worktree is removed once its session ends (the SessionEnd hook: ${this_script_name} --hook)"
+  exit 0
+fi
+
 if [[ "${#busy_panes[@]}" -gt 0 && "${force}" == "false" ]]; then
   echo "tmux panes run a program inside ${worktree_path}:"
   printf '  %s\n' "${busy_panes[@]}"
-  echo "Leave the program and the folder in those panes, or pass --force to remove anyway"
+  echo "Leave the program and the folder in those panes, pass --after-exit to remove it once they exit, or --force to remove anyway"
   exit 1
 fi
 

@@ -76,6 +76,12 @@ class Gwd(unittest.TestCase):
   def gwd(self, *arguments):
     return subprocess.run([GWD, *arguments, "repo-slug"], cwd=self.clone, env=self.environment, capture_output=True, text=True)
 
+  def test_without_a_name_and_a_terminal_it_asks_for_the_name_and_removes_nothing(self):
+    result = subprocess.run([GWD], cwd=self.clone, env=self.environment, capture_output=True, text=True, stdin=subprocess.DEVNULL, start_new_session=True)
+    self.assertEqual(result.returncode, 1)
+    self.assertIn("No terminal to pick a worktree with fzf: pass its name, e.g. gwd repo-slug", result.stdout)
+    self.assertTrue(self.worktree.exists())
+
   def test_an_idle_shell_inside_moves_to_the_main_clone_before_the_removal(self):
     self.pane("%1", self.shell(busy=False), self.worktree / "docs")
     result = self.gwd()

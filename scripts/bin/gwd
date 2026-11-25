@@ -123,6 +123,13 @@ if [[ -z "${worktrees}" ]]; then
   exit 0
 fi
 
+if [[ -z "${worktree_name}" ]] && ! { stty < /dev/tty; } > /dev/null 2>&1; then
+  example="$(awk -F '\t' 'NR == 1 { n = split($1, parts, "/"); print parts[n] }' <<< "${worktrees}")"
+  echo "No terminal to pick a worktree with fzf: pass its name, e.g. ${this_script_name} ${example}"
+  column --table --separator $'\t' <<< "${worktrees}"
+  exit 1
+fi
+
 if [[ -z "${worktree_name}" ]]; then
   selected="$(column --table --separator $'\t' <<< "${worktrees}" | fzf)"
   worktree_path="$(awk '{ print $1 }' <<< "${selected}")"

@@ -226,13 +226,8 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "fileCheckpointingEnabled": false,
-  "agentPushNotifEnabled": true,
   "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
-  "voiceEnabled": true,
-  "modelSettings": {
-    "claude-fable-5-2": {
-      "effortLevel": "xhigh"
-    }
-  }
+  "voiceEnabled": true
 }

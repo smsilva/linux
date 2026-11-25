@@ -204,3 +204,14 @@ Always use long-form option names when available — `--yes` instead of `-y`, `-
 - Long commands broken with `\` and 2-space indent per continuation
 - heredoc delimiter: `EOF`
 - No trailing semicolons inside `if`/`while` blocks
+
+## Rules kept from the global rule file
+
+- Python scripts: use `argparse`, not manual `$1`, `$2` handling.
+- Split long CLI calls one argument per line:
+
+```bash
+command-or-script \
+  --long-option-1 value1 \
+  --long-option-2 value2
+```

@@ -48,11 +48,14 @@ class UsageForecast(unittest.TestCase):
   def test_a_forecast_of_exactly_70_is_steady(self):
     self.assertEqual(self.signal(35, WEEK // 2), "steady")
 
-  def test_a_forecast_of_exactly_95_is_steady(self):
-    self.assertEqual(self.signal(47.5, WEEK // 2), "steady")
+  def test_a_forecast_of_97_is_steady(self):
+    self.assertEqual(self.signal(48.5, WEEK // 2), "steady")
 
-  def test_a_forecast_above_95_is_slow(self):
-    self.assertEqual(self.signal(47.6, WEEK // 2), "slow")
+  def test_a_forecast_of_exactly_99_is_steady(self):
+    self.assertEqual(self.signal(49.5, WEEK // 2), "steady")
+
+  def test_a_forecast_above_99_is_slow(self):
+    self.assertEqual(self.signal(49.6, WEEK // 2), "slow")
 
   def test_a_quota_that_runs_out_before_the_reset_is_slow(self):
     self.assertEqual(self.signal(60, WEEK // 2), "slow")
@@ -65,7 +68,7 @@ class UsageForecast(unittest.TestCase):
 
   def test_a_reset_already_past_uses_the_percentage_as_it_is(self):
     self.assertEqual(self.signal(40, WEEK + HOUR), "push")
-    self.assertEqual(self.signal(96, WEEK + HOUR), "slow")
+    self.assertEqual(self.signal(100, WEEK + HOUR), "slow")
 
   def test_with_percentage_prints_the_forecast_before_the_signal(self):
     result = forecast(16, 37.6 * HOUR, "--with-percentage")

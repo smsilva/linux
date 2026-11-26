@@ -144,10 +144,18 @@ projection_percent() {
 
 # The verdict on a window's projection, as "icon color": the 5-hour window only has to last until its reset (ok up to
 # 95%, slow above); the week aims to be used up, so it is ok up to 99%, slow above, and push below 70%, since the
-# rest would be lost
+# rest would be lost. The week's word comes from the nereus cache when it holds this window (getnereus/nereus spec
+# 0015, one source of truth); the thresholds here are its fallback.
 window_verdict() {
-  local window="${1?}" projection="${2?}"
+  local window="${1?}" projection="${2?}" resets_at="${3:-}" word=""
 
+  [[ "${window}" == seven_day ]] && [ -n "${resets_at}" ] && word=$(nereus_figure pace "${resets_at}")
+  case "${word}" in
+    push)   echo "▲ 39";  return ;;
+    steady) echo "• 114"; return ;;
+    slow)   echo "▼ 203"; return ;;
+    final)  echo "• 247"; return ;;  # no worked time left: neutral
+  esac
   if [[ "${window}" == seven_day ]]; then
     if   [ "${projection}" -gt 99 ]; then echo "▼ 203"  # slow: salmon
     elif [ "${projection}" -lt 70 ]; then echo "▲ 39"   # push: blue
@@ -177,7 +185,7 @@ limit_str() {
   if [ -n "${resets_at}" ]; then
     projection=$(projection_percent "${window}" "${used_exact}" "${resets_at}")
     if [ -n "${projection}" ]; then
-      read -r verdict_icon verdict_color <<< "$(window_verdict "${window}" "${projection}")"
+      read -r verdict_icon verdict_color <<< "$(window_verdict "${window}" "${projection}" "${resets_at}")"
       verdict_display=" \033[38;5;${verdict_color}m${verdict_icon} ${projection}%"
       [[ "${window}" == seven_day ]] && verdict_display+="$(nereus_send_mark)"
     fi

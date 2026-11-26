@@ -15,8 +15,8 @@ show_usage() {
   forecast of the percentage used when the 7-day window resets:
 
     - push:   below 70%
-    - steady: from 70% to 95%
-    - slow:   above 95%
+    - steady: from 70% to 99%
+    - slow:   above 99%
 
   Prints nothing in the first 6 hours of the window, while the forecast is
   still unstable.
@@ -146,7 +146,7 @@ awk \
     } else {
       forecast = used * worked(reset - window, reset) / gone
       if (forecast < 70) signal = "push"
-      else if (forecast <= 95) signal = "steady"
+      else if (forecast <= 99) signal = "steady"
       else signal = "slow"
     }
     if (with_percentage == "true") printf "%.1f ", forecast

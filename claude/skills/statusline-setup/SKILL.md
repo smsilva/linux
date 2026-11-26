@@ -69,7 +69,7 @@ The two windows have different goals, so each has its own scale:
 The 5-hour window has no push: using up every 5-hour window would use up the week in under two days. The projection is rounded before the scale applies, so the number and the color never disagree (`• 99%`, `▼ 100%`).
 
 - **5 hours:** `used × 5 hours / elapsed`, computed in the script; none in the window's first 30 minutes, when a few minutes would project far too high.
-- **Week:** `claude-usage-forecast --with-percentage` (`used × 7 days / elapsed`); none in the window's first 6 hours.
+- **Week:** `claude-usage-forecast --with-percentage` (`used × 7 days / elapsed`); none in the window's first 6 hours; with days off (`~/.config/nereus/usage/days-off`, read by `claude-usage-days-off`, getnereus/nereus#2113), only worked time counts, with the same rules as Nereus.
 
 With the `nereus` CLI installed (getnereus/nereus#1592), the week's projection comes from its cache, `${XDG_STATE_HOME}/nereus/usage/weekly.json` (`figures.forecast`), read with `jq` on every render, and a salmon `!` follows it while `sendFailing` is true. The status line starts `setsid nereus usage report weekly` detached when the reading differs from the cache or the cache is 5 minutes old, at most once a minute; the CLI keeps the same limits, sends to Nereus at most every 5 minutes and backs off on failure. Without `nereus usage`, or before its cache holds the window, `claude-usage-forecast` answers.
 

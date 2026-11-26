@@ -1,6 +1,9 @@
 #!/bin/bash
 this_script_path="$(realpath "${0}")"
 this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
 
 cache_file="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line/weekly.json"
 history_directory="${XDG_STATE_HOME:-${HOME}/.local/state}/claude-status-line/weekly-history"
@@ -15,6 +18,11 @@ show_usage() {
   that day), so the whole quota is used by the reset without running out
   before it. The budget is spread evenly over the time left.
 
+  With days off (see claude-usage-days-off --help), only worked time counts,
+  with the same rules as Nereus: the budget is spread over the worked time
+  left, a day off plans no share and shows its reason, the last worked day
+  lands on the target, and today's goal on a day off is the percentage used.
+
   Reads the last weekly usage saved by claude-status-line in
   ${cache_file}
   unless --used and --resets-at are given.
@@ -27,6 +35,12 @@ show_usage() {
       -t,  --target     Percentage to reach at the reset (default: 100)
       -n,  --now        Epoch seconds of the current time (default: the clock)
            --today-goal Print only the percentage to reach by the end of today
+           --day-off        <YYYY-MM-DD>[=<reason>], a dated day off (repeatable)
+           --weekday-off    <mon..sun>[=<reason>], a weekday not worked (repeatable)
+           --worked         <YYYY-MM-DD>, a date worked anyway (repeatable)
+           --days-off-file  File with the days off (default:
+                            \$CLAUDE_USAGE_DAYS_OFF_FILE, else
+                            ~/.config/nereus/usage/days-off when it exists)
 
     Examples:
 
@@ -37,6 +51,8 @@ show_usage() {
       ${this_script_name} --today-goal
 
       ${this_script_name} --used 30 --resets-at 1794186000
+
+      ${this_script_name} --weekday-off sat=Weekend --weekday-off sun=Weekend --day-off 2026-11-13=Holiday
 
 EOF
 }
@@ -70,6 +86,11 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
 
     --today-goal )
       today_goal=true
+      ;;
+
+    --day-off | --weekday-off | --worked | --days-off-file )
+      days_off_options+=("${1}" "${2}")
+      shift
       ;;
 
     * )
@@ -113,6 +134,23 @@ if [[ "${now}" -ge "${resets_at}" ]]; then
   exit 1
 fi
 
+# The days off of the window: their "start end" epochs, where only the time outside them counts, and each date's reason
+days_off=$(claude-usage-days-off --resets-at "${resets_at}" "${days_off_options[@]}") || exit 1
+off_intervals=""
+declare -A off_reason
+while read -r off_start off_end off_date off_kind off_text; do
+  [[ -n "${off_start}" ]] || continue
+  off_intervals+="${off_start} ${off_end} "
+  [[ "${off_kind}" == day ]] && off_reason["${off_date}"]="${off_text}"
+done <<< "${days_off}"
+
+# Prints the reason the day that holds an epoch is off, after two spaces, or nothing on a worked day
+off_suffix() {
+  [[ "${#off_reason[@]}" -eq 0 ]] && return
+  local reason="${off_reason[$(date --date "@${1}" '+%F')]}"
+  [[ -n "${reason}" ]] && echo "  ${reason}"
+}
+
 used_display=$(awk --assign value="${used}" 'BEGIN { print (value == int(value)) ? value : int(value) + 1 }')
 
 # Prints the end of the plan's day that holds an epoch
@@ -124,7 +162,7 @@ plan_day_end() {
   echo "${day_end}"
 }
 
-# Prints the cumulative percentage to reach by an epoch, and the share over the previous one, spreading what is left from a usage at a time (default: now)
+# Prints the cumulative percentage to reach by an epoch, and the share over the previous one, spreading what is left from a usage at a time (default: now) over the worked time left
 plan_cumulative() {
   awk \
     --assign used="${3:-${used}}" \
@@ -133,11 +171,30 @@ plan_cumulative() {
     --assign now="${4:-${now}}" \
     --assign end="${1}" \
     --assign reset="${resets_at}" \
-    'BEGIN {
-      cumulative = used + (target - used) * (end - now) / (reset - now)
+    --assign off_intervals="${off_intervals}" \
+    '# The seconds from a to b outside the days off
+    function worked(a, b,   total, i, from, to) {
+      total = (b > a) ? b - a : 0
+      for (i = 1; i < off_count; i += 2) {
+        from = (a > off[i]) ? a : off[i]
+        to = (b < off[i + 1]) ? b : off[i + 1]
+        if (to > from) total -= to - from
+      }
+      return total
+    }
+    BEGIN {
+      off_count = split(off_intervals, off, " ")
+      left = worked(now, reset)
+      # No worked time left: nothing more is planned
+      if (left == 0) {
+        cumulative = sprintf("%.0f", (used > previous) ? used : previous) + 0
+        printf "%.0f %.0f\n", cumulative, cumulative - previous
+        exit
+      }
+      cumulative = used + (target - used) * worked(now, end) / left
       if (cumulative < used) cumulative = used
-      # Round down, to be cautious (the last day lands on the target)
-      cumulative = (end == reset) ? target : int(cumulative)
+      # Round down, to be cautious (the last worked day lands on the target)
+      cumulative = (worked(end, reset) == 0) ? target : int(cumulative)
       if (cumulative < previous) cumulative = previous
       printf "%.0f %.0f\n", cumulative, cumulative - previous
     }'
@@ -153,6 +210,9 @@ if [[ -f "${today_snapshot}" ]]; then
     read -r today_goal_value _ < <(plan_cumulative "$(plan_day_end "${now}")" 0 "${snapshot_used}" "${snapshot_saved_at}")
   fi
 fi
+
+# On a day off, today's goal is the percentage already used
+[[ -n "$(off_suffix "${now}")" ]] && today_goal_value="${used_display}"
 
 if [[ "${today_goal}" == true ]]; then
   if [[ -z "${today_goal_value}" ]]; then
@@ -220,21 +280,23 @@ while [[ "${day_start}" -lt "${today_start}" ]]; do
   mark=""
   [[ "${estimate}" == 1 ]] && mark="~"
 
-  printf '  %-18s %-8s %9s%% %11s%%\n' \
+  printf '  %-18s %-8s %9s%% %11s%%%s\n' \
     "$(date --date "@${day_start}" '+%a %d/%m')" \
     "$(date --date "@${day_end}" '+%H:%M')" \
     "${mark}+$(( cumulative - previous ))" \
-    "${mark}${cumulative}"
+    "${mark}${cumulative}" \
+    "$(off_suffix "${day_start}")"
 
   previous="${cumulative}"
   day_start="${day_end}"
 done
 
-printf '  %-18s %-8s %9s%% %11s%%\n' \
+printf '  %-18s %-8s %9s%% %11s%%%s\n' \
   "$(date --date "@${now}" '+%a %d/%m') (so far)" \
   "$(date --date "@${now}" '+%H:%M')" \
   "+$(( used_display - previous ))" \
-  "${used_display}"
+  "${used_display}" \
+  "$(off_suffix "${now}")"
 
 previous="${used_display}"
 day_start="${now}"
@@ -253,11 +315,12 @@ while [[ "${day_start}" -lt "${resets_at}" ]]; do
     share=$(( cumulative - previous ))
   fi
 
-  printf '  %-18s %-8s %9s%% %11s%%\n' \
+  printf '  %-18s %-8s %9s%% %11s%%%s\n' \
     "${label}" \
     "$(date --date "@${day_end}" '+%H:%M')" \
     "+${share}" \
-    "${cumulative}"
+    "${cumulative}" \
+    "$(off_suffix "${day_start}")"
 
   previous="${cumulative}"
   day_start="${day_end}"

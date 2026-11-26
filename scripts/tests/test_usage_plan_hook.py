@@ -17,7 +17,8 @@ class UsagePlanHook(unittest.TestCase):
     self.addCleanup(state.cleanup)
     self.directory = pathlib.Path(state.name) / "claude-status-line"
     self.directory.mkdir()
-    self.environment = {**os.environ, "TZ": "America/Sao_Paulo", "XDG_STATE_HOME": state.name}
+    self.environment = {**os.environ, "TZ": "America/Sao_Paulo", "XDG_STATE_HOME": state.name, "XDG_CONFIG_HOME": state.name}
+    self.environment.pop("CLAUDE_USAGE_DAYS_OFF_FILE", None)
 
   def save_usage(self):
     (self.directory / "weekly.json").write_text(json.dumps({

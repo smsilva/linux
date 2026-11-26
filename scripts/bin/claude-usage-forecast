@@ -1,6 +1,9 @@
 #!/bin/bash
 this_script_path="$(realpath "${0}")"
 this_script_name="${this_script_path##*/}"
+this_script_directory="${this_script_path%/*}"
+
+PATH="${this_script_directory}:${PATH}"
 
 window_seconds=$(( 7 * 24 * 60 * 60 ))
 minimum_elapsed_seconds=$(( 6 * 60 * 60 ))
@@ -18,6 +21,12 @@ show_usage() {
   Prints nothing in the first 6 hours of the window, while the forecast is
   still unstable.
 
+  With days off (see claude-usage-days-off --help), only worked time counts,
+  with the same rules as Nereus: the forecast is used x worked window / worked
+  time gone, hidden until 6 worked hours have passed, and the signal is
+  "final" (the forecast is the percentage used) once no worked time is left
+  before the reset.
+
     Options:
 
       -h,  --help       Show this help
@@ -26,6 +35,12 @@ show_usage() {
       -n,  --now        Epoch seconds of the current time (default: the clock)
            --with-percentage
                         Print the forecast before the signal: 71.5 steady
+           --day-off        <YYYY-MM-DD>[=<reason>], a dated day off (repeatable)
+           --weekday-off    <mon..sun>[=<reason>], a weekday not worked (repeatable)
+           --worked         <YYYY-MM-DD>, a date worked anyway (repeatable)
+           --days-off-file  File with the days off (default:
+                            \$CLAUDE_USAGE_DAYS_OFF_FILE, else
+                            ~/.config/nereus/usage/days-off when it exists)
 
     Examples:
 
@@ -34,6 +49,8 @@ show_usage() {
       ${this_script_name} --used 4 --resets-at 1794186000 --now 1793624000
 
       ${this_script_name} --used 4 --resets-at 1794186000 --with-percentage
+
+      ${this_script_name} --used 4 --resets-at 1794186000 --weekday-off sat=Weekend --weekday-off sun=Weekend
 
 EOF
 }
@@ -64,6 +81,11 @@ while [[ "${1}" =~ ^- && ! "${1}" == "--" ]]; do
       with_percentage=true
       ;;
 
+    --day-off | --weekday-off | --worked | --days-off-file )
+      days_off_options+=("${1}" "${2}")
+      shift
+      ;;
+
     * )
       echo "Invalid option: ${1}" >&2
       show_usage >&2
@@ -88,21 +110,45 @@ for epoch in "${resets_at}" "${now}"; do
   fi
 done
 
-elapsed=$(( now - (resets_at - window_seconds) ))
-
-[ "${elapsed}" -lt "${minimum_elapsed_seconds}" ] && exit 0
-[ "${elapsed}" -gt "${window_seconds}" ] && elapsed="${window_seconds}"
+# The days off of the window, as "start end" epochs: only the time outside them counts
+days_off=$(claude-usage-days-off --resets-at "${resets_at}" "${days_off_options[@]}") || exit 1
+off_intervals=""
+while read -r off_start off_end _; do
+  [[ -n "${off_start}" ]] && off_intervals+="${off_start} ${off_end} "
+done <<< "${days_off}"
 
 awk \
   --assign used="${used}" \
-  --assign elapsed="${elapsed}" \
+  --assign now="${now}" \
+  --assign reset="${resets_at}" \
   --assign window="${window_seconds}" \
+  --assign minimum="${minimum_elapsed_seconds}" \
+  --assign off_intervals="${off_intervals}" \
   --assign with_percentage="${with_percentage:-false}" \
-  'BEGIN {
-    forecast = used * window / elapsed
-    if (forecast < 70) signal = "push"
-    else if (forecast <= 95) signal = "steady"
-    else signal = "slow"
+  '# The seconds from a to b outside the days off
+  function worked(a, b,   total, i, from, to) {
+    total = (b > a) ? b - a : 0
+    for (i = 1; i < off_count; i += 2) {
+      from = (a > off[i]) ? a : off[i]
+      to = (b < off[i + 1]) ? b : off[i + 1]
+      if (to > from) total -= to - from
+    }
+    return total
+  }
+  BEGIN {
+    off_count = split(off_intervals, off, " ")
+    if (now > reset) now = reset
+    gone = worked(reset - window, now)
+    if (gone < minimum) exit
+    if (off_count > 0 && worked(now, reset) == 0) {
+      forecast = used
+      signal = "final"
+    } else {
+      forecast = used * worked(reset - window, reset) / gone
+      if (forecast < 70) signal = "push"
+      else if (forecast <= 95) signal = "steady"
+      else signal = "slow"
+    }
     if (with_percentage == "true") printf "%.1f ", forecast
     print signal
   }'

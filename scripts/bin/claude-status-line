@@ -235,8 +235,9 @@ if [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
 fi
 
 # Report the reading to Nereus through the nereus CLI, detached so the render never waits, only when the reading
-# differs from its cache or the cache is 5 minutes old, and not within a minute of the last start; the CLI keeps the
-# same limits, sends at most every 5 minutes and backs off on failure
+# differs from its cache, the cache is 5 minutes old, or a reading not yet sent may go now (sendDueAt, getnereus/nereus
+# #2355), and not within a minute of the last start; the CLI keeps the same limits, sends at most every
+# usage_send_interval of its config (3 minutes by default) and backs off on failure
 if [[ "${nereus_usage}" == true ]] && [ -n "${weekly_used}" ] && [ -n "${weekly_resets_at}" ]; then
   nereus_usage_due=$(jq --raw-output \
     --argjson used "${weekly_used}" \
@@ -245,6 +246,7 @@ if [[ "${nereus_usage}" == true ]] && [ -n "${weekly_used}" ] && [ -n "${weekly_
       def abs: if . < 0 then -. else . end;
       if (.lastStart // 0) > $now - 60 then "no"
       elif .used != $used or ((.resetsAt // 0) - $resets | abs) > 60 or (.computedAt // 0) <= $now - 300 then "yes"
+      elif .sendDueAt != null and .sendDueAt <= $now then "yes"
       else "no" end
     ' "${nereus_usage_cache}" 2>/dev/null)
   if [[ "${nereus_usage_due:-yes}" == yes ]]; then
